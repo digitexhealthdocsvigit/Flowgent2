@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { AutomationWorkflow } from '../types';
 
@@ -8,6 +7,13 @@ interface AutomationViewProps {
 }
 
 const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStatus }) => {
+  const webhookUrl = "https://n8n.digitex.in/webhook/flowgent-orchestrator";
+
+  const copyWebhook = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    alert("Webhook URL copied to clipboard!");
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
@@ -18,9 +24,29 @@ const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStat
         <div className="flex gap-4">
           <div className="bg-white border border-slate-200 px-6 py-3 rounded-2xl flex items-center gap-3 shadow-sm">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GitHub CI/CD: Connected</span>
+            <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">n8n Node: Connected</span>
           </div>
           <button className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95">+ New Workflow</button>
+        </div>
+      </div>
+
+      {/* n8n Helper Card */}
+      <div className="bg-blue-600 rounded-[32px] p-8 text-white shadow-xl relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
+          <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </div>
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="space-y-2">
+            <h3 className="text-xl font-black tracking-tight">n8n Orchestration Endpoint</h3>
+            <p className="text-blue-100 text-xs font-medium opacity-80">Use this endpoint for your POST triggers in n8n.</p>
+            <code className="block mt-4 bg-blue-700/50 p-3 rounded-xl text-[10px] font-mono border border-blue-400/30">{webhookUrl}</code>
+          </div>
+          <button 
+            onClick={copyWebhook}
+            className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-50 transition-all shadow-lg shrink-0"
+          >
+            Copy Webhook URL
+          </button>
         </div>
       </div>
 

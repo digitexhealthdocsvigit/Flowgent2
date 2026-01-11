@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 
 interface LandingPageProps {
@@ -13,12 +12,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
     websiteUrl: '',
     category: '',
     revenue: '',
-    inquiries: ''
+    inquiries: '',
+    email: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (step < 2) {
+    if (step < 3) {
       setStep(step + 1);
     } else {
       onLeadSubmit(formData);
@@ -85,7 +85,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
             </div>
           </div>
 
-          {/* System Architecture Card */}
           <div className="bg-[#1e293b]/40 border border-white/5 p-12 rounded-[56px] shadow-2xl backdrop-blur-xl relative">
             <h3 className="text-3xl font-black mb-12 tracking-tight">System Architecture</h3>
             <div className="space-y-6">
@@ -108,7 +107,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
           </div>
         </div>
 
-        {/* Services Section - Detailed improvised content */}
         <section id="services" className="mt-60 space-y-32">
           <div className="text-center space-y-6">
             <h2 className="text-7xl font-black tracking-tighter text-white">Our Service Modules</h2>
@@ -155,7 +153,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
           </div>
         </section>
 
-        {/* Audit Form Section */}
         <section id="audit-section" className="mt-60 pb-40">
           <div className="bg-blue-600 rounded-[64px] p-24 relative overflow-hidden shadow-2xl shadow-blue-500/20">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white opacity-5 rounded-full -mr-[300px] -mt-[300px]"></div>
@@ -171,7 +168,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
               <div className="bg-white p-12 rounded-[48px] text-slate-900 shadow-2xl">
                 <div className="mb-8 border-b border-slate-100 pb-8 flex justify-between items-center">
                   <h3 className="text-2xl font-black tracking-tight">AI System Audit</h3>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Step {step} of 2</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Step {step} of 3</span>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -198,7 +195,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
                         />
                       </div>
                     </>
-                  ) : (
+                  ) : step === 2 ? (
                     <>
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Inquiry Volume / Month</label>
@@ -221,10 +218,23 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
                         />
                       </div>
                     </>
+                  ) : (
+                    <div className="space-y-2 animate-in slide-in-from-right-4 duration-300">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Secure Contact Email</label>
+                      <input 
+                        required
+                        type="email"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold"
+                        placeholder="founder@yourbusiness.com"
+                        value={formData.email}
+                        onChange={e => setFormData({...formData, email: e.target.value})}
+                      />
+                      <p className="text-[9px] font-bold text-slate-400 mt-2 px-1">We'll send the audit results to this address.</p>
+                    </div>
                   )}
 
                   <button className="w-full bg-slate-900 text-white font-black py-6 rounded-2xl shadow-xl hover:bg-slate-800 transition-all uppercase tracking-[0.2em] text-[10px]">
-                    {step === 1 ? 'Verify Enterprise Data' : 'Submit for AI Audit'}
+                    {step === 1 ? 'Next' : step === 2 ? 'Verify Enterprise Data' : 'Submit for AI Audit'}
                   </button>
                 </form>
               </div>
