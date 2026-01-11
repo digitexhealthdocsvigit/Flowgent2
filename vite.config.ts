@@ -5,23 +5,22 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   build: {
-    // Raised to 2000kB to definitively silence the warning for large SaaS bundles
+    // Raised to 2000kB to silence warnings for the integrated SaaS bundle
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
-        // Breaking down the bundle into smaller, more manageable pieces for better caching
+        // Optimized chunking strategy using only confirmed available modules
         manualChunks: {
-          'vendor-core': ['react', 'react-dom'],
-          'vendor-utils': ['@supabase/supabase-js', '@google/genai'],
-          'vendor-ui': ['lucide-react'] // Assuming potential future use
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-lib': ['@supabase/supabase-js', '@google/genai']
         },
       },
     },
-    // Ensure clean builds
+    // Minification settings for production efficiency
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: false,
+        drop_console: false, // Maintain logs for founder diagnostics
       },
     },
   },
