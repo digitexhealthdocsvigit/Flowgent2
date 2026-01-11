@@ -15,7 +15,7 @@ import SubscriptionsView from './components/SubscriptionsView';
 import ScraperView from './components/ScraperView';
 import NotificationCenter from './components/NotificationCenter';
 import { MOCK_LEADS, MOCK_DEALS, MOCK_NOTIFICATIONS, MOCK_PROJECTS, MOCK_USER, MOCK_CLIENT, MOCK_SUBSCRIPTIONS, MOCK_WORKFLOWS } from './services/mockData';
-import { Lead, AuditResult, Notification, User, Deal } from './types';
+import { Lead, AuditResult, Notification, User, Deal, AutomationWorkflow } from './types';
 import { generateAudit, generateOutreach } from './services/geminiService';
 import { calculateLeadScore } from './utils/scoring';
 import { ICONS } from './constants';
@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
   const [deals, setDeals] = useState<Deal[]>(MOCK_DEALS);
+  const [workflows, setWorkflows] = useState<AutomationWorkflow[]>(MOCK_WORKFLOWS);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
@@ -39,22 +40,30 @@ const App: React.FC = () => {
     }
   }, [currentUser]);
 
-  const handlePushToN8N = (scraped: any) => {
-    setNotifications([{
-      id: Math.random().toString(),
-      type: 'automation',
-      title: 'n8n Webhook Fired',
-      message: `Lead ${scraped.name} pushed to external automation server.`,
+  const addNotification = (title: string, message: string, type: Notification['type'] = 'automation') => {
+    const newNotif: Notification = {
+      id: Date.now().toString(),
+      type,
+      title,
+      message,
       timestamp: 'Just now',
       isRead: false
-    }, ...notifications]);
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  const handlePushToN8N = (scraped: any) => {
+    addNotification('n8n Webhook Fired', `Lead "${scraped.name}" pushed to Flowgent™ automation cluster.`);
   };
 
   const handleGeneratePitch = async (scraped: any) => {
     setIsAuditing(true);
-    const pitch = await generateOutreach(scraped.name, scraped.location);
-    setCurrentPitch({ name: scraped.name, content: pitch });
-    setIsAuditing(false);
+    try {
+      const pitch = await generateOutreach(scraped.name, scraped.location);
+      setCurrentPitch({ name: scraped.name, content: pitch });
+    } finally {
+      setIsAuditing(false);
+    }
   };
 
   const handleAudit = async (lead: Lead) => {
@@ -66,6 +75,7 @@ const App: React.FC = () => {
       setCurrentAudit({ lead, result });
     } catch (err) {
       console.error(err);
+      addNotification('System Error', 'AI Audit Engine failed to reach Gemini node.', 'automation');
     } finally {
       setIsAuditing(false);
     }
@@ -84,16 +94,7 @@ const App: React.FC = () => {
     };
     setDeals([newDeal, ...deals]);
     setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: 'converted' } : l));
-    
-    setNotifications([{
-      id: Math.random().toString(),
-      type: 'deal',
-      title: 'Conversion Successful',
-      message: `${lead.businessName} has been moved to Deal Pipeline.`,
-      timestamp: 'Just now',
-      isRead: false
-    }, ...notifications]);
-
+    addNotification('Deal Created', `${lead.businessName} moved to sales pipeline.`, 'deal');
     setCurrentAudit(null);
     setCurrentTab('crm');
   };
@@ -113,7 +114,7 @@ const App: React.FC = () => {
       createdAt: new Date().toISOString()
     };
     setLeads([newLead, ...leads]);
-    setCurrentUser(MOCK_CLIENT); // Direct client access after audit
+    setCurrentUser(MOCK_CLIENT);
     setViewState('dashboard');
   };
 
@@ -129,30 +130,24 @@ const App: React.FC = () => {
     }));
   };
 
+  const toggleWorkflow = (id: string) => {
+    setWorkflows(prev => prev.map(wf => wf.id === id ? { ...wf, status: wf.status === 'active' ? 'inactive' : 'active' } : wf));
+    addNotification('Workflow State Change', `Automation Node status updated.`);
+  };
+
   const onLogin = (role: 'admin' | 'client') => {
     setCurrentUser(role === 'admin' ? MOCK_USER : MOCK_CLIENT);
     setViewState('dashboard');
   };
 
   const handleGenericAction = (name: string) => {
-    alert(`System Action: "${name}" initialized. Syncing with Flowgent™ core...`);
-    setNotifications([{
-      id: Date.now().toString(),
-      type: 'automation',
-      title: 'System Command Executed',
-      message: `${name} has been triggered successfully.`,
-      timestamp: 'Just now',
-      isRead: false
-    }, ...notifications]);
+    addNotification('System Trigger', `${name} initialized via Orchestrator.`);
   };
 
   if (viewState === 'public') return <LandingPage onLeadSubmit={handleLeadSubmit} onGoToLogin={() => setViewState('login')} />;
   if (viewState === 'login') return <LoginScreen onLogin={onLogin} onGoBack={() => setViewState('public')} />;
   
-  // Dashboard Guard - fallback to login if no user
-  if (!currentUser) {
-    return <LoginScreen onLogin={onLogin} onGoBack={() => setViewState('public')} />;
-  }
+  if (!currentUser) return null;
 
   return (
     <div className="flex min-h-screen bg-slate-50 selection:bg-blue-100 font-sans">
@@ -263,7 +258,7 @@ const App: React.FC = () => {
           {currentTab === 'funnel' && <FunnelView leads={leads} />}
           {currentTab === 'calendar' && <CalendarView />}
           {currentTab === 'crm' && <CrmView deals={deals} onMoveDeal={moveDeal} />}
-          {currentTab === 'automations' && <AutomationView workflows={MOCK_WORKFLOWS} />}
+          {currentTab === 'automations' && <AutomationView workflows={workflows} onToggleStatus={toggleWorkflow} />}
           {currentTab === 'billing' && <SubscriptionsView subscriptions={MOCK_SUBSCRIPTIONS} />}
           {currentTab === 'projects' && <ProjectsListView projects={MOCK_PROJECTS} />}
           {currentTab === 'reports' && <ReportsView />}
@@ -285,7 +280,7 @@ const App: React.FC = () => {
                         </div>
                         <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
                            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Active Brand Authority</p>
-                           <p className="font-black text-blue-600 text-xl uppercase tracking-[0.1em]">Flowgent™</p>
+                           <p className="font-black text-blue-600 text-xl uppercase tracking-[0.1em]">FLOWGENT™</p>
                         </div>
                      </div>
                      <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row gap-4">
@@ -418,7 +413,7 @@ const App: React.FC = () => {
                 <button 
                    onClick={() => {
                      navigator.clipboard.writeText(currentPitch.content);
-                     setNotifications([{ id: Date.now().toString(), title: 'Orchestrator Sync', message: 'Pitch copied to clipboard via System ID #9021.', type: 'automation', timestamp: 'Just now', isRead: false }, ...notifications]);
+                     addNotification('Clipboard Sync', 'Pitch copied to local system buffers.');
                    }}
                    className="flex-1 bg-slate-900 text-white font-black py-6 rounded-2xl hover:bg-slate-800 transition-all text-xs uppercase tracking-[0.2em] shadow-2xl"
                 >
