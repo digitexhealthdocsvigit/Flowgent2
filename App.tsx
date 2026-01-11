@@ -134,13 +134,24 @@ const App: React.FC = () => {
     setViewState('dashboard');
   };
 
+  const handleGenericAction = (name: string) => {
+    alert(`System Action: "${name}" initialized. Syncing with Flowgent™ core...`);
+    setNotifications([{
+      id: Date.now().toString(),
+      type: 'automation',
+      title: 'System Command Executed',
+      message: `${name} has been triggered successfully.`,
+      timestamp: 'Just now',
+      isRead: false
+    }, ...notifications]);
+  };
+
   if (viewState === 'public') return <LandingPage onLeadSubmit={handleLeadSubmit} onGoToLogin={() => setViewState('login')} />;
   if (viewState === 'login') return <LoginScreen onLogin={onLogin} onGoBack={() => setViewState('public')} />;
   
-  // Dashboard Guard
+  // Dashboard Guard - fallback to login if no user
   if (!currentUser) {
-    setViewState('public');
-    return null;
+    return <LoginScreen onLogin={onLogin} onGoBack={() => setViewState('public')} />;
   }
 
   return (
@@ -156,7 +167,7 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-6">
-            <button onClick={() => { setViewState('public'); setCurrentUser(null); }} className="text-[10px] font-black uppercase tracking-widest px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">Logout</button>
+            <button onClick={() => { setViewState('public'); setCurrentUser(null); }} className="text-[10px] font-black uppercase tracking-widest px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-red-600 transition-all shadow-lg shadow-slate-200 active:scale-95">Logout</button>
             <div className="relative" ref={notificationRef}>
               <button onClick={() => setShowNotifications(!showNotifications)} className="p-3.5 bg-slate-100 rounded-2xl relative hover:bg-slate-200 transition-all shadow-sm text-slate-900">
                 <ICONS.Bell />
@@ -181,10 +192,10 @@ const App: React.FC = () => {
                 <p className="text-slate-500 mt-1 font-medium italic">Digitex Studio Internal Control Environment.</p>
               </div>
               <div className="flex gap-4 w-full lg:w-auto">
-                <button onClick={() => setCurrentTab('reports')} className="flex-1 lg:flex-none bg-white border border-slate-300 px-8 py-4 rounded-2xl font-black text-[10px] text-slate-900 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm">
+                <button onClick={() => handleGenericAction('Intelligence Report Generation')} className="flex-1 lg:flex-none bg-white border border-slate-300 px-8 py-4 rounded-2xl font-black text-[10px] text-slate-900 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95">
                   Generate Intelligence Report
                 </button>
-                <button onClick={() => setCurrentTab('automations')} className="flex-1 lg:flex-none bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30">
+                <button onClick={() => handleGenericAction('Manual Workflow Launch')} className="flex-1 lg:flex-none bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 active:scale-95">
                   + Launch Workflow
                 </button>
               </div>
@@ -197,7 +208,7 @@ const App: React.FC = () => {
                 { label: 'Active Deals', value: deals.length },
                 { label: 'Projected Value', value: `₹${(deals.reduce((acc, b) => acc + b.value, 0) / 100000).toFixed(1)}L` }
               ].map((stat, i) => (
-                <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm hover:shadow-xl transition-all group">
+                <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm hover:shadow-xl transition-all group cursor-pointer" onClick={() => handleGenericAction(`Stat Drilldown: ${stat.label}`)}>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{stat.label}</p>
                   <h3 className="text-4xl font-black text-slate-900 mt-2 tracking-tighter group-hover:text-blue-600 transition-colors">{stat.value}</h3>
                 </div>
@@ -212,7 +223,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="space-y-6">
                     {leads.slice(0, 4).map(l => (
-                      <div key={l.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:bg-white hover:border-blue-100 transition-all">
+                      <div key={l.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:bg-white hover:border-blue-100 transition-all cursor-pointer" onClick={() => handleAudit(l)}>
                          <div className="flex items-center gap-6">
                             <div className="w-14 h-14 bg-white rounded-2xl border border-slate-200 flex items-center justify-center font-black text-blue-600 shadow-sm group-hover:scale-110 transition-transform">{l.businessName.charAt(0)}</div>
                             <div>
@@ -235,7 +246,7 @@ const App: React.FC = () => {
                     <h3 className="text-3xl font-black tracking-tighter leading-tight">Infrastructure <br/>Efficiency Engine</h3>
                     <p className="text-slate-400 text-sm font-medium mt-6 leading-relaxed">Infrastructure health checking active for {leads.length} entities. 14 n8n nodes synchronized. High-priority workflows running in parallel.</p>
                   </div>
-                  <button onClick={() => setCurrentTab('automations')} className="w-full bg-blue-600 py-6 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] mt-12 hover:bg-blue-700 transition-all shadow-2xl shadow-blue-900/40 relative z-10">Enter Flowgent™ Orchestrator</button>
+                  <button onClick={() => setCurrentTab('automations')} className="w-full bg-blue-600 py-6 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] mt-12 hover:bg-blue-700 transition-all shadow-2xl shadow-blue-900/40 relative z-10 active:scale-95">Enter Flowgent™ Orchestrator</button>
                </div>
             </div>
           </div>}
@@ -278,8 +289,8 @@ const App: React.FC = () => {
                         </div>
                      </div>
                      <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row gap-4">
-                        <button className="flex-1 px-8 py-4 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-xl shadow-slate-200">Team Management</button>
-                        <button className="flex-1 px-8 py-4 bg-white text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-2xl border border-slate-200 shadow-sm">Security Audit</button>
+                        <button onClick={() => handleGenericAction('Team Management')} className="flex-1 px-8 py-4 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-xl shadow-slate-200 active:scale-95">Team Management</button>
+                        <button onClick={() => handleGenericAction('Security Audit')} className="flex-1 px-8 py-4 bg-white text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-2xl border border-slate-200 shadow-sm active:scale-95">Security Audit</button>
                      </div>
                   </div>
 
@@ -304,7 +315,7 @@ const App: React.FC = () => {
                         </div>
                         <p className="text-xs text-slate-400 font-medium italic px-2">Continuous Deployment active for branch: <span className="text-blue-400 font-bold">main</span></p>
                      </div>
-                     <button className="w-full bg-white text-slate-900 font-black py-5 rounded-2xl text-[10px] uppercase tracking-[0.3em] hover:bg-slate-100 transition-all shadow-xl shadow-white/5">Manage Repository Link</button>
+                     <button onClick={() => handleGenericAction('GitHub Repository Management')} className="w-full bg-white text-slate-900 font-black py-5 rounded-2xl text-[10px] uppercase tracking-[0.3em] hover:bg-slate-100 transition-all shadow-xl shadow-white/5 active:scale-95">Manage Repository Link</button>
                   </div>
                </div>
             </div>
