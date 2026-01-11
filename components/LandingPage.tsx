@@ -116,7 +116,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
         {/* The Cost of Manual Operations Section */}
         <section className="mt-60 space-y-32">
           <div className="text-center space-y-6">
-            <h2 className="text-7xl font-black tracking-tighter">The Cost of Manual Operations</h2>
+            <h2 className="text-7xl font-black tracking-tighter text-white">The Cost of Manual Operations</h2>
             <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-xs">WHY MOST BUSINESSES FAIL TO SCALE</p>
           </div>
 
@@ -138,11 +138,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
         </section>
 
         {/* Audit Form Section */}
-        <section id="audit-section" className="mt-60">
-          <div className="bg-blue-600 rounded-[64px] p-24 relative overflow-hidden">
+        <section id="audit-section" className="mt-60 pb-40">
+          <div className="bg-blue-600 rounded-[64px] p-24 relative overflow-hidden shadow-2xl shadow-blue-500/20">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white opacity-5 rounded-full -mr-[300px] -mt-[300px]"></div>
             <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
-              <div className="space-y-8">
+              <div className="space-y-8 text-white">
                 <h2 className="text-6xl font-black tracking-tighter leading-[0.9]">Start Your Digital <br/> Transformation.</h2>
                 <p className="text-blue-100 text-lg font-medium leading-relaxed opacity-80">
                   Run a system audit today. No strings attached. 
@@ -152,25 +152,25 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
 
               <div className="bg-white p-12 rounded-[48px] text-slate-900 shadow-2xl">
                 <div className="mb-8 border-b border-slate-100 pb-8 flex justify-between items-center">
-                  <h3 className="text-2xl font-black tracking-tight">Audit Parameters</h3>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Phase {step} of 2</span>
+                  <h3 className="text-2xl font-black tracking-tight">AI System Audit</h3>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Step {step} of 2</span>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {step === 1 ? (
                     <>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Business Name</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Business Legal Name</label>
                         <input 
                           required
                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold"
-                          placeholder="e.g. Digitex Logistics"
+                          placeholder="e.g. Digitex Studio"
                           value={formData.businessName}
                           onChange={e => setFormData({...formData, businessName: e.target.value})}
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Website URL</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Current Domain / Website</label>
                         <input 
                           required
                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold"
@@ -183,7 +183,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
                   ) : (
                     <>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Monthly inquiries</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Inquiry Volume / Month</label>
                         <input 
                           required
                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold"
@@ -193,7 +193,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Category</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Industry Sector</label>
                         <input 
                           required
                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold"
@@ -206,7 +206,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
                   )}
 
                   <button className="w-full bg-slate-900 text-white font-black py-6 rounded-2xl shadow-xl hover:bg-slate-800 transition-all uppercase tracking-[0.2em] text-[10px]">
-                    {step === 1 ? 'Verify Identity' : 'Generate AI System Audit'}
+                    {step === 1 ? 'Verify Enterprise Data' : 'Submit for AI Audit'}
                   </button>
                 </form>
               </div>
@@ -220,7 +220,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
         <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest">
           <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
           <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-          <a href="https://github.com/digitexhealthdocsvigit/Flowgent" className="hover:text-white transition-colors">GitHub Source</a>
+          <a href="https://github.com/digitexhealthdocsvigit/Flowgent" className="hover:text-white transition-colors underline">GitHub Repo</a>
         </div>
       </footer>
     </div>

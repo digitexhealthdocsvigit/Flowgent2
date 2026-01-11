@@ -113,8 +113,8 @@ const App: React.FC = () => {
       createdAt: new Date().toISOString()
     };
     setLeads([newLead, ...leads]);
+    setCurrentUser(MOCK_CLIENT); // Direct client access after audit
     setViewState('dashboard');
-    setCurrentUser(MOCK_USER); // Default to admin for demo
   };
 
   const moveDeal = (dealId: string, direction: 'forward' | 'backward') => {
@@ -129,9 +129,19 @@ const App: React.FC = () => {
     }));
   };
 
+  const onLogin = (role: 'admin' | 'client') => {
+    setCurrentUser(role === 'admin' ? MOCK_USER : MOCK_CLIENT);
+    setViewState('dashboard');
+  };
+
   if (viewState === 'public') return <LandingPage onLeadSubmit={handleLeadSubmit} onGoToLogin={() => setViewState('login')} />;
-  if (viewState === 'login') return <LoginScreen onLogin={(role) => { setCurrentUser(role === 'admin' ? MOCK_USER : MOCK_CLIENT); setViewState('dashboard'); }} onGoBack={() => setViewState('public')} />;
-  if (!currentUser) return null;
+  if (viewState === 'login') return <LoginScreen onLogin={onLogin} onGoBack={() => setViewState('public')} />;
+  
+  // Dashboard Guard
+  if (!currentUser) {
+    setViewState('public');
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 selection:bg-blue-100 font-sans">
