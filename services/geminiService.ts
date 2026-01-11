@@ -14,7 +14,8 @@ export const generateAudit = async (businessName: string, websiteUrl: string): P
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      // Using gemini-3-pro-preview for complex reasoning task (audit)
+      model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -61,6 +62,7 @@ export const generateOutreach = async (businessName: string, location: string): 
 
   try {
     const response = await ai.models.generateContent({
+      // Using gemini-3-flash-preview for basic text task
       model: "gemini-3-flash-preview",
       contents: prompt
     });

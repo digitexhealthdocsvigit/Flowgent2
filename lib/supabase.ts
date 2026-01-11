@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -7,19 +8,21 @@ import { createClient } from '@supabase/supabase-js';
  */
 
 const getEnvValue = (key: string): string | undefined => {
+  let val: string | undefined;
   // 1. Check process.env (Standard/Replit)
   if (typeof process !== 'undefined' && process.env && (process.env as any)[key]) {
-    return (process.env as any)[key];
+    val = (process.env as any)[key];
   }
   
   // 2. Check import.meta.env (Vite/ESM)
   const metaEnv = (import.meta as any).env;
-  if (metaEnv) {
-    if (metaEnv[key]) return metaEnv[key];
-    if (metaEnv[`VITE_${key}`]) return metaEnv[`VITE_${key}`];
+  if (!val && metaEnv) {
+    if (metaEnv[key]) val = metaEnv[key];
+    else if (metaEnv[`VITE_${key}`]) val = metaEnv[`VITE_${key}`];
   }
   
-  return undefined;
+  // CRITICAL: Trim whitespace to prevent "ERR_NAME_NOT_RESOLVED" caused by hidden spaces
+  return val?.trim();
 };
 
 const rawUrl = getEnvValue('SUPABASE_URL');

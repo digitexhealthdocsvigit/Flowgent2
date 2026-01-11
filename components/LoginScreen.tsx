@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { User } from '../types';
@@ -12,7 +13,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [debugHint, setDebugHint] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<{ url: string; msg: string } | null>(null);
 
   const handleLoginSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -20,24 +21,23 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
     
     setIsLoading(true);
     setError(null);
-    setDebugHint(null);
+    setDebugInfo(null);
     
     // Demo Mode Handling
     if (!isSupabaseConfigured) {
       setTimeout(() => {
         setIsSent(true);
         setIsLoading(false);
-        // Auto-login after delay for better demo UX
         setTimeout(() => {
           onLogin({
             id: 'demo-id',
             name: email.split('@')[0] || 'Founder',
             email: email,
-            role: email.includes('digitex') || email.includes('founder') ? 'admin' : 'client',
+            role: 'admin',
             orgId: 'org-1'
           });
-        }, 1500);
-      }, 800);
+        }, 1000);
+      }, 500);
       return;
     }
     
@@ -54,10 +54,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
     } catch (err: any) {
       console.error("Login Error:", err);
       
-      // Handle the specific "Failed to fetch" / DNS error shown in user's console
-      if (err.message === 'Failed to fetch' || err.name === 'AuthRetryableFetchError') {
-        setError("Network Connection Error: Could not reach Supabase.");
-        setDebugHint("Hint: Your SUPABASE_URL in Environment Variables might have a typo (DNS could not resolve). Please verify it matches your Supabase Project settings exactly.");
+      const isFetchError = err.message?.toLowerCase().includes('fetch') || err.name === 'AuthRetryableFetchError';
+      
+      if (isFetchError) {
+        setError("Network Error: Could not reach Supabase.");
+        const activeUrl = (supabase as any).supabaseUrl || "Unknown";
+        setDebugInfo({
+          url: activeUrl,
+          msg: "This is usually caused by a typo in the SUPABASE_URL environment variable. Check for 'oxecok' vs 'oxecol' in your Vercel settings."
+        });
       } else {
         setError(err.message || "Failed to send verification link.");
       }
@@ -66,11 +71,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
     }
   };
 
-  const handleFounderDirectAccess = () => {
-    // If Supabase is broken or misconfigured, we allow the founder to bypass to the mock UI
-    // This prevents the "Failed to fetch" from locking the user out of the app's visuals.
+  const handleBypass = () => {
     onLogin({
-      id: 'founder-id',
+      id: 'founder-bypass',
       name: 'Founder',
       email: 'founder@digitex.in',
       role: 'admin',
@@ -80,97 +83,78 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
 
   if (isSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f172a] px-6">
-        <div className="max-w-md w-full bg-white p-12 rounded-[56px] text-center space-y-8 animate-in zoom-in-95">
-           <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-[32px] flex items-center justify-center mx-auto shadow-inner">
-              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+      <div className="min-h-screen flex items-center justify-center bg-[#0f172a] px-6 text-center">
+        <div className="max-w-md w-full bg-white p-12 rounded-[56px] space-y-8 animate-in zoom-in-95">
+           <div className="w-20 h-20 bg-green-50 text-green-600 rounded-3xl flex items-center justify-center mx-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
            </div>
-           <div>
-              <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Check Your Inbox</h2>
-              <p className="text-slate-500 font-medium mt-4">We've sent a secure access link to <span className="text-slate-900 font-bold">{email}</span>.</p>
-              {!isSupabaseConfigured && (
-                <p className="mt-6 text-blue-600 font-black text-[10px] uppercase tracking-widest bg-blue-50 py-2 rounded-xl">
-                  Demo Mode: Simulating Verification...
-                </p>
-              )}
-           </div>
-           <button onClick={() => setIsSent(false)} className="text-xs font-black uppercase tracking-widest text-blue-600 hover:text-blue-700">Back</button>
+           <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Magic Link Sent</h2>
+           <p className="text-slate-500 font-medium">Access granted. Please check <span className="font-bold text-slate-900">{email}</span> to continue.</p>
+           <button onClick={() => setIsSent(false)} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900">Cancel</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] px-6 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600 rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-900 rounded-full blur-[120px]"></div>
-      </div>
-
-      <div className="max-w-md w-full bg-white/95 backdrop-blur-xl p-12 rounded-[56px] border border-white/20 shadow-2xl relative z-10 animate-in zoom-in-95">
-        <div className="text-center mb-12">
-          <div className="inline-flex w-24 h-24 bg-slate-900 rounded-[32px] items-center justify-center text-white font-black text-5xl mb-8 shadow-2xl italic">F</div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tighter">System Gateway</h2>
-          
-          <div className="flex flex-col items-center gap-2 mt-4">
-             <div className="flex items-center gap-2">
-                <div className={`w-1.5 h-1.5 ${isSupabaseConfigured ? 'bg-green-500' : 'bg-orange-500'} rounded-full animate-pulse`}></div>
-                <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] leading-relaxed">
-                  {isSupabaseConfigured ? 'Secure Environment' : 'Demo Terminal (Unconfigured)'}
-                </p>
-             </div>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] px-6">
+      <div className="max-w-md w-full bg-white p-12 rounded-[56px] shadow-2xl animate-in zoom-in-95">
+        <div className="text-center mb-10">
+          <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-3xl mx-auto mb-6 italic shadow-xl">F</div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Identity Gateway</h2>
+          <p className="text-slate-400 text-xs font-black uppercase tracking-widest mt-2 flex items-center justify-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-green-500' : 'bg-orange-400'} animate-pulse`}></span>
+            {isSupabaseConfigured ? 'Production Stack' : 'Internal Demo'}
+          </p>
         </div>
 
-        <form onSubmit={handleLoginSubmit} className="space-y-8">
-          <div className="space-y-3">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-1">Identity Verification</label>
+        <form onSubmit={handleLoginSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Work Email</label>
             <input 
               required
-              className="w-full bg-slate-50 border border-slate-200 rounded-[28px] p-6 focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 outline-none transition-all font-bold text-slate-900 shadow-inner"
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 outline-none focus:border-blue-600 transition-all font-bold text-slate-900"
               placeholder="e.g. founder@digitex.in"
               type="email"
               value={email}
-              onChange={e => {setEmail(e.target.value); setError(null); setDebugHint(null);}}
+              onChange={e => setEmail(e.target.value)}
             />
-            {error && (
-              <div className="space-y-2 px-4">
-                <p className="text-[10px] font-bold text-red-500">{error}</p>
-                {debugHint && <p className="text-[9px] text-slate-500 font-medium italic leading-relaxed">{debugHint}</p>}
-              </div>
-            )}
           </div>
 
-          <div className="space-y-4 pt-4">
-            <button 
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-slate-900 text-white font-black py-7 rounded-[28px] shadow-xl hover:bg-slate-800 transition-all uppercase tracking-[0.3em] text-[11px] flex items-center justify-center gap-3 disabled:opacity-70"
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-              ) : (
-                'Verify & Enter'
+          {error && (
+            <div className="p-5 bg-red-50 border border-red-100 rounded-2xl space-y-3">
+              <p className="text-[10px] font-black text-red-600 uppercase tracking-tight">{error}</p>
+              {debugInfo && (
+                <div className="bg-white p-3 rounded-lg border border-red-200 overflow-hidden">
+                   <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Target URL (Check for typos):</p>
+                   <code className="text-[9px] text-red-800 font-mono break-all">{debugInfo.url}</code>
+                </div>
               )}
-            </button>
+            </div>
+          )}
 
-            <button 
-              type="button"
-              onClick={handleFounderDirectAccess}
-              className="w-full bg-blue-50 text-blue-700 font-black py-6 rounded-[28px] border-2 border-blue-100 hover:bg-blue-100 transition-all uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3"
-            >
-              Direct Founder Access
-            </button>
-          </div>
-          
-          <button type="button" onClick={onGoBack} className="w-full text-slate-400 text-[11px] font-black uppercase tracking-[0.3em] hover:text-slate-900 transition-all py-4">
-            Back to Public Terminal
+          <button 
+            type="submit" 
+            disabled={isLoading}
+            className="w-full bg-blue-600 text-white font-black py-6 rounded-2xl shadow-xl uppercase tracking-widest text-xs disabled:opacity-50"
+          >
+            {isLoading ? 'Sending Link...' : 'Request Access'}
           </button>
         </form>
-        
-        <div className="mt-8 pt-8 border-t border-slate-50 flex justify-between items-center text-[9px] font-black text-slate-300 uppercase tracking-widest px-2">
-           <span>Flowgent v2.5.4</span>
-           <span>Shield Enabled</span>
+
+        <div className="mt-8 pt-8 border-t border-slate-100 space-y-4">
+          <button 
+            onClick={onGoBack}
+            className="w-full text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors"
+          >
+            ← Back to Landing Page
+          </button>
+          <button 
+            onClick={handleBypass}
+            className="w-full text-[9px] font-bold text-slate-300 hover:text-blue-400 transition-colors uppercase tracking-tighter"
+          >
+            Bypass for Internal Demo
+          </button>
         </div>
       </div>
     </div>
