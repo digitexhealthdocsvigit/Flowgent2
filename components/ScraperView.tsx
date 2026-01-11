@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ICONS } from '../constants';
 
@@ -40,8 +39,15 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onPushToN8N, onGeneratePitch,
     try {
       const videoUrl = await onGenerateVideo(lead);
       setScrapedLeads(prev => prev.map(l => l.id === lead.id ? { ...l, videoUrl } : l));
-    } catch (e) {
-      alert("Video generation failed. Ensure your Veo API Key is valid and billing is enabled.");
+    } catch (e: any) {
+      if (e.message === "API_KEY_RESET_REQUIRED") {
+        alert("Veo API Session Expired or Invalid Project Key. Please re-select your paid API key.");
+        if ((window as any).aistudio) {
+          await (window as any).aistudio.openSelectKey();
+        }
+      } else {
+        alert("Video generation failed. Please ensure your Veo API Key has billing enabled.");
+      }
     } finally {
       setIsVideoLoading(null);
     }

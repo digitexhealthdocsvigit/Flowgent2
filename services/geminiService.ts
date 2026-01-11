@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { AuditResult } from "../types";
 
@@ -66,9 +65,10 @@ export const generateOutreach = async (businessName: string, location: string): 
 
 /**
  * Generates a cinematic AI video intro for a lead using the Veo model.
+ * Handles specific API Key selection errors by throwing a retryable error signal.
  */
 export const generateVideoIntro = async (businessName: string): Promise<string> => {
-  // Use a fresh instance to ensure the latest selected API key is used
+  // Fresh instance to ensure current environment API key is used
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
@@ -88,20 +88,24 @@ export const generateVideoIntro = async (businessName: string): Promise<string> 
     });
 
     while (!operation.done) {
-      // Reassuring delay for the user
       await new Promise(resolve => setTimeout(resolve, 8000));
       operation = await ai.operations.getVideosOperation({ operation: operation });
     }
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (!downloadLink) throw new Error("No video link returned from Veo.");
+    if (!downloadLink) throw new Error("Video production node timed out.");
 
-    // Fetch the MP4 with the API key
     const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
     const videoBlob = await videoResponse.blob();
     return URL.createObjectURL(videoBlob);
   } catch (error: any) {
-    console.error("Veo Video Generation Error:", error);
+    console.error("Veo Engine Error:", error);
+    
+    // Check for "Requested entity was not found" which indicates an API Key / Project mismatch
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("API_KEY_RESET_REQUIRED");
+    }
+    
     throw error;
   }
 };
