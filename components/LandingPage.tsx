@@ -29,6 +29,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
     document.getElementById('audit-section')?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const scrollToServices = () => {
+    document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen bg-[#0f172a] text-white selection:bg-blue-500/30 font-sans">
       {/* Navigation Header */}
@@ -40,8 +44,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
           </div>
         </div>
         <div className="hidden lg:flex items-center gap-12">
-          <a href="#services" className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">Services</a>
-          <a href="#audit-section" className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">AI Audit</a>
+          <button onClick={scrollToServices} className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">Services</button>
+          <button onClick={scrollToAudit} className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">AI Audit</button>
           <button onClick={onGoToLogin} className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">Founder Portal</button>
         </div>
         <div className="flex items-center gap-6">
@@ -78,15 +82,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
                   <p className="text-slate-400 font-medium mt-1">Instant email and message triggers based on lead score.</p>
                 </div>
               </div>
-              <div className="flex gap-6 items-start">
-                <div className="w-12 h-12 bg-blue-600/10 border border-blue-500/20 rounded-full flex items-center justify-center shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div>
-                  <h4 className="text-2xl font-black tracking-tight">Predictable Pipelines</h4>
-                  <p className="text-slate-400 font-medium mt-1">SaaS-grade CRM custom-built for your business workflow.</p>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -113,25 +108,48 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
           </div>
         </div>
 
-        {/* The Cost of Manual Operations Section */}
-        <section className="mt-60 space-y-32">
+        {/* Services Section - Detailed improvised content */}
+        <section id="services" className="mt-60 space-y-32">
           <div className="text-center space-y-6">
-            <h2 className="text-7xl font-black tracking-tighter text-white">The Cost of Manual Operations</h2>
-            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-xs">WHY MOST BUSINESSES FAIL TO SCALE</p>
+            <h2 className="text-7xl font-black tracking-tighter text-white">Our Service Modules</h2>
+            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-xs">END-TO-END BUSINESS AUTOMATION</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
             {[
-              { title: "No Lead Tracking", desc: "Inquiries vanish into WhatsApp chats and sticky notes.", icon: "✕" },
-              { title: "Delayed Follow-ups", desc: "Prospects lose interest before your team even sees the message.", icon: "✕" },
-              { title: "No Sales Visibility", desc: "You have no idea why deals are stalling or who is closing them.", icon: "✕" }
-            ].map((p, i) => (
-              <div key={i} className="bg-slate-100/5 border border-white/5 p-12 rounded-[48px] text-center space-y-8 backdrop-blur-sm group hover:bg-white/5 transition-all">
-                <div className="w-16 h-16 border-2 border-red-500 text-red-500 rounded-full mx-auto flex items-center justify-center font-black text-2xl group-hover:scale-110 transition-transform">{p.icon}</div>
-                <div>
-                  <h4 className="text-2xl font-black mb-4">{p.title}</h4>
-                  <p className="text-slate-400 leading-relaxed font-medium">{p.desc}</p>
+              {
+                title: "Digital Presence Systems",
+                desc: "Strategic websites and landing pages designed to convert cold traffic into hot leads. Built with high-speed architecture and SEO first.",
+                features: ["Enterprise Architecture", "Mobile First Design", "Inbound Funnel Integration"],
+                icon: "🌐"
+              },
+              {
+                title: "Lead & CRM Orchestration",
+                desc: "Custom-built CRM pipelines linked to your WhatsApp and Email. Capture leads 24/7 and manage them with SaaS-level efficiency.",
+                features: ["WhatsApp Automation", "Lead Scoring", "Cal.com Integration"],
+                icon: "⚡"
+              },
+              {
+                title: "AI Growth Engine",
+                desc: "AI-driven digital audits that reveal exactly where your business is leaking revenue. Intelligence reports compiled in seconds.",
+                features: ["Gemini AI Analysis", "Competitor Gaps", "ROI Roadmaps"],
+                icon: "🧠"
+              }
+            ].map((service, i) => (
+              <div key={i} className="bg-slate-100/5 border border-white/5 p-12 rounded-[56px] space-y-8 backdrop-blur-sm group hover:bg-white/10 transition-all border-b-4 border-b-transparent hover:border-b-blue-600">
+                <div className="text-6xl">{service.icon}</div>
+                <div className="space-y-4">
+                  <h4 className="text-3xl font-black tracking-tight">{service.title}</h4>
+                  <p className="text-slate-400 leading-relaxed font-medium">{service.desc}</p>
                 </div>
+                <ul className="space-y-3 pt-6">
+                  {service.features.map((f, j) => (
+                    <li key={j} className="flex items-center gap-3 text-sm font-bold text-slate-300">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
@@ -218,8 +236,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
       <footer className="px-12 py-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 text-slate-500">
         <p className="text-[10px] font-black uppercase tracking-widest">© 2026 Flowgent™ — A Digitex Studio Company</p>
         <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest">
-          <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-          <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
+          <button onClick={() => alert("Privacy Policy coming soon.")} className="hover:text-white transition-colors">Privacy Policy</button>
+          <button onClick={() => alert("Terms of Service coming soon.")} className="hover:text-white transition-colors">Terms of Service</button>
           <a href="https://github.com/digitexhealthdocsvigit/Flowgent" className="hover:text-white transition-colors underline">GitHub Repo</a>
         </div>
       </footer>

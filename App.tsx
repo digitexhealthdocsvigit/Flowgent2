@@ -32,6 +32,10 @@ const App: React.FC = () => {
   const [isAuditing, setIsAuditing] = useState(false);
   const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult } | null>(null);
   const [currentPitch, setCurrentPitch] = useState<{ name: string; content: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState('https://n8n.digitex.in/webhook/flowgent-orchestrator');
+  
   const notificationRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,7 +57,7 @@ const App: React.FC = () => {
   };
 
   const handlePushToN8N = (scraped: any) => {
-    addNotification('n8n Webhook Fired', `Lead "${scraped.name}" pushed to Flowgent™ automation cluster.`);
+    addNotification('n8n Webhook Fired', `Lead "${scraped.name}" pushed to: ${webhookUrl}`);
   };
 
   const handleGeneratePitch = async (scraped: any) => {
@@ -118,6 +122,30 @@ const App: React.FC = () => {
     setViewState('dashboard');
   };
 
+  const handleManualLeadAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const data = {
+      businessName: formData.get('businessName') as string,
+      websiteUrl: formData.get('websiteUrl') as string,
+      category: formData.get('category') as string,
+    };
+    const { score, temperature } = calculateLeadScore(data);
+    const newLead: Lead = {
+      id: Math.random().toString(36).substr(2, 9),
+      ...data,
+      email: 'manual@lead.com',
+      city: 'Direct Entry',
+      status: 'discovered',
+      score,
+      temperature,
+      createdAt: new Date().toISOString()
+    };
+    setLeads([newLead, ...leads]);
+    addNotification('Lead Added', `${data.businessName} has been manually registered.`);
+    setShowAddLeadModal(false);
+  };
+
   const moveDeal = (dealId: string, direction: 'forward' | 'backward') => {
     const stages: Deal['stage'][] = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
     setDeals(prev => prev.map(deal => {
@@ -143,6 +171,14 @@ const App: React.FC = () => {
   const handleGenericAction = (name: string) => {
     addNotification('System Trigger', `${name} initialized via Orchestrator.`);
   };
+
+  const filteredLeads = leads.filter(l => 
+    l.businessName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    l.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    l.city.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalMRR = MOCK_SUBSCRIPTIONS.filter(s => s.status === 'active').reduce((acc, s) => acc + s.amount, 0);
 
   if (viewState === 'public') return <LandingPage onLeadSubmit={handleLeadSubmit} onGoToLogin={() => setViewState('login')} />;
   if (viewState === 'login') return <LoginScreen onLogin={onLogin} onGoBack={() => setViewState('public')} />;
@@ -201,7 +237,7 @@ const App: React.FC = () => {
                 { label: 'Infrastructure Nodes', value: leads.length },
                 { label: 'Hot Targets', value: leads.filter(l => l.temperature === 'hot').length },
                 { label: 'Active Deals', value: deals.length },
-                { label: 'Projected Value', value: `₹${(deals.reduce((acc, b) => acc + b.value, 0) / 100000).toFixed(1)}L` }
+                { label: 'System MRR', value: `₹${(totalMRR / 1000).toFixed(1)}k` }
               ].map((stat, i) => (
                 <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm hover:shadow-xl transition-all group cursor-pointer" onClick={() => handleGenericAction(`Stat Drilldown: ${stat.label}`)}>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{stat.label}</p>
@@ -248,11 +284,41 @@ const App: React.FC = () => {
           {currentTab === 'scraper' && <ScraperView onPushToN8N={handlePushToN8N} onGeneratePitch={handleGeneratePitch} />}
           {currentTab === 'leads' && (
             <div className="space-y-10 animate-in fade-in duration-500">
-              <div>
-                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Lead Discovery Node</h2>
-                <p className="text-slate-500 mt-1 font-medium italic">Scoring & AI-auditing for Digitex Studio growth.</p>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                  <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Lead Discovery Node</h2>
+                  <p className="text-slate-500 mt-1 font-medium italic">Scoring & AI-auditing for Digitex Studio growth.</p>
+                </div>
+                <div className="flex gap-4 w-full md:w-auto">
+                  <div className="relative flex-1 md:w-64">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    </div>
+                    <input 
+                      type="text" 
+                      placeholder="Search Nodes..." 
+                      className="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-4 py-4 outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all font-bold text-sm"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setShowAddLeadModal(true)}
+                    className="px-8 py-4 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-xl shadow-slate-200 active:scale-95"
+                  >
+                    + Register Lead
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+                {filteredLeads.map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
+                {filteredLeads.length === 0 && (
+                  <div className="col-span-full py-20 text-center space-y-4">
+                    <p className="text-2xl font-black text-slate-300">No matching infrastructure nodes found.</p>
+                    <button onClick={() => setSearchQuery('')} className="text-blue-600 font-black text-sm uppercase tracking-widest">Clear Search</button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           {currentTab === 'funnel' && <FunnelView leads={leads} />}
@@ -283,9 +349,20 @@ const App: React.FC = () => {
                            <p className="font-black text-blue-600 text-xl uppercase tracking-[0.1em]">FLOWGENT™</p>
                         </div>
                      </div>
-                     <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row gap-4">
-                        <button onClick={() => handleGenericAction('Team Management')} className="flex-1 px-8 py-4 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-xl shadow-slate-200 active:scale-95">Team Management</button>
-                        <button onClick={() => handleGenericAction('Security Audit')} className="flex-1 px-8 py-4 bg-white text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-2xl border border-slate-200 shadow-sm active:scale-95">Security Audit</button>
+                     <div className="pt-6 border-t border-slate-100 space-y-8">
+                        <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Orchestrator Webhook Endpoint (n8n)</p>
+                          <input 
+                            type="text" 
+                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 font-mono text-xs text-slate-600"
+                            value={webhookUrl}
+                            onChange={e => setWebhookUrl(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          <button onClick={() => handleGenericAction('Team Management')} className="flex-1 px-8 py-4 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-xl shadow-slate-200 active:scale-95">Team Management</button>
+                          <button onClick={() => handleGenericAction('Security Audit')} className="flex-1 px-8 py-4 bg-white text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-2xl border border-slate-200 shadow-sm active:scale-95">Security Audit</button>
+                        </div>
                      </div>
                   </div>
 
@@ -317,6 +394,35 @@ const App: React.FC = () => {
           )}
         </main>
       </div>
+
+      {/* Manual Lead Modal - Improvised missing feature */}
+      {showAddLeadModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white p-12 rounded-[56px] max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-300">
+             <div className="flex justify-between items-center mb-10">
+                <h3 className="text-3xl font-black text-slate-900 tracking-tighter">Register Lead Node</h3>
+                <button onClick={() => setShowAddLeadModal(false)} className="text-slate-400 hover:text-slate-900">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+             </div>
+             <form onSubmit={handleManualLeadAdd} className="space-y-6">
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Business Name</label>
+                   <input required name="businessName" className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 outline-none focus:border-blue-600 transition-all font-bold" placeholder="e.g. Apex Global" />
+                </div>
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Website URL</label>
+                   <input name="websiteUrl" className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 outline-none focus:border-blue-600 transition-all font-bold" placeholder="https://..." />
+                </div>
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Category</label>
+                   <input required name="category" className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 outline-none focus:border-blue-600 transition-all font-bold" placeholder="e.g. Logistics" />
+                </div>
+                <button type="submit" className="w-full bg-blue-600 text-white font-black py-6 rounded-2xl shadow-xl shadow-blue-500/20 uppercase tracking-widest text-xs">Create Lead & Score</button>
+             </form>
+          </div>
+        </div>
+      )}
 
       {isAuditing && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-6">
