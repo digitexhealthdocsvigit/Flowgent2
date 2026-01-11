@@ -21,27 +21,34 @@ const getEnvValue = (key: string): string | undefined => {
     else if (metaEnv[`VITE_${key}`]) val = metaEnv[`VITE_${key}`];
   }
   
-  // Clean up and return
-  const trimmed = val?.trim();
-  if (!trimmed) return undefined;
-  
-  // Basic validation for URL to catch common "Copy-Paste" errors
-  if (key === 'SUPABASE_URL' && trimmed.startsWith('http') && !trimmed.includes('.supabase.co')) {
-    console.warn(`Flowgent Warning: SUPABASE_URL "${trimmed}" looks invalid.`);
-  }
-  
-  return trimmed;
+  return val?.trim();
 };
 
 const rawUrl = getEnvValue('SUPABASE_URL');
 const rawKey = getEnvValue('SUPABASE_ANON_KEY');
 
-// Project Ref check: Supabase URLs usually have a 20-character project ref
-// oxecokangorufymfhxw is 18 chars - likely missing 2 characters if it's the standard format.
-const looksLikeValidRef = rawUrl?.split('//')[1]?.split('.')[0]?.length === 20;
-
 export const isSupabaseConfigured = !!(rawUrl && rawKey && !rawUrl.includes('placeholder'));
-export const hasPotentialDnsIssue = isSupabaseConfigured && !looksLikeValidRef;
+
+/**
+ * Extracts the 20-character project reference from the URL
+ */
+export const getProjectRef = (url: string | undefined): string => {
+  if (!url) return "";
+  try {
+    // Pattern matches the subdomain before .supabase.co
+    const match = url.match(/https?:\/\/([^.]+)\.supabase\.co/);
+    return match ? match[1] : "";
+  } catch (e) {
+    return "";
+  }
+};
+
+const projectRef = getProjectRef(rawUrl);
+
+// Most Supabase projects have exactly 20 characters. 
+// Truncated IDs (like the 19-char one in the logs) cause DNS failures.
+export const hasPotentialDnsIssue = isSupabaseConfigured && (projectRef.length < 20);
+export const activeProjectRef = projectRef;
 
 // Constructor requirements: Must provide a string even if in demo mode
 const supabaseUrl = rawUrl || 'https://placeholder-project.supabase.co';

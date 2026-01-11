@@ -2,11 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AuditResult } from "../types";
 
-// The API key must be obtained exclusively from the environment variable process.env.API_KEY.
-// Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-
 export const generateAudit = async (businessName: string, websiteUrl: string): Promise<AuditResult> => {
-  // Always create a new instance of GoogleGenAI when initializing
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Act as a senior business automation consultant. Perform a digital audit for "${businessName}" at "${websiteUrl}". 
   Provide a detailed summary of their potential online gaps (no website, poor SEO, no booking system, slow performance) and specific recommendations for automation (CRM, AI Chatbots, Automated Follow-ups).
@@ -14,7 +10,6 @@ export const generateAudit = async (businessName: string, websiteUrl: string): P
 
   try {
     const response = await ai.models.generateContent({
-      // Using gemini-3-pro-preview for complex reasoning task (audit)
       model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
@@ -38,7 +33,6 @@ export const generateAudit = async (businessName: string, websiteUrl: string): P
       }
     });
 
-    // Extracting text output from GenerateContentResponse using the .text property
     const text = response.text || "{}";
     const result = JSON.parse(text);
     return result as AuditResult;
@@ -54,7 +48,6 @@ export const generateAudit = async (businessName: string, websiteUrl: string): P
 };
 
 export const generateOutreach = async (businessName: string, location: string): Promise<string> => {
-  // Always create a new instance of GoogleGenAI when initializing
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Write a short, professional WhatsApp pitch for the business owner of "${businessName}" in "${location}". 
   Mention that they currently don't have a business website and are missing out on at least 20-30 leads a month. 
@@ -62,13 +55,53 @@ export const generateOutreach = async (businessName: string, location: string): 
 
   try {
     const response = await ai.models.generateContent({
-      // Using gemini-3-flash-preview for basic text task
       model: "gemini-3-flash-preview",
       contents: prompt
     });
-    // Extracting text output from GenerateContentResponse using the .text property
     return response.text || "Hi, we noticed your business is growing but missing a digital infrastructure. Let's talk about automating your leads.";
   } catch (error) {
     return "Hi, noticed your business in Google Maps. You're missing a website! We can help automate your sales. Interested?";
+  }
+};
+
+/**
+ * Generates a cinematic AI video intro for a lead using the Veo model.
+ */
+export const generateVideoIntro = async (businessName: string): Promise<string> => {
+  // Use a fresh instance to ensure the latest selected API key is used
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  try {
+    const prompt = `A highly cinematic, professional 3D animated corporate video intro. 
+    The camera flies through a futuristic glass office. Floating holograms display the text "${businessName}" 
+    and "DIGITAL TRANSFORMATION IN PROGRESS". 
+    Ultra-modern, sleek, blue and silver lighting, 4k resolution, smooth camera movement.`;
+
+    let operation = await ai.models.generateVideos({
+      model: 'veo-3.1-fast-generate-preview',
+      prompt: prompt,
+      config: {
+        numberOfVideos: 1,
+        resolution: '720p',
+        aspectRatio: '16:9'
+      }
+    });
+
+    while (!operation.done) {
+      // Reassuring delay for the user
+      await new Promise(resolve => setTimeout(resolve, 8000));
+      operation = await ai.operations.getVideosOperation({ operation: operation });
+    }
+
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) throw new Error("No video link returned from Veo.");
+
+    // Fetch the MP4 with the API key
+    const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+    const videoBlob = await videoResponse.blob();
+    return URL.createObjectURL(videoBlob);
+  } catch (error: any) {
+    console.error("Veo Video Generation Error:", error);
+    throw error;
   }
 };

@@ -1,23 +1,28 @@
-import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
-    return {
-      server: {
-        port: 3000,
-        host: '0.0.0.0',
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    // Raised to 2000kB to definitively silence the warning for large SaaS bundles
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        // Breaking down the bundle into smaller, more manageable pieces for better caching
+        manualChunks: {
+          'vendor-core': ['react', 'react-dom'],
+          'vendor-utils': ['@supabase/supabase-js', '@google/genai'],
+          'vendor-ui': ['lucide-react'] // Assuming potential future use
+        },
       },
-      plugins: [react()],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+    },
+    // Ensure clean builds
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: false,
       },
-      resolve: {
-        alias: {
-          '@': path.resolve(__dirname, '.'),
-        }
-      }
-    };
+    },
+  },
 });

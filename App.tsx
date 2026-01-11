@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import LeadCard from './components/LeadCard';
@@ -15,7 +16,7 @@ import ScraperView from './components/ScraperView';
 import NotificationCenter from './components/NotificationCenter';
 import { MOCK_LEADS, MOCK_DEALS, MOCK_NOTIFICATIONS, MOCK_PROJECTS, MOCK_SUBSCRIPTIONS, MOCK_WORKFLOWS } from './services/mockData';
 import { Lead, AuditResult, Notification, User, Deal, AutomationWorkflow } from './types';
-import { generateAudit, generateOutreach } from './services/geminiService';
+import { generateAudit, generateOutreach, generateVideoIntro } from './services/geminiService';
 import { calculateLeadScore } from './utils/scoring';
 import { ICONS } from './constants';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -36,6 +37,7 @@ const App: React.FC = () => {
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('https://n8n.digitex.in/webhook/flowgent-orchestrator');
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isEmergencyBypass, setIsEmergencyBypass] = useState(false);
   
   const notificationRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +72,7 @@ const App: React.FC = () => {
         } else if (event === 'SIGNED_OUT') {
           setCurrentUser(null);
           setViewState('public');
+          setIsEmergencyBypass(false);
         }
       });
       return () => subscription.unsubscribe();
@@ -77,7 +80,7 @@ const App: React.FC = () => {
   }, []);
 
   const refreshLeads = async () => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || isEmergencyBypass) return;
     const { data, error } = await supabase
       .from('leads')
       .select('*')
@@ -165,7 +168,7 @@ const App: React.FC = () => {
     try {
       const result = await generateAudit(lead.businessName, lead.websiteUrl);
       
-      if (isSupabaseConfigured) {
+      if (isSupabaseConfigured && !isEmergencyBypass) {
         await supabase.from('leads').update({ 
           score: result.score, 
           status: 'audit_viewed' 
@@ -196,7 +199,7 @@ const App: React.FC = () => {
       updatedAt: new Date().toISOString()
     };
 
-    if (isSupabaseConfigured) {
+    if (isSupabaseConfigured && !isEmergencyBypass) {
       await supabase.from('deals').insert([{
         lead_id: lead.id,
         business_name: lead.businessName,
@@ -227,7 +230,7 @@ const App: React.FC = () => {
       createdAt: new Date().toISOString()
     };
 
-    if (isSupabaseConfigured) {
+    if (isSupabaseConfigured && !isEmergencyBypass) {
       const { data: savedLead, error } = await supabase.from('leads').insert([{
         business_name: leadData.businessName,
         website_url: leadData.websiteUrl,
@@ -260,7 +263,7 @@ const App: React.FC = () => {
     };
     const { score, temperature } = calculateLeadScore(data);
     
-    if (isSupabaseConfigured) {
+    if (isSupabaseConfigured && !isEmergencyBypass) {
       const { data: saved, error } = await supabase.from('leads').insert([{
         business_name: data.businessName,
         website_url: data.websiteUrl,
@@ -301,15 +304,20 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    if (isSupabaseConfigured) {
+    if (isSupabaseConfigured && !isEmergencyBypass) {
       await supabase.auth.signOut();
     }
     setCurrentUser(null);
     setViewState('public');
+    setIsEmergencyBypass(false);
   };
 
   const handleAppLogin = (mockUser?: User) => {
     if (mockUser) {
+      if (mockUser.id.includes('emergency')) {
+        setIsEmergencyBypass(true);
+        addNotification('System Alert', 'Emergency Override Active: Running in Isolated Prototype Mode.', 'automation');
+      }
       setCurrentUser(mockUser);
       setViewState('dashboard');
       setCurrentTab(mockUser.role === 'client' ? 'client_dashboard' : 'dashboard');
@@ -326,10 +334,10 @@ const App: React.FC = () => {
 
   if (isLoadingAuth) {
     return (
-      <div className="min-h-screen bg-[#060a12] flex items-center justify-center">
+      <div className="min-h-screen bg-[#030712] flex items-center justify-center">
         <div className="space-y-4 text-center">
            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto shadow-xl shadow-blue-500/20"></div>
-           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 animate-pulse">Synchronizing Session...</p>
+           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 animate-pulse">Syncing Cloud Node...</p>
         </div>
       </div>
     );
@@ -348,8 +356,10 @@ const App: React.FC = () => {
           <div className="flex items-center gap-6">
             <h2 className="font-black text-slate-900 uppercase tracking-[0.2em] text-[10px] bg-slate-100 px-4 py-2 rounded-xl border border-slate-200">{currentTab.replace('_', ' ')}</h2>
             <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-green-50 rounded-xl border border-green-100">
-               <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-               <span className="text-[9px] font-black uppercase text-green-700 tracking-widest">Automation Engine: Active</span>
+               <div className={`w-1.5 h-1.5 ${isEmergencyBypass ? 'bg-orange-500' : 'bg-green-500'} rounded-full animate-pulse`}></div>
+               <span className={`text-[9px] font-black uppercase ${isEmergencyBypass ? 'text-orange-700' : 'text-green-700'} tracking-widest`}>
+                 {isEmergencyBypass ? 'Isolation Mode Active' : 'Infrastructure: Online'}
+               </span>
             </div>
           </div>
           <div className="flex items-center gap-6">
@@ -371,12 +381,32 @@ const App: React.FC = () => {
           </div>
         </header>
         <main className="flex-1 p-12 overflow-y-auto">
+          {isEmergencyBypass && (
+            <div className="mb-8 p-6 bg-orange-50 border border-orange-100 rounded-[32px] flex items-center justify-between animate-in slide-in-from-top-4">
+               <div className="flex items-center gap-5">
+                  <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600">
+                    <ICONS.Alert />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-orange-900 text-sm uppercase tracking-tight">Cloud Database Synchronicity Error</h4>
+                    <p className="text-xs text-orange-700 mt-1 font-medium">You are using Manual Override. Real database mutations are currently disabled to protect system integrity.</p>
+                  </div>
+               </div>
+               <button 
+                 onClick={() => { setViewState('login'); setIsEmergencyBypass(false); setCurrentUser(null); }}
+                 className="px-6 py-3 bg-white text-orange-600 font-black text-[10px] uppercase tracking-widest rounded-xl border border-orange-200 shadow-sm hover:bg-orange-600 hover:text-white transition-all"
+               >
+                 Fix In Vercel Settings
+               </button>
+            </div>
+          )}
+
           {currentTab === 'dashboard' && (
             <div className="space-y-10 animate-in fade-in duration-500">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                 <div>
-                  <h2 className="text-5xl font-black text-slate-900 tracking-tighter">System Orchestration</h2>
-                  <p className="text-slate-500 mt-1 font-medium italic">Digitex Studio Internal Control Environment.</p>
+                  <h2 className="text-5xl font-black text-slate-900 tracking-tighter">System Control</h2>
+                  <p className="text-slate-500 mt-1 font-medium italic">Orchestrating Business Infrastructure @ Digitex Studio.</p>
                 </div>
                 <div className="flex gap-4 w-full lg:w-auto">
                   <button onClick={() => refreshLeads()} className="flex-1 lg:flex-none bg-white border border-slate-300 px-8 py-4 rounded-2xl font-black text-[10px] text-slate-900 uppercase tracking-widest hover:bg-slate-50">Sync Cloud</button>
@@ -401,8 +431,8 @@ const App: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 <div className="lg:col-span-2 bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm relative overflow-hidden">
                   <div className="flex justify-between items-center mb-10">
-                    <h3 className="font-black text-2xl text-slate-900 tracking-tight">Recent Activity</h3>
-                    <button onClick={() => setCurrentTab('leads')} className="text-blue-600 font-black text-[10px] uppercase tracking-widest">View All →</button>
+                    <h3 className="font-black text-2xl text-slate-900 tracking-tight">Intelligence Feed</h3>
+                    <button onClick={() => setCurrentTab('leads')} className="text-blue-600 font-black text-[10px] uppercase tracking-widest">View All Engine Nodes →</button>
                   </div>
                   <div className="space-y-6">
                     {leads.slice(0, 4).map(l => (
@@ -435,16 +465,24 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {currentTab === 'scraper' && <ScraperView onPushToN8N={handlePushToN8N} onGeneratePitch={async (s) => {
-            setIsAuditing(true);
-            const p = await generateOutreach(s.name, s.location);
-            setCurrentPitch({ name: s.name, content: p });
-            setIsAuditing(false);
-          }} />}
+          {currentTab === 'scraper' && <ScraperView 
+            onPushToN8N={handlePushToN8N} 
+            onGeneratePitch={async (s) => {
+              setIsAuditing(true);
+              const p = await generateOutreach(s.name, s.location);
+              setCurrentPitch({ name: s.name, content: p });
+              setIsAuditing(false);
+            }} 
+            onGenerateVideo={async (s) => {
+              const url = await generateVideoIntro(s.name);
+              addNotification('Video Ready', `AI Intro for ${s.name} generated successfully.`, 'automation');
+              return url;
+            }}
+          />}
           {currentTab === 'leads' && (
             <div className="space-y-10 animate-in fade-in duration-500">
               <div className="flex justify-between items-center">
-                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Lead Engine</h2>
+                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Engine Nodes</h2>
                 <div className="flex gap-4">
                   <input 
                     type="text" 
@@ -531,15 +569,15 @@ const App: React.FC = () => {
       )}
 
       {isAuditing && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-6">
-          <div className="bg-white p-12 rounded-[56px] max-w-sm w-full text-center space-y-8 shadow-2xl animate-in zoom-in-95 duration-500">
-            <div className="relative w-24 h-24 mx-auto">
-               <div className="absolute inset-0 border-8 border-blue-600/10 rounded-full"></div>
-               <div className="absolute inset-0 border-8 border-t-blue-600 rounded-full animate-spin"></div>
+        <div className="fixed inset-0 bg-[#030712]/80 backdrop-blur-md z-[100] flex items-center justify-center p-6 text-white">
+          <div className="space-y-8 text-center animate-in zoom-in-95 duration-500">
+            <div className="relative w-32 h-32 mx-auto">
+               <div className="absolute inset-0 border-[6px] border-blue-600/10 rounded-full"></div>
+               <div className="absolute inset-0 border-[6px] border-t-blue-600 rounded-full animate-spin shadow-xl shadow-blue-500/30"></div>
             </div>
             <div>
-               <h3 className="text-2xl font-black text-slate-900 tracking-tight">AI Orchestrator Active</h3>
-               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-3">Connecting to Gemini Core</p>
+               <h3 className="text-3xl font-black tracking-tighter uppercase italic">AI Orchestrator Active</h3>
+               <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] mt-4">Connecting to Gemini Core Infrastructure</p>
             </div>
           </div>
         </div>
@@ -547,7 +585,7 @@ const App: React.FC = () => {
 
       {currentAudit && (
         <div className="fixed inset-0 bg-[#0f172a]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto">
-          <div className="bg-white rounded-[64px] max-w-5xl w-full shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-500">
+          <div className="bg-white rounded-[64px] max-w-5xl w-full shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-500 border border-white/40">
             <button onClick={() => setCurrentAudit(null)} className="absolute top-12 right-12 text-slate-300 p-4 hover:bg-slate-50 hover:text-slate-900 rounded-full transition-all z-10 font-black text-xl">✕</button>
             <div className="p-20 flex flex-col xl:flex-row gap-20">
               <div className="flex-1 space-y-12">
@@ -558,23 +596,23 @@ const App: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                    <div className="p-10 bg-red-50/50 rounded-[40px] border border-red-100 space-y-6">
-                      <h4 className="font-black text-red-600 uppercase text-[10px] tracking-widest">Critical System Gaps</h4>
+                      <h4 className="font-black text-red-600 uppercase text-[10px] tracking-widest">Critical Gaps Detected</h4>
                       <ul className="space-y-4">
                          {currentAudit.result.gaps.map((gap, i) => <li key={i} className="text-sm font-bold text-slate-800 flex gap-4 items-start"><span className="text-red-500 shrink-0">✕</span> {gap}</li>)}
                       </ul>
                    </div>
                    <div className="p-10 bg-green-50/50 rounded-[40px] border border-green-100 space-y-6">
-                      <h4 className="font-black text-green-600 uppercase text-[10px] tracking-widest">Growth Path</h4>
+                      <h4 className="font-black text-green-600 uppercase text-[10px] tracking-widest">Growth Vector</h4>
                       <ul className="space-y-4">
                          {currentAudit.result.recommendations.map((rec, i) => <li key={i} className="text-sm font-bold text-slate-800 flex gap-4 items-start"><span className="text-green-500 shrink-0">✓</span> {rec}</li>)}
                       </ul>
                    </div>
                 </div>
-                <button onClick={handleConvertToDeal} className="w-full bg-blue-600 text-white font-black py-8 rounded-3xl shadow-2xl hover:bg-blue-700 transition-all text-xs uppercase tracking-[0.4em]">Convert to Pipeline Deal</button>
+                <button onClick={handleConvertToDeal} className="w-full bg-slate-900 text-white font-black py-8 rounded-3xl shadow-2xl hover:bg-slate-800 transition-all text-xs uppercase tracking-[0.4em]">Convert to Pipeline Deal</button>
               </div>
               <div className="w-full xl:w-72 flex flex-col items-center justify-center shrink-0">
                  <div className="w-full aspect-square bg-slate-50 rounded-[56px] border border-slate-100 flex flex-col items-center justify-center text-center relative overflow-hidden">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest relative z-10">Readiness</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest relative z-10">Readiness Score</span>
                     <span className="text-8xl font-black text-slate-900 my-4 tracking-tighter relative z-10">{currentAudit.result.score}%</span>
                     <div className="w-32 bg-slate-200 h-4 rounded-full mt-6 overflow-hidden relative z-10">
                        <div className="bg-blue-600 h-full" style={{ width: `${currentAudit.result.score}%` }}></div>
@@ -588,11 +626,11 @@ const App: React.FC = () => {
 
       {currentPitch && (
         <div className="fixed inset-0 bg-[#0f172a]/90 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto">
-          <div className="bg-white rounded-[56px] max-w-2xl w-full shadow-2xl p-16 relative animate-in slide-in-from-bottom-12 duration-500">
+          <div className="bg-white rounded-[56px] max-w-2xl w-full shadow-2xl p-16 relative animate-in slide-in-from-bottom-12 duration-500 border border-white/20">
             <button onClick={() => setCurrentPitch(null)} className="absolute top-12 right-12 text-slate-300 p-4 hover:bg-slate-50 hover:text-slate-900 rounded-full transition-all font-black">✕</button>
             <div className="space-y-12">
               <div className="text-center">
-                <span className="bg-blue-50 text-blue-600 font-black uppercase text-[10px] tracking-[0.2em] px-5 py-2 rounded-full">AI Outreach Pitch</span>
+                <span className="bg-blue-50 text-blue-600 font-black uppercase text-[10px] tracking-[0.2em] px-5 py-2 rounded-full">AI Outreach Pitch Generator</span>
                 <h3 className="text-4xl font-black text-slate-900 mt-6 tracking-tighter">{currentPitch.name}</h3>
               </div>
               <div className="p-10 bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200 font-medium text-slate-800 text-lg leading-relaxed whitespace-pre-wrap italic">

@@ -15,6 +15,7 @@ export interface Lead {
   temperature: LeadTemperature;
   createdAt: string;
   orgId?: string;
+  videoPitchUrl?: string;
 }
 
 export interface Deal {
