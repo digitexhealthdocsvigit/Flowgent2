@@ -114,7 +114,7 @@ const App: React.FC = () => {
     };
     setLeads([newLead, ...leads]);
     setViewState('dashboard');
-    setCurrentUser(MOCK_USER);
+    setCurrentUser(MOCK_USER); // Default to admin for demo
   };
 
   const moveDeal = (dealId: string, direction: 'forward' | 'backward') => {
@@ -134,99 +134,109 @@ const App: React.FC = () => {
   if (!currentUser) return null;
 
   return (
-    <div className="flex min-h-screen selection:bg-blue-100">
+    <div className="flex min-h-screen bg-slate-50 selection:bg-blue-100 font-sans">
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} userRole={currentUser.role} />
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-12 sticky top-0 z-40">
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-12 sticky top-0 z-40">
           <div className="flex items-center gap-6">
-            <h2 className="font-black text-slate-900 uppercase tracking-widest text-[11px] bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">{currentTab.replace('_', ' ')}</h2>
+            <h2 className="font-black text-slate-900 uppercase tracking-[0.2em] text-[10px] bg-slate-100 px-4 py-2 rounded-xl border border-slate-200">{currentTab.replace('_', ' ')}</h2>
+            <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-green-50 rounded-xl border border-green-100">
+               <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+               <span className="text-[9px] font-black uppercase text-green-700 tracking-widest">Automation Engine: Active</span>
+            </div>
           </div>
           <div className="flex items-center gap-6">
-            <button onClick={() => { setViewState('public'); setCurrentUser(null); }} className="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-slate-100 text-slate-800 rounded-xl hover:bg-slate-200 transition-colors">Logout</button>
+            <button onClick={() => { setViewState('public'); setCurrentUser(null); }} className="text-[10px] font-black uppercase tracking-widest px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">Logout</button>
             <div className="relative" ref={notificationRef}>
-              <button 
-                onClick={() => setShowNotifications(!showNotifications)} 
-                className="p-3 bg-slate-100 rounded-2xl relative hover:bg-slate-200 transition-all shadow-sm text-slate-900"
-              >
+              <button onClick={() => setShowNotifications(!showNotifications)} className="p-3.5 bg-slate-100 rounded-2xl relative hover:bg-slate-200 transition-all shadow-sm text-slate-900">
                 <ICONS.Bell />
-                {notifications.filter(n => !n.isRead).length > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-blue-600 rounded-full border border-white"></span>}
+                {notifications.filter(n => !n.isRead).length > 0 && <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-blue-600 rounded-full border-2 border-white"></span>}
               </button>
               {showNotifications && <NotificationCenter notifications={notifications} onMarkAsRead={(id) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))} onClose={() => setShowNotifications(false)} />}
             </div>
-            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-slate-200">{currentUser.name.charAt(0)}</div>
+            <div className="flex items-center gap-3">
+               <div className="text-right hidden sm:block">
+                  <p className="text-xs font-black text-slate-900 leading-none">{currentUser.name}</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{currentUser.role}</p>
+               </div>
+               <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-xl shadow-blue-500/20">{currentUser.name.charAt(0)}</div>
+            </div>
           </div>
         </header>
-        <main className="flex-1 p-12 bg-slate-50 overflow-y-auto">
-          {currentTab === 'dashboard' && <div className="space-y-8 animate-in fade-in">
-            <div className="flex justify-between items-center">
+        <main className="flex-1 p-12 overflow-y-auto">
+          {currentTab === 'dashboard' && <div className="space-y-10 animate-in fade-in duration-500">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
               <div>
-                <h2 className="text-4xl font-black text-slate-900 tracking-tighter">System Overview</h2>
-                <p className="text-slate-700 mt-1 font-medium">Flowgent™ Core Monitoring Dashboard.</p>
+                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">System Orchestration</h2>
+                <p className="text-slate-500 mt-1 font-medium italic">Digitex Studio Internal Control Environment.</p>
               </div>
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => setCurrentTab('reports')} 
-                  className="bg-white border border-slate-300 px-6 py-3 rounded-2xl font-black text-[10px] text-slate-900 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
-                >
+              <div className="flex gap-4 w-full lg:w-auto">
+                <button onClick={() => setCurrentTab('reports')} className="flex-1 lg:flex-none bg-white border border-slate-300 px-8 py-4 rounded-2xl font-black text-[10px] text-slate-900 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm">
                   Generate Intelligence Report
                 </button>
-                <button onClick={() => setCurrentTab('automations')} className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20">
+                <button onClick={() => setCurrentTab('automations')} className="flex-1 lg:flex-none bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30">
                   + Launch Workflow
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-6">
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-8">
               {[
-                { label: 'Scraped Leads', value: leads.length },
+                { label: 'Infrastructure Nodes', value: leads.length },
                 { label: 'Hot Targets', value: leads.filter(l => l.temperature === 'hot').length },
                 { label: 'Active Deals', value: deals.length },
-                { label: 'Revenue Pipeline', value: `₹${(deals.reduce((acc, b) => acc + b.value, 0) / 100000).toFixed(1)}L` }
+                { label: 'Projected Value', value: `₹${(deals.reduce((acc, b) => acc + b.value, 0) / 100000).toFixed(1)}L` }
               ].map((stat, i) => (
-                <div key={i} className="bg-white p-7 rounded-[32px] border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{stat.label}</p>
-                  <h3 className="text-3xl font-black text-slate-900 mt-2 tracking-tighter">{stat.value}</h3>
+                <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm hover:shadow-xl transition-all group">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{stat.label}</p>
+                  <h3 className="text-4xl font-black text-slate-900 mt-2 tracking-tighter group-hover:text-blue-600 transition-colors">{stat.value}</h3>
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-8">
-               <div className="col-span-2 bg-white p-10 rounded-[40px] border border-slate-200 shadow-sm">
-                  <div className="flex justify-between items-center mb-8">
-                    <h3 className="font-bold text-xl text-slate-800 tracking-tight">Recent Discovery Activity</h3>
-                    <button onClick={() => setCurrentTab('leads')} className="text-blue-700 font-black text-[10px] uppercase tracking-widest hover:text-blue-800 transition-colors">View All Engine</button>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+               <div className="lg:col-span-2 bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm relative overflow-hidden">
+                  <div className="flex justify-between items-center mb-10">
+                    <h3 className="font-black text-2xl text-slate-900 tracking-tight">Recent Discovery Engine Activity</h3>
+                    <button onClick={() => setCurrentTab('leads')} className="text-blue-600 font-black text-[10px] uppercase tracking-widest hover:text-blue-800 transition-all">View All Nodes →</button>
                   </div>
-                  <div className="space-y-4">
-                    {leads.slice(0, 3).map(l => (
-                      <div key={l.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
-                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-white rounded-xl border border-slate-200 flex items-center justify-center font-bold text-blue-600 shadow-sm">{l.businessName.charAt(0)}</div>
+                  <div className="space-y-6">
+                    {leads.slice(0, 4).map(l => (
+                      <div key={l.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:bg-white hover:border-blue-100 transition-all">
+                         <div className="flex items-center gap-6">
+                            <div className="w-14 h-14 bg-white rounded-2xl border border-slate-200 flex items-center justify-center font-black text-blue-600 shadow-sm group-hover:scale-110 transition-transform">{l.businessName.charAt(0)}</div>
                             <div>
-                               <p className="font-bold text-slate-900 text-sm">{l.businessName}</p>
-                               <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{l.category}</p>
+                               <p className="font-black text-slate-900 text-lg leading-tight tracking-tight">{l.businessName}</p>
+                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1.5 italic">{l.category}</p>
                             </div>
                          </div>
                          <div className="text-right">
-                            <p className="text-sm font-black text-slate-900">{l.score}/100</p>
-                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Health</p>
+                            <p className="text-xl font-black text-slate-900">{l.score}%</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">System Score</p>
                          </div>
                       </div>
                     ))}
                   </div>
                </div>
-               <div className="bg-slate-900 p-10 rounded-[40px] text-white shadow-2xl flex flex-col justify-between">
-                  <h3 className="text-2xl font-black tracking-tighter leading-tight">Automation <br/>Efficiency Engine</h3>
-                  <p className="text-slate-400 text-sm font-medium mt-4">Infrastructure health checking active for {leads.length} entities. High-priority workflows running.</p>
-                  <button onClick={() => setCurrentTab('automations')} className="w-full bg-blue-600 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest mt-10 hover:bg-blue-700 transition-all shadow-xl shadow-blue-900/40">Enter n8n Orchestrator</button>
+               
+               <div className="bg-[#0f172a] p-12 rounded-[56px] text-white shadow-2xl flex flex-col justify-between relative overflow-hidden border border-white/5">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600 opacity-10 rounded-full -mr-24 -mt-24"></div>
+                  <div className="relative z-10">
+                    <h3 className="text-3xl font-black tracking-tighter leading-tight">Infrastructure <br/>Efficiency Engine</h3>
+                    <p className="text-slate-400 text-sm font-medium mt-6 leading-relaxed">Infrastructure health checking active for {leads.length} entities. 14 n8n nodes synchronized. High-priority workflows running in parallel.</p>
+                  </div>
+                  <button onClick={() => setCurrentTab('automations')} className="w-full bg-blue-600 py-6 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] mt-12 hover:bg-blue-700 transition-all shadow-2xl shadow-blue-900/40 relative z-10">Enter Flowgent™ Orchestrator</button>
                </div>
             </div>
           </div>}
           {currentTab === 'scraper' && <ScraperView onPushToN8N={handlePushToN8N} onGeneratePitch={handleGeneratePitch} />}
           {currentTab === 'leads' && (
-            <div className="space-y-8 animate-in fade-in">
+            <div className="space-y-10 animate-in fade-in duration-500">
               <div>
-                <h2 className="text-3xl font-extrabold text-slate-900 tracking-tighter">Lead Engine</h2>
-                <p className="text-slate-700 mt-1 font-medium italic">Scoring & AI-auditing the next generation of clients.</p>
+                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Lead Discovery Node</h2>
+                <p className="text-slate-500 mt-1 font-medium italic">Scoring & AI-auditing for Digitex Studio growth.</p>
               </div>
-              <div className="grid grid-cols-3 gap-6">{leads.map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}</div>
             </div>
           )}
           {currentTab === 'funnel' && <FunnelView leads={leads} />}
@@ -238,47 +248,53 @@ const App: React.FC = () => {
           {currentTab === 'reports' && <ReportsView />}
           {currentTab === 'client_dashboard' && <ClientDashboard projects={MOCK_PROJECTS} leadStats={{ score: 78, rank: '#12' }} activityLogs={[]} />}
           {currentTab === 'settings' && (
-            <div className="space-y-12 animate-in fade-in">
+            <div className="space-y-12 animate-in fade-in duration-500">
                <div>
-                  <h2 className="text-3xl font-extrabold text-slate-900 tracking-tighter">Platform Control</h2>
-                  <p className="text-slate-700 font-medium mt-1">Manage infrastructure, security, and source code integrations.</p>
+                  <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Platform Control</h2>
+                  <p className="text-slate-500 mt-1 font-medium italic">Infrastructure, security, and repository synchronization.</p>
                </div>
                
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="bg-white p-10 rounded-[40px] border border-slate-200 shadow-sm space-y-8">
-                     <h3 className="font-bold text-xl text-slate-900">Entity Details</h3>
-                     <div className="space-y-4">
-                        <div>
-                           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Legal Organization</p>
-                           <p className="font-black text-slate-900 text-lg">Digitex Studio</p>
+               <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+                  <div className="bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm space-y-10">
+                     <h3 className="font-black text-2xl text-slate-900 tracking-tight">System Entity Details</h3>
+                     <div className="space-y-6">
+                        <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Legal Organization</p>
+                           <p className="font-black text-slate-900 text-xl tracking-tight">Digitex Studio</p>
                         </div>
-                        <div>
-                           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Brand Authority</p>
-                           <p className="font-black text-blue-600 text-lg uppercase tracking-widest">Flowgent™</p>
+                        <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
+                           <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Active Brand Authority</p>
+                           <p className="font-black text-blue-600 text-xl uppercase tracking-[0.1em]">Flowgent™</p>
                         </div>
                      </div>
-                     <div className="pt-6 border-t border-slate-100 flex gap-4">
-                        <button className="px-6 py-3 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-xl">Team Management</button>
-                        <button className="px-6 py-3 bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-xl border border-slate-200">Security Audit</button>
+                     <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row gap-4">
+                        <button className="flex-1 px-8 py-4 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-xl shadow-slate-200">Team Management</button>
+                        <button className="flex-1 px-8 py-4 bg-white text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-2xl border border-slate-200 shadow-sm">Security Audit</button>
                      </div>
                   </div>
 
-                  <div className="bg-slate-50 border-2 border-dashed border-slate-200 p-10 rounded-[40px] space-y-8">
+                  <div className="bg-[#0f172a] border border-white/5 p-12 rounded-[56px] space-y-10 shadow-2xl relative overflow-hidden">
+                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                           <div className="p-3 bg-white rounded-2xl shadow-sm">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.28 1.15-.28 2.35 0 3.5-.73 1.02-1.08 2.25-1 3.5 0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+                        <div className="flex items-center gap-4">
+                           <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.28 1.15-.28 2.35 0 3.5-.73 1.02-1.08 2.25-1 3.5 0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
                            </div>
-                           <h3 className="font-bold text-xl text-slate-900">GitHub Source Control</h3>
+                           <div>
+                              <h3 className="font-black text-2xl text-white tracking-tight">GitHub Integration</h3>
+                              <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Status: Synchronized</p>
+                           </div>
                         </div>
-                        <span className="bg-green-100 text-green-700 px-3 py-1 text-[10px] font-black uppercase rounded-lg border border-green-200">Connected</span>
+                        <span className="bg-green-600/20 text-green-400 px-4 py-1.5 text-[9px] font-black uppercase rounded-lg border border-green-500/30">Active CI/CD</span>
                      </div>
-                     <div>
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Active Repository</p>
-                        <p className="font-black text-slate-900 mt-1">digitexhealthdocsvigit/Flowgent</p>
-                        <p className="text-xs text-slate-600 mt-2 font-medium italic">Continuous Deployment active for branch: <span className="text-blue-600 font-bold">main</span></p>
+                     <div className="space-y-4">
+                        <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
+                           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Target Repository</p>
+                           <p className="font-bold text-white text-lg font-mono">digitexhealthdocsvigit/Flowgent</p>
+                        </div>
+                        <p className="text-xs text-slate-400 font-medium italic px-2">Continuous Deployment active for branch: <span className="text-blue-400 font-bold">main</span></p>
                      </div>
-                     <button className="w-full bg-white border border-slate-300 text-slate-900 font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all shadow-sm">Manage Repo Settings</button>
+                     <button className="w-full bg-white text-slate-900 font-black py-5 rounded-2xl text-[10px] uppercase tracking-[0.3em] hover:bg-slate-100 transition-all shadow-xl shadow-white/5">Manage Repository Link</button>
                   </div>
                </div>
             </div>
@@ -287,52 +303,66 @@ const App: React.FC = () => {
       </div>
 
       {isAuditing && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="bg-white p-10 rounded-[40px] max-w-sm w-full text-center space-y-6 shadow-2xl animate-in zoom-in-95">
-            <div className="w-16 h-16 border-4 border-blue-600/10 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-6">
+          <div className="bg-white p-12 rounded-[56px] max-w-sm w-full text-center space-y-8 shadow-2xl animate-in zoom-in-95 duration-500">
+            <div className="relative w-24 h-24 mx-auto">
+               <div className="absolute inset-0 border-8 border-blue-600/10 rounded-full"></div>
+               <div className="absolute inset-0 border-8 border-t-blue-600 rounded-full animate-spin"></div>
+            </div>
             <div>
-               <h3 className="text-xl font-black text-slate-900">Flowgent AI Active</h3>
-               <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest mt-2">Connecting to Gemini Core-3</p>
+               <h3 className="text-2xl font-black text-slate-900 tracking-tight">Flowgent AI Active</h3>
+               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-3">Connecting to Gemini Intelligence Core-3</p>
+            </div>
+            <div className="space-y-2">
+               <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-blue-600 h-full animate-progress-indefinite"></div>
+               </div>
+               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Compiling Market Analysis...</p>
             </div>
           </div>
         </div>
       )}
 
       {currentAudit && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-10 overflow-y-auto">
-          <div className="bg-white rounded-[48px] max-w-4xl w-full shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-300">
-            <button onClick={() => setCurrentAudit(null)} className="absolute top-10 right-10 text-slate-400 p-3 hover:bg-slate-50 rounded-full transition-all">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        <div className="fixed inset-0 bg-[#0f172a]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto">
+          <div className="bg-white rounded-[64px] max-w-5xl w-full shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-500 border border-white/10">
+            <button onClick={() => setCurrentAudit(null)} className="absolute top-12 right-12 text-slate-300 p-4 hover:bg-slate-50 hover:text-slate-900 rounded-full transition-all z-10">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
-            <div className="p-16 flex gap-16">
-              <div className="flex-1 space-y-10">
+            <div className="p-20 flex flex-col xl:flex-row gap-20">
+              <div className="flex-1 space-y-12">
                 <div>
-                   <span className="text-blue-600 font-black uppercase tracking-widest text-[10px]">AI Business Intelligence</span>
-                   <h2 className="text-5xl font-black text-slate-900 mt-4 tracking-tighter leading-tight">{currentAudit.lead.businessName} Audit</h2>
-                   <p className="text-slate-800 font-medium text-lg mt-6 leading-relaxed">{currentAudit.result.summary}</p>
+                   <span className="bg-blue-50 text-blue-600 font-black uppercase tracking-[0.2em] text-[10px] px-5 py-2 rounded-full border border-blue-100">Intelligent Digital Audit Node</span>
+                   <h2 className="text-6xl font-black text-slate-900 mt-8 tracking-tighter leading-[0.9]">{currentAudit.lead.businessName} Audit</h2>
+                   <p className="text-slate-700 font-medium text-xl mt-8 leading-relaxed italic border-l-4 border-blue-600 pl-8">"{currentAudit.result.summary}"</p>
                 </div>
-                <div className="grid grid-cols-2 gap-6">
-                   <div className="p-6 bg-red-50/50 rounded-3xl border border-red-100">
-                      <h4 className="font-black text-red-600 uppercase text-[10px] tracking-widest mb-4">Critical Gaps</h4>
-                      <ul className="space-y-3">
-                         {currentAudit.result.gaps.map((gap, i) => <li key={i} className="text-xs font-bold text-slate-900 flex gap-2"><span className="text-red-600">•</span> {gap}</li>)}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                   <div className="p-10 bg-red-50/50 rounded-[40px] border border-red-100 space-y-6">
+                      <h4 className="font-black text-red-600 uppercase text-[10px] tracking-widest flex items-center gap-3">
+                        <span className="w-2 h-2 bg-red-600 rounded-full animate-ping"></span> Critical System Gaps
+                      </h4>
+                      <ul className="space-y-4">
+                         {currentAudit.result.gaps.map((gap, i) => <li key={i} className="text-sm font-bold text-slate-800 flex gap-4 items-start leading-tight"><span className="text-red-500 shrink-0">✕</span> {gap}</li>)}
                       </ul>
                    </div>
-                   <div className="p-6 bg-green-50/50 rounded-3xl border border-green-100">
-                      <h4 className="font-black text-green-600 uppercase text-[10px] tracking-widest mb-4">Growth Strategy</h4>
-                      <ul className="space-y-3">
-                         {currentAudit.result.recommendations.map((rec, i) => <li key={i} className="text-xs font-bold text-slate-900 flex gap-2"><span className="text-green-600">✓</span> {rec}</li>)}
+                   <div className="p-10 bg-green-50/50 rounded-[40px] border border-green-100 space-y-6">
+                      <h4 className="font-black text-green-600 uppercase text-[10px] tracking-widest flex items-center gap-3">
+                        <span className="w-2 h-2 bg-green-600 rounded-full"></span> Growth Optimization Path
+                      </h4>
+                      <ul className="space-y-4">
+                         {currentAudit.result.recommendations.map((rec, i) => <li key={i} className="text-sm font-bold text-slate-800 flex gap-4 items-start leading-tight"><span className="text-green-500 shrink-0">✓</span> {rec}</li>)}
                       </ul>
                    </div>
                 </div>
-                <button onClick={handleConvertToDeal} className="w-full bg-blue-600 text-white font-black py-6 rounded-2xl shadow-xl shadow-blue-600/30 hover:bg-blue-700 transition-all text-xs uppercase tracking-[0.2em]">Convert Lead to CRM Deal</button>
+                <button onClick={handleConvertToDeal} className="w-full bg-blue-600 text-white font-black py-8 rounded-3xl shadow-2xl shadow-blue-500/30 hover:bg-blue-700 transition-all text-xs uppercase tracking-[0.4em]">Convert to Pipeline Deal</button>
               </div>
-              <div className="w-64 flex flex-col items-center justify-center shrink-0">
-                 <div className="w-full aspect-square bg-slate-50 rounded-[48px] border border-slate-100 flex flex-col items-center justify-center text-center">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Market Readiness</span>
-                    <span className="text-7xl font-black text-slate-900 my-2">{currentAudit.result.score}%</span>
-                    <div className="w-32 bg-slate-200 h-2 rounded-full mt-4 overflow-hidden">
-                       <div className="bg-blue-600 h-full" style={{ width: `${currentAudit.result.score}%` }}></div>
+              <div className="w-full xl:w-72 flex flex-col items-center justify-center shrink-0">
+                 <div className="w-full aspect-square bg-slate-50 rounded-[56px] border border-slate-100 flex flex-col items-center justify-center text-center shadow-inner relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest relative z-10">System Readiness Index</span>
+                    <span className="text-8xl font-black text-slate-900 my-4 tracking-tighter relative z-10">{currentAudit.result.score}%</span>
+                    <div className="w-32 bg-slate-200 h-4 rounded-full mt-6 overflow-hidden relative z-10 border border-white">
+                       <div className="bg-blue-600 h-full shadow-lg" style={{ width: `${currentAudit.result.score}%` }}></div>
                     </div>
                  </div>
               </div>
@@ -342,36 +372,36 @@ const App: React.FC = () => {
       )}
 
       {currentPitch && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-10 overflow-y-auto">
-          <div className="bg-white rounded-[40px] max-w-2xl w-full shadow-2xl p-12 relative animate-in slide-in-from-bottom-8 duration-300">
-            <button onClick={() => setCurrentPitch(null)} className="absolute top-10 right-10 text-slate-400 p-3 hover:bg-slate-50 rounded-full transition-all font-black">✕</button>
-            <div className="space-y-8">
-              <div>
-                <span className="text-blue-600 font-black uppercase text-[10px] tracking-widest">AI Generated Outreach Pitch</span>
-                <h3 className="text-3xl font-black text-slate-900 mt-2 tracking-tighter">{currentPitch.name}</h3>
+        <div className="fixed inset-0 bg-[#0f172a]/90 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto">
+          <div className="bg-white rounded-[56px] max-w-2xl w-full shadow-2xl p-16 relative animate-in slide-in-from-bottom-12 duration-500 border border-white/10">
+            <button onClick={() => setCurrentPitch(null)} className="absolute top-12 right-12 text-slate-300 p-4 hover:bg-slate-50 hover:text-slate-900 rounded-full transition-all font-black">✕</button>
+            <div className="space-y-12">
+              <div className="text-center">
+                <span className="bg-blue-50 text-blue-600 font-black uppercase text-[10px] tracking-[0.2em] px-5 py-2 rounded-full border border-blue-100">AI High-Conversion Pitch</span>
+                <h3 className="text-4xl font-black text-slate-900 mt-6 tracking-tighter">{currentPitch.name}</h3>
               </div>
-              <div className="p-8 bg-slate-50 rounded-3xl border border-slate-200 font-medium text-slate-900 leading-relaxed whitespace-pre-wrap border-dashed">
+              <div className="p-10 bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200 font-medium text-slate-800 text-lg leading-relaxed whitespace-pre-wrap italic shadow-inner">
                 {currentPitch.content}
               </div>
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-6">
                 <button 
                   onClick={() => {
                     const msg = encodeURIComponent(currentPitch.content);
                     window.open(`https://wa.me/?text=${msg}`, '_blank');
                   }}
-                  className="flex-1 bg-green-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-green-600/20 hover:bg-green-700 transition-all flex items-center justify-center gap-3 text-xs uppercase tracking-widest"
+                  className="flex-1 bg-green-600 text-white font-black py-6 rounded-2xl shadow-2xl shadow-green-600/30 hover:bg-green-700 transition-all flex items-center justify-center gap-4 text-xs uppercase tracking-[0.2em]"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                   Send via WhatsApp
                 </button>
                 <button 
                    onClick={() => {
                      navigator.clipboard.writeText(currentPitch.content);
-                     setNotifications([{ id: Date.now().toString(), title: 'Copied!', message: 'Pitch copied to clipboard.', type: 'automation', timestamp: 'Just now', isRead: false }, ...notifications]);
+                     setNotifications([{ id: Date.now().toString(), title: 'Orchestrator Sync', message: 'Pitch copied to clipboard via System ID #9021.', type: 'automation', timestamp: 'Just now', isRead: false }, ...notifications]);
                    }}
-                   className="flex-1 bg-slate-900 text-white font-black py-5 rounded-2xl hover:bg-slate-800 transition-all text-xs uppercase tracking-widest"
+                   className="flex-1 bg-slate-900 text-white font-black py-6 rounded-2xl hover:bg-slate-800 transition-all text-xs uppercase tracking-[0.2em] shadow-2xl"
                 >
-                  Copy to Clipboard
+                  Copy to System
                 </button>
               </div>
             </div>
