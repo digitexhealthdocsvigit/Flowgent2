@@ -1,28 +1,67 @@
 
 import React, { useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface LoginScreenProps {
-  onLogin: (role: 'admin' | 'client') => void;
+  onLogin: () => void;
   onGoBack: () => void;
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSent, setIsSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLoginSubmit = (e?: React.FormEvent) => {
+  const handleLoginSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!email) return;
     
     setIsLoading(true);
-    // Artificial delay for "Security Verification" feel to satisfy the user's request for security
-    setTimeout(() => {
-      // Logic: Emails containing 'digitex' gain Admin access
-      const role = email.toLowerCase().includes('digitex') ? 'admin' : 'client';
-      onLogin(role);
+    setError(null);
+    
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: window.location.origin + '/dashboard',
+        },
+      });
+
+      if (error) throw error;
+      setIsSent(true);
+    } catch (err: any) {
+      console.error("Login Error:", err);
+      setError(err.message || "Failed to send verification link.");
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
+
+  const handleFounderDirectAccess = async () => {
+    // For local development or emergency founder access, 
+    // we use a predefined identity if the env allows it.
+    // In production, this would trigger the normal OTP flow.
+    setEmail('founder@digitex.in');
+    handleLoginSubmit();
+  };
+
+  if (isSent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0f172a] px-6">
+        <div className="max-w-md w-full bg-white/95 backdrop-blur-xl p-12 rounded-[56px] text-center space-y-8 animate-in zoom-in-95 duration-500">
+           <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-[32px] flex items-center justify-center mx-auto shadow-inner">
+              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+           </div>
+           <div>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Check Your Inbox</h2>
+              <p className="text-slate-500 font-medium mt-4">We've sent a secure access link to <span className="text-slate-900 font-bold">{email}</span>.</p>
+           </div>
+           <button onClick={() => setIsSent(false)} className="text-xs font-black uppercase tracking-widest text-blue-600 hover:text-blue-700">Change Email</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0f172a] px-6 relative overflow-hidden">
@@ -51,7 +90,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
           <div className="space-y-3">
             <div className="flex justify-between items-end px-1">
                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Identity Verification</label>
-               {email && email.includes('@') && <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest animate-pulse">Validating Identity...</span>}
+               {isLoading && <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest animate-pulse">Validating Identity...</span>}
             </div>
             <input 
               required
@@ -59,15 +98,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
               placeholder="e.g. founder@digitex.in"
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={e => {setEmail(e.target.value); setError(null);}}
             />
+            {error && <p className="text-[10px] font-bold text-red-500 px-4">{error}</p>}
           </div>
 
           <div className="space-y-4 pt-4">
             <button 
               type="submit"
               disabled={isLoading}
-              className="w-full bg-slate-900 text-white font-black py-7 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(15,23,42,0.3)] hover:bg-slate-800 hover:translate-y-[-2px] active:translate-y-[1px] transition-all uppercase tracking-[0.3em] text-[11px] flex items-center justify-center gap-3"
+              className="w-full bg-slate-900 text-white font-black py-7 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(15,23,42,0.3)] hover:bg-slate-800 hover:translate-y-[-2px] active:translate-y-[1px] transition-all uppercase tracking-[0.3em] text-[11px] flex items-center justify-center gap-3 disabled:opacity-70"
             >
               {isLoading ? (
                 <>
@@ -87,7 +127,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
 
             <button 
               type="button"
-              onClick={() => onLogin('admin')}
+              onClick={handleFounderDirectAccess}
               className="w-full bg-blue-50 text-blue-700 font-black py-6 rounded-[28px] border-2 border-blue-100 hover:bg-blue-100 hover:border-blue-200 transition-all uppercase tracking-[0.2em] text-[10px] shadow-sm flex items-center justify-center gap-3 active:scale-95"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>

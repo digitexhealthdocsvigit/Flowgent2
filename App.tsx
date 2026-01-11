@@ -19,6 +19,7 @@ import { Lead, AuditResult, Notification, User, Deal, AutomationWorkflow } from 
 import { generateAudit, generateOutreach } from './services/geminiService';
 import { calculateLeadScore } from './utils/scoring';
 import { ICONS } from './constants';
+import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
   const [viewState, setViewState] = useState<'public' | 'login' | 'dashboard'>('public');
@@ -35,14 +36,61 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('https://n8n.digitex.in/webhook/flowgent-orchestrator');
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   
   const notificationRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (currentUser) {
-      setCurrentTab(currentUser.role === 'client' ? 'client_dashboard' : 'dashboard');
+    // Initial Auth Check
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await fetchProfile(session.user.id, session.user.email || '');
+      } else {
+        setIsLoadingAuth(false);
+      }
+    };
+
+    checkAuth();
+
+    // Listen for Auth Changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        await fetchProfile(session.user.id, session.user.email || '');
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        setViewState('public');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchProfile = async (userId: string, email: string) => {
+    try {
+      // In a real app, you'd fetch from your 'users' table
+      // const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
+      
+      // For this migration phase, we simulate the profile fetch based on our security audit rules
+      // (Email containing 'digitex' is admin)
+      const role = email.toLowerCase().includes('digitex') ? 'admin' : 'client';
+      const user: User = {
+        id: userId,
+        name: email.split('@')[0],
+        email: email,
+        role: role as any,
+        orgId: 'org-1'
+      };
+      
+      setCurrentUser(user);
+      setViewState('dashboard');
+      setCurrentTab(role === 'client' ? 'client_dashboard' : 'dashboard');
+    } catch (err) {
+      console.error("Profile fetch error:", err);
+    } finally {
+      setIsLoadingAuth(false);
     }
-  }, [currentUser]);
+  };
 
   const addNotification = (title: string, message: string, type: Notification['type'] = 'automation') => {
     const newNotif: Notification = {
@@ -118,8 +166,8 @@ const App: React.FC = () => {
       createdAt: new Date().toISOString()
     };
     setLeads([newLead, ...leads]);
-    setCurrentUser(MOCK_CLIENT);
-    setViewState('dashboard');
+    // Redirect to login to verify identity after lead submission if needed
+    setViewState('login');
   };
 
   const handleManualLeadAdd = (e: React.FormEvent) => {
@@ -163,9 +211,10 @@ const App: React.FC = () => {
     addNotification('Workflow State Change', `Automation Node status updated.`);
   };
 
-  const onLogin = (role: 'admin' | 'client') => {
-    setCurrentUser(role === 'admin' ? MOCK_USER : MOCK_CLIENT);
-    setViewState('dashboard');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    setViewState('public');
   };
 
   const handleGenericAction = (name: string) => {
@@ -180,8 +229,19 @@ const App: React.FC = () => {
 
   const totalMRR = MOCK_SUBSCRIPTIONS.filter(s => s.status === 'active').reduce((acc, s) => acc + s.amount, 0);
 
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+        <div className="space-y-4 text-center">
+           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Securing Session...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (viewState === 'public') return <LandingPage onLeadSubmit={handleLeadSubmit} onGoToLogin={() => setViewState('login')} />;
-  if (viewState === 'login') return <LoginScreen onLogin={onLogin} onGoBack={() => setViewState('public')} />;
+  if (viewState === 'login') return <LoginScreen onLogin={() => setViewState('dashboard')} onGoBack={() => setViewState('public')} />;
   
   if (!currentUser) return null;
 
@@ -198,7 +258,7 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-6">
-            <button onClick={() => { setViewState('public'); setCurrentUser(null); }} className="text-[10px] font-black uppercase tracking-widest px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-red-600 transition-all shadow-lg shadow-slate-200 active:scale-95">Logout</button>
+            <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-red-600 transition-all shadow-lg shadow-slate-200 active:scale-95">Logout</button>
             <div className="relative" ref={notificationRef}>
               <button onClick={() => setShowNotifications(!showNotifications)} className="p-3.5 bg-slate-100 rounded-2xl relative hover:bg-slate-200 transition-all shadow-sm text-slate-900">
                 <ICONS.Bell />
