@@ -14,6 +14,20 @@ const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStat
     alert("Webhook URL copied to clipboard!");
   };
 
+  const testPing = async () => {
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'ping', sender: 'Flowgent-UI', data: { status: 'testing' } })
+      });
+      if (res.ok) alert("n8n node received the signal! Connection verified.");
+      else alert("n8n node reached but returned an error. Check workflow activation.");
+    } catch (e) {
+      alert("Connectivity failed. Ensure n8n is running and the URL is accessible.");
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
@@ -26,27 +40,56 @@ const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStat
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">n8n Node: Connected</span>
           </div>
-          <button className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95">+ New Workflow</button>
+          <button onClick={testPing} className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all active:scale-95">Test Ping</button>
         </div>
       </div>
 
-      {/* n8n Helper Card */}
-      <div className="bg-blue-600 rounded-[32px] p-8 text-white shadow-xl relative overflow-hidden group">
-        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
-          <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        </div>
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="space-y-2">
-            <h3 className="text-xl font-black tracking-tight">n8n Orchestration Endpoint</h3>
-            <p className="text-blue-100 text-xs font-medium opacity-80">Use this endpoint for your POST triggers in n8n.</p>
-            <code className="block mt-4 bg-blue-700/50 p-3 rounded-xl text-[10px] font-mono border border-blue-400/30">{webhookUrl}</code>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* n8n Helper Card */}
+        <div className="lg:col-span-2 bg-blue-600 rounded-[32px] p-10 text-white shadow-xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           </div>
-          <button 
-            onClick={copyWebhook}
-            className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-50 transition-all shadow-lg shrink-0"
-          >
-            Copy Webhook URL
-          </button>
+          <div className="relative z-10 space-y-8">
+            <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black tracking-tight">n8n Orchestration Endpoint</h3>
+                <p className="text-blue-100 text-xs font-medium opacity-80">Use this endpoint for your POST triggers in n8n.</p>
+                <code className="block mt-4 bg-blue-700/50 p-4 rounded-xl text-[11px] font-mono border border-blue-400/30 break-all">{webhookUrl}</code>
+              </div>
+              <button 
+                onClick={copyWebhook}
+                className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-50 transition-all shadow-lg shrink-0"
+              >
+                Copy Webhook URL
+              </button>
+            </div>
+
+            <div className="bg-blue-800/40 p-8 rounded-3xl border border-blue-400/20">
+              <h4 className="text-xs font-black uppercase tracking-widest mb-4">Lead Signal Payload Structure</h4>
+              <pre className="text-[10px] font-mono text-blue-100 opacity-90 leading-relaxed overflow-x-auto">
+{`{
+  "event": "lead_discovered",
+  "source": "Flowgent-Discovery-UI",
+  "data": {
+    "name": "Shiva Garments",
+    "location": "Surat, Gujarat",
+    "phone": "+91 98765 43210",
+    "rating": 4.2
+  },
+  "timestamp": "2026-01-12T..."
+}`}
+              </pre>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-[#0f172a] p-10 rounded-[32px] text-white shadow-2xl relative overflow-hidden flex flex-col justify-between border border-white/5">
+           <div className="relative z-10">
+              <h3 className="text-xl font-bold tracking-tight">Railway x n8n Deployment</h3>
+              <p className="text-slate-400 text-xs mt-4 leading-relaxed font-medium">1. Deploy n8n on Railway via GitHub.<br/>2. Add your Railway domain to Flowgent Settings.<br/>3. Create a "Webhook" node in n8n.<br/>4. Ensure 'Respond to Webhook' is configured for instant sync.</p>
+           </div>
+           <button onClick={() => window.open('https://railway.app/new/template?template=n8n', '_blank')} className="w-full bg-blue-600 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest mt-8">Launch n8n on Railway</button>
         </div>
       </div>
 

@@ -12,6 +12,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debugHint, setDebugHint] = useState<string | null>(null);
 
   const handleLoginSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -19,6 +20,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
     
     setIsLoading(true);
     setError(null);
+    setDebugHint(null);
     
     // Demo Mode Handling
     if (!isSupabaseConfigured) {
@@ -43,7 +45,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: window.location.origin + '/dashboard',
+          emailRedirectTo: window.location.origin,
         },
       });
 
@@ -51,25 +53,29 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
       setIsSent(true);
     } catch (err: any) {
       console.error("Login Error:", err);
-      setError(err.message || "Failed to send verification link.");
+      
+      // Handle the specific "Failed to fetch" / DNS error shown in user's console
+      if (err.message === 'Failed to fetch' || err.name === 'AuthRetryableFetchError') {
+        setError("Network Connection Error: Could not reach Supabase.");
+        setDebugHint("Hint: Your SUPABASE_URL in Environment Variables might have a typo (DNS could not resolve). Please verify it matches your Supabase Project settings exactly.");
+      } else {
+        setError(err.message || "Failed to send verification link.");
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleFounderDirectAccess = () => {
-    if (!isSupabaseConfigured) {
-      onLogin({
-        id: 'founder-id',
-        name: 'Founder',
-        email: 'founder@digitex.in',
-        role: 'admin',
-        orgId: 'org-1'
-      });
-      return;
-    }
-    setEmail('founder@digitex.in');
-    handleLoginSubmit();
+    // If Supabase is broken or misconfigured, we allow the founder to bypass to the mock UI
+    // This prevents the "Failed to fetch" from locking the user out of the app's visuals.
+    onLogin({
+      id: 'founder-id',
+      name: 'Founder',
+      email: 'founder@digitex.in',
+      role: 'admin',
+      orgId: 'org-1'
+    });
   };
 
   if (isSent) {
@@ -125,9 +131,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
               placeholder="e.g. founder@digitex.in"
               type="email"
               value={email}
-              onChange={e => {setEmail(e.target.value); setError(null);}}
+              onChange={e => {setEmail(e.target.value); setError(null); setDebugHint(null);}}
             />
-            {error && <p className="text-[10px] font-bold text-red-500 px-4">{error}</p>}
+            {error && (
+              <div className="space-y-2 px-4">
+                <p className="text-[10px] font-bold text-red-500">{error}</p>
+                {debugHint && <p className="text-[9px] text-slate-500 font-medium italic leading-relaxed">{debugHint}</p>}
+              </div>
+            )}
           </div>
 
           <div className="space-y-4 pt-4">

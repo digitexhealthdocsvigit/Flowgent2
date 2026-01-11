@@ -134,6 +134,31 @@ const App: React.FC = () => {
     setNotifications(prev => [newNotif, ...prev]);
   };
 
+  const handlePushToN8N = async (lead: any) => {
+    addNotification('n8n Signal', `Dispatching ${lead.name} to orchestrator...`, 'automation');
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'lead_discovered',
+          source: 'Flowgent-Discovery-UI',
+          data: lead,
+          timestamp: new Date().toISOString()
+        })
+      });
+      
+      if (response.ok) {
+        addNotification('Webhook Success', `${lead.name} is now being processed by n8n.`, 'deal');
+      } else {
+        throw new Error('Endpoint rejected the signal');
+      }
+    } catch (err) {
+      console.error("Webhook Error:", err);
+      addNotification('Webhook Error', 'Orchestrator did not respond. Verify n8n node status.', 'automation');
+    }
+  };
+
   const handleAudit = async (lead: Lead) => {
     setIsAuditing(true);
     setCurrentAudit(null);
@@ -410,7 +435,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {currentTab === 'scraper' && <ScraperView onPushToN8N={(s) => addNotification('n8n Webhook', `Pushed ${s.name} to orchestrator.`)} onGeneratePitch={async (s) => {
+          {currentTab === 'scraper' && <ScraperView onPushToN8N={handlePushToN8N} onGeneratePitch={async (s) => {
             setIsAuditing(true);
             const p = await generateOutreach(s.name, s.location);
             setCurrentPitch({ name: s.name, content: p });
