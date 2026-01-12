@@ -17,7 +17,6 @@ export const MOCK_CLIENT: User = {
   orgId: 'org2'
 };
 
-// Fixed mock leads to include all mandatory properties from the Lead interface and use valid LeadStatus values
 export const MOCK_LEADS: Lead[] = [
   { 
     id: '1', 
@@ -26,46 +25,61 @@ export const MOCK_LEADS: Lead[] = [
     email: 'hello@technova.com', 
     websiteUrl: 'https://technova.io', 
     city: 'Bangalore', 
-    status: 'discovered', 
+    status: 'has_website', 
     score: 45, 
     temperature: 'warm', 
     createdAt: '2023-11-20', 
     orgId: 'org1',
-    lead_status: 'discovered',
+    lead_status: 'has_website',
     is_hot_opportunity: false,
-    source: 'google_maps'
+    source: 'google_maps',
+    estimated_value: 25000,
+    service_tier: 'Tier 1 - Digital Presence',
+    rating: 4.2,
+    phone: '+91 90000 11111',
+    pitch_type: 'seo_audit'
   },
   { 
     id: '2', 
     businessName: 'GreenLeaf Realty', 
     category: 'Real Estate', 
     email: 'sales@greenleaf.in', 
-    websiteUrl: 'https://greenleafrealty.com', 
+    websiteUrl: '', 
     city: 'Mumbai', 
-    status: 'audit_viewed', 
-    score: 78, 
+    status: 'no_website', 
+    score: 88, 
     temperature: 'hot', 
     createdAt: '2023-11-21', 
     orgId: 'org2',
-    lead_status: 'audit_viewed',
+    lead_status: 'no_website',
     is_hot_opportunity: true,
-    source: 'google_maps'
+    source: 'google_maps',
+    estimated_value: 150000,
+    service_tier: 'Tier 3 - Business Automation',
+    rating: 3.8,
+    phone: '+91 91111 22222',
+    pitch_type: 'website_development'
   },
   { 
     id: '3', 
     businessName: 'Peak Performance Gym', 
     category: 'Fitness', 
     email: 'peakgym@gmail.com', 
-    websiteUrl: 'https://peakgym.com', 
+    websiteUrl: '', 
     city: 'Delhi', 
-    status: 'form_submitted', 
-    score: 12, 
-    temperature: 'cold', 
+    status: 'no_website', 
+    score: 72, 
+    temperature: 'warm', 
     createdAt: '2023-11-22', 
     orgId: 'org1',
-    lead_status: 'form_submitted',
-    is_hot_opportunity: false,
-    source: 'manual'
+    lead_status: 'no_website',
+    is_hot_opportunity: true,
+    source: 'manual',
+    estimated_value: 45000,
+    service_tier: 'Tier 1 - Digital Presence',
+    rating: 3.5,
+    phone: '+91 92222 33333',
+    pitch_type: 'website_development'
   },
   { 
     id: '4', 
@@ -74,53 +88,43 @@ export const MOCK_LEADS: Lead[] = [
     email: 'info@royalspices.com', 
     websiteUrl: 'https://royalspices.com', 
     city: 'Kochi', 
-    status: 'calendar_booked', 
+    status: 'scored', 
     score: 92, 
     temperature: 'hot', 
     createdAt: '2023-11-23', 
     orgId: 'org1',
-    lead_status: 'calendar_booked',
+    lead_status: 'scored',
     is_hot_opportunity: true,
-    source: 'manual'
-  },
-  { 
-    id: '5', 
-    businessName: 'BlueSky Clinics', 
-    category: 'Healthcare', 
-    email: 'contact@blueskyclinics.com', 
-    websiteUrl: 'https://blueskyclinics.in', 
-    city: 'Pune', 
-    status: 'discovered', 
-    score: 30, 
-    temperature: 'warm', 
-    createdAt: '2023-11-24', 
-    orgId: 'org1',
-    lead_status: 'discovered',
-    is_hot_opportunity: false,
-    source: 'google_maps'
-  },
-  { 
-    id: '6', 
-    businessName: 'Elite Motors', 
-    category: 'Automotive', 
-    email: 'sales@elitemotors.com', 
-    websiteUrl: 'https://elitemotors.co.in', 
-    city: 'Gurgaon', 
-    status: 'proposal_sent', 
-    score: 85, 
-    temperature: 'hot', 
-    createdAt: '2023-11-25', 
-    orgId: 'org1',
-    lead_status: 'proposal_sent',
-    is_hot_opportunity: true,
-    source: 'manual'
-  },
+    source: 'manual',
+    estimated_value: 250000,
+    service_tier: 'Tier 3 - Business Automation',
+    rating: 4.8,
+    phone: '+91 93333 44444',
+    pitch_type: 'crm_setup'
+  }
 ];
 
 export const MOCK_DEALS: Deal[] = [
-  { id: 'd1', leadId: '2', businessName: 'GreenLeaf Realty', stage: 'qualified', value: 85000, updatedAt: '2023-11-25' },
-  { id: 'd2', leadId: '4', businessName: 'Royal Spices Exports', stage: 'proposal', value: 240000, updatedAt: '2023-11-26' },
-  { id: 'd3', leadId: '6', businessName: 'Elite Motors', stage: 'negotiation', value: 120000, updatedAt: '2023-11-27' },
+  { 
+    id: 'd1', 
+    leadId: '2', 
+    businessName: 'GreenLeaf Realty', 
+    stage: 'qualified', 
+    value: 150000, 
+    updatedAt: '2023-11-25',
+    service_tier: 'Tier 3 - Business Automation',
+    pitch_type: 'website_development'
+  },
+  { 
+    id: 'd2', 
+    leadId: '4', 
+    businessName: 'Royal Spices Exports', 
+    stage: 'proposal', 
+    value: 250000, 
+    updatedAt: '2023-11-26',
+    service_tier: 'Tier 3 - Business Automation',
+    pitch_type: 'crm_setup'
+  }
 ];
 
 export const MOCK_PROJECTS: Project[] = [

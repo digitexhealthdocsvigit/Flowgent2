@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import LeadCard from './components/LeadCard';
@@ -520,22 +521,30 @@ const App: React.FC = () => {
 
           {currentTab === 'hot_opps' && (
             <div className="space-y-10 animate-in fade-in duration-500">
-               <div>
-                 <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Hot Opportunities</h2>
-                 <p className="text-slate-500 mt-1 font-medium italic">High-conversion targets with zero digital footprint.</p>
+               <div className="flex justify-between items-end">
+                 <div>
+                   <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Gold Mines: No Website</h2>
+                   <p className="text-slate-500 mt-1 font-medium italic">High-intent businesses missing a primary conversion node.</p>
+                 </div>
+                 <div className="bg-blue-600 px-6 py-4 rounded-2xl text-white font-black text-xs uppercase tracking-widest">
+                    Pipeline Potential: ₹{(noWebsiteLeads.reduce((acc, l) => acc + (l.estimated_value || 0), 0) / 1000).toFixed(0)}k
+                 </div>
                </div>
                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
                  {noWebsiteLeads.map(l => (
                    <div key={l.id} className="relative group">
                      <LeadCard lead={l} onAudit={handleAudit} />
-                     <button className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-[8px] uppercase tracking-widest shadow-xl opacity-0 group-hover:opacity-100 transition-all -translate-y-2 group-hover:translate-y-0">
-                       Pitch Website Dev
+                     <button 
+                        onClick={() => handleAudit(l)}
+                        className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl opacity-0 group-hover:opacity-100 transition-all -translate-y-2 group-hover:translate-y-0 border-2 border-white"
+                     >
+                       Pitch Website Development
                      </button>
                    </div>
                  ))}
                  {noWebsiteLeads.length === 0 && (
                     <div className="col-span-full py-20 text-center bg-white border border-dashed border-slate-200 rounded-[40px]">
-                      <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No "No Website" leads found in registry.</p>
+                      <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Registry Clean: All leads have digital nodes.</p>
                     </div>
                  )}
                </div>
