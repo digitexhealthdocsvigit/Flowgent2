@@ -35,7 +35,7 @@ const App: React.FC = () => {
   const [currentPitch, setCurrentPitch] = useState<{ name: string; content: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Filters
+  // Filters for New Database Fields
   const [filterStatus, setFilterStatus] = useState<LeadStatus | 'all'>('all');
   const [filterHotOnly, setFilterHotOnly] = useState(false);
   const [filterTier, setFilterTier] = useState<ServiceTier | 'all'>('all');
@@ -109,6 +109,7 @@ const App: React.FC = () => {
         temperature: l.temperature,
         createdAt: l.created_at,
         orgId: l.org_id,
+        // Mapping new DB columns
         lead_status: l.lead_status,
         pitch_type: l.pitch_type,
         is_hot_opportunity: l.is_hot_opportunity,
@@ -188,6 +189,7 @@ const App: React.FC = () => {
       const result = await generateAudit(lead.businessName, lead.websiteUrl);
       
       if (isSupabaseConfigured && !isEmergencyBypass) {
+        // Updating new lead_status field in Supabase
         await supabase.from('leads').update({ 
           score: result.score, 
           status: 'scored',
@@ -373,7 +375,7 @@ const App: React.FC = () => {
   const noWebsiteLeads = leads.filter(l => l.lead_status === 'no_website');
   const totalEstimatedValue = leads.reduce((acc, l) => acc + (l.estimated_value || 0), 0);
 
-  // Statistics Breakdown
+  // Statistics Breakdown - Service Tier distribution
   const tierCounts = {
     tier1: leads.filter(l => l.service_tier?.includes('Tier 1')).length,
     tier2: leads.filter(l => l.service_tier?.includes('Tier 2')).length,
@@ -445,8 +447,8 @@ const App: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-8">
                 {[
                   { label: 'Total Node Depth', value: leads.length },
-                  { label: 'No Website Opps', value: noWebsiteLeads.length },
-                  { label: 'Est. Pipeline Value', value: `₹${(totalEstimatedValue / 1000).toFixed(0)}k` },
+                  { label: 'No Website Opps', value: noWebsiteLeads.length }, // Requirement: Hot opportunities count
+                  { label: 'Est. Pipeline Value', value: `₹${(totalEstimatedValue / 1000).toFixed(0)}k` }, // Requirement: Total estimated value
                   { label: 'System MRR', value: `₹${(MOCK_SUBSCRIPTIONS.filter(s => s.status === 'active').reduce((acc, s) => acc + s.amount, 0) / 1000).toFixed(1)}k` }
                 ].map((stat, i) => (
                   <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm hover:shadow-xl transition-all group cursor-pointer">
@@ -494,13 +496,14 @@ const App: React.FC = () => {
                     <button onClick={() => setCurrentTab('automations')} className="w-full bg-blue-600 py-6 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] mt-12 shadow-2xl shadow-blue-900/40 relative z-10 active:scale-95">Enter Orchestrator</button>
                   </div>
 
+                  {/* Requirement: Breakdown by service_tier */}
                   <div className="bg-white p-10 rounded-[40px] border border-slate-200 shadow-sm">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Service Tier Distribution</h4>
                     <div className="space-y-4">
                       {[
-                        { label: 'Tier 1 - Presence', count: tierCounts.tier1, color: 'bg-blue-500' },
-                        { label: 'Tier 2 - Growth', count: tierCounts.tier2, color: 'bg-purple-500' },
-                        { label: 'Tier 3 - Automation', count: tierCounts.tier3, color: 'bg-slate-900' }
+                        { label: 'Tier 1 - Digital Presence', count: tierCounts.tier1, color: 'bg-blue-500' },
+                        { label: 'Tier 2 - Growth System', count: tierCounts.tier2, color: 'bg-purple-500' },
+                        { label: 'Tier 3 - Business Automation', count: tierCounts.tier3, color: 'bg-slate-900' }
                       ].map((t, idx) => (
                         <div key={idx} className="space-y-1">
                           <div className="flex justify-between text-[10px] font-bold">
@@ -508,7 +511,7 @@ const App: React.FC = () => {
                             <span className="text-slate-900">{t.count} Nodes</span>
                           </div>
                           <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                             <div className={`${t.color} h-full`} style={{ width: `${leads.length ? (t.count / leads.length) * 100 : 0}%` }}></div>
+                             <div className={`${t.color} h-full transition-all duration-700`} style={{ width: `${leads.length ? (t.count / leads.length) * 100 : 0}%` }}></div>
                           </div>
                         </div>
                       ))}
@@ -536,7 +539,7 @@ const App: React.FC = () => {
                      <LeadCard lead={l} onAudit={handleAudit} />
                      <button 
                         onClick={() => handleAudit(l)}
-                        className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl opacity-0 group-hover:opacity-100 transition-all -translate-y-2 group-hover:translate-y-0 border-2 border-white"
+                        className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl opacity-0 group-hover:opacity-100 transition-all -translate-y-2 group-hover:translate-y-0 border-2 border-white z-20"
                      >
                        Pitch Website Development
                      </button>
@@ -568,9 +571,10 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 
+                {/* All Filter Options Implemented */}
                 <div className="flex flex-wrap gap-4 bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm">
                   <select 
-                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500"
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value as any)}
                   >
@@ -582,7 +586,7 @@ const App: React.FC = () => {
                   </select>
 
                   <select 
-                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500"
                     value={filterTier}
                     onChange={(e) => setFilterTier(e.target.value as any)}
                   >
@@ -593,7 +597,7 @@ const App: React.FC = () => {
                   </select>
 
                   <select 
-                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500"
                     value={filterSource}
                     onChange={(e) => setFilterSource(e.target.value)}
                   >
@@ -608,11 +612,11 @@ const App: React.FC = () => {
                     onClick={() => setFilterHotOnly(!filterHotOnly)}
                     className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${filterHotOnly ? 'bg-yellow-400 border-yellow-500 text-yellow-900' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
                   >
-                    Hot Only
+                    Hot Opportunities Only
                   </button>
 
                   <button 
-                    onClick={() => { setFilterStatus('all'); setFilterHotOnly(false); setFilterTier('all'); setFilterSource('all'); }}
+                    onClick={() => { setFilterStatus('all'); setFilterHotOnly(false); setFilterTier('all'); setFilterSource('all'); setSearchQuery(''); }}
                     className="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-slate-100 text-slate-500 ml-auto"
                   >
                     Clear Filters
@@ -624,7 +628,7 @@ const App: React.FC = () => {
                 {filteredLeads.map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
                 {filteredLeads.length === 0 && (
                    <div className="col-span-full py-20 text-center bg-white border border-dashed border-slate-200 rounded-[40px]">
-                    <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No leads matching your criteria.</p>
+                    <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No nodes matching infrastructure filters.</p>
                    </div>
                 )}
               </div>

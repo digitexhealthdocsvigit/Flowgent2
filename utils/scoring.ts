@@ -40,7 +40,7 @@ export const calculateLeadScore = (lead: Partial<Lead>): {
     score += 10;
   }
 
-  // Determine Pitch and Tier
+  // Determine Pitch and Tier based on your database requirements
   let pitch_type: PitchType = 'lead_gen';
   let service_tier: ServiceTier = 'Tier 1 - Digital Presence';
   let estimated_value = 25000;
@@ -64,6 +64,7 @@ export const calculateLeadScore = (lead: Partial<Lead>): {
   if (score >= 75) temperature = 'hot';
   else if (score >= 40) temperature = 'warm';
 
+  // Strict mapping to your lead_status enum
   const is_hot_opportunity = score >= 80 || (hasNoWebsite && isHighValue);
   const lead_status: LeadStatus = hasNoWebsite ? 'no_website' : 'has_website';
 

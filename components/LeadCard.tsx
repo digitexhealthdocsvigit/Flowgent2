@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Lead } from '../types';
 
@@ -18,7 +19,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
 
   const getStatusBadgeColor = (status: string) => {
     switch(status) {
-      case 'no_website': return 'bg-red-600 text-white';
+      case 'no_website': return 'bg-red-600 text-white shadow-lg shadow-red-500/20'; // Prominent Red per requirements
       case 'has_website': return 'bg-green-600 text-white';
       case 'discovered': return 'bg-blue-600 text-white';
       case 'scored': return 'bg-purple-600 text-white';
@@ -40,7 +41,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 hover:shadow-lg transition-all group relative overflow-hidden">
       {lead.is_hot_opportunity && (
-        <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 px-3 py-1 text-[8px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
+        <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 px-3 py-1 text-[8px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm z-10">
           <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           Hot Opportunity
         </div>
@@ -65,11 +66,11 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="space-y-1">
-          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Recommended Action</p>
-          <p className="text-[10px] font-bold text-blue-700 capitalize">{(lead.pitch_type || 'Initial Audit').replace('_', ' ')}</p>
+          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Recommended Pitch</p>
+          <p className="text-[10px] font-bold text-blue-700 capitalize">{(lead.pitch_type || 'Discovery').replace('_', ' ')}</p>
         </div>
         <div className="space-y-1 text-right">
-          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Estimated Value</p>
+          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Est. Contract Value</p>
           <p className="text-[10px] font-black text-slate-900">₹{lead.estimated_value?.toLocaleString('en-IN') || 'TBD'}</p>
         </div>
       </div>
