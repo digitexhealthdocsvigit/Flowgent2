@@ -1,7 +1,9 @@
 
-export type LeadStatus = 'discovered' | 'audit_viewed' | 'form_submitted' | 'calendar_booked' | 'meeting_done' | 'proposal_sent' | 'converted';
+export type LeadStatus = 'discovered' | 'no_website' | 'has_website' | 'scored' | 'converted' | 'audit_viewed' | 'form_submitted' | 'calendar_booked' | 'proposal_sent';
 export type LeadTemperature = 'hot' | 'warm' | 'cold';
 export type UserRole = 'super_admin' | 'admin' | 'sales' | 'client' | 'agent';
+export type PitchType = 'website_development' | 'seo_audit' | 'lead_gen' | 'crm_setup';
+export type ServiceTier = 'Tier 1 - Digital Presence' | 'Tier 2 - Growth System' | 'Tier 3 - Business Automation';
 
 export interface Lead {
   id: string;
@@ -16,6 +18,16 @@ export interface Lead {
   createdAt: string;
   orgId?: string;
   videoPitchUrl?: string;
+  // New Columns
+  lead_status: LeadStatus;
+  pitch_type?: PitchType;
+  is_hot_opportunity: boolean;
+  service_tier?: ServiceTier;
+  estimated_value?: number;
+  source: string;
+  phone?: string;
+  rating?: number;
+  google_maps_url?: string;
 }
 
 export interface Deal {
@@ -25,6 +37,8 @@ export interface Deal {
   stage: 'new' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost';
   value: number;
   updatedAt: string;
+  service_tier?: ServiceTier;
+  pitch_type?: PitchType;
 }
 
 export interface Project {

@@ -3,6 +3,7 @@
   "description": "A comprehensive SaaS platform for lead management, AI-driven audits, and sales funnel automation.",
   "requestFramePermissions": [
     "camera",
-    "microphone"
+    "microphone",
+    "geolocation"
   ]
 }

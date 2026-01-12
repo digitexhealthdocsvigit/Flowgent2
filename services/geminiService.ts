@@ -1,6 +1,10 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { AuditResult } from "../types";
 
+/**
+ * Perform a digital audit for a specific business.
+ */
 export const generateAudit = async (businessName: string, websiteUrl: string): Promise<AuditResult> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Act as a senior business automation consultant. Perform a digital audit for "${businessName}" at "${websiteUrl}". 
@@ -46,6 +50,9 @@ export const generateAudit = async (businessName: string, websiteUrl: string): P
   }
 };
 
+/**
+ * Generate outreach text for WhatsApp/Email.
+ */
 export const generateOutreach = async (businessName: string, location: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Write a short, professional WhatsApp pitch for the business owner of "${businessName}" in "${location}". 
@@ -64,11 +71,47 @@ export const generateOutreach = async (businessName: string, location: string): 
 };
 
 /**
+ * Find real businesses using Google Maps Grounding.
+ */
+export const searchLocalBusinesses = async (query: string, lat?: number, lng?: number): Promise<any[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const prompt = `Find 5 businesses related to "${query}" that have lower star ratings (under 4.2) or fewer reviews.
+  For each business, strictly provide a JSON array of objects with keys: name, address, rating, phone, and mapsUrl. 
+  If they don't have a website, include that fact. 
+  Rating should be a number. Phone should be a string.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-lite-latest",
+      contents: prompt,
+      config: {
+        tools: [{ googleMaps: {} }],
+        toolConfig: {
+          retrievalConfig: {
+            latLng: lat && lng ? { latitude: lat, longitude: lng } : undefined
+          }
+        }
+      }
+    });
+
+    const text = response.text;
+    const jsonMatch = text.match(/\[.*\]/s);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    
+    return [];
+  } catch (error) {
+    console.error("Maps Grounding Error:", error);
+    return [];
+  }
+};
+
+/**
  * Generates a cinematic AI video intro for a lead using the Veo model.
- * Handles specific API Key selection errors by throwing a retryable error signal.
  */
 export const generateVideoIntro = async (businessName: string): Promise<string> => {
-  // Fresh instance to ensure current environment API key is used
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
@@ -100,12 +143,9 @@ export const generateVideoIntro = async (businessName: string): Promise<string> 
     return URL.createObjectURL(videoBlob);
   } catch (error: any) {
     console.error("Veo Engine Error:", error);
-    
-    // Check for "Requested entity was not found" which indicates an API Key / Project mismatch
     if (error.message?.includes("Requested entity was not found")) {
       throw new Error("API_KEY_RESET_REQUIRED");
     }
-    
     throw error;
   }
 };

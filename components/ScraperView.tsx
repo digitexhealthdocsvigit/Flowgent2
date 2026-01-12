@@ -1,5 +1,8 @@
+
 import React, { useState } from 'react';
 import { ICONS } from '../constants';
+import { searchLocalBusinesses } from '../services/geminiService';
+import { calculateLeadScore } from '../utils/scoring';
 
 interface ScrapedLead {
   id: string;
@@ -7,171 +10,201 @@ interface ScrapedLead {
   location: string;
   phone: string;
   rating: number;
+  mapsUrl?: string;
   videoUrl?: string;
+  hasNoWebsite?: boolean;
+  estimatedValue?: number;
 }
 
 interface ScraperViewProps {
-  onPushToN8N: (lead: ScrapedLead) => void;
-  onGeneratePitch: (lead: ScrapedLead) => void;
-  onGenerateVideo: (lead: ScrapedLead) => Promise<string>;
+  onPushToN8N: (lead: any) => void;
+  onGeneratePitch: (lead: any) => void;
+  onGenerateVideo: (lead: any) => Promise<string>;
 }
 
 const ScraperView: React.FC<ScraperViewProps> = ({ onPushToN8N, onGeneratePitch, onGenerateVideo }) => {
   const [isScraping, setIsScraping] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [locationName, setLocationName] = useState('My Current Location');
   const [isVideoLoading, setIsVideoLoading] = useState<string | null>(null);
-  const [scrapedLeads, setScrapedLeads] = useState<ScrapedLead[]>([
-    { id: 'sc1', name: 'Shiva Garments', location: 'Surat, Gujarat', phone: '+91 98765 43210', rating: 4.2 },
-    { id: 'sc2', name: 'Apex Logistics', location: 'Navi Mumbai', phone: '+91 88888 77777', rating: 3.8 },
-    { id: 'sc3', name: 'Global Pharma Exports', location: 'Ahmedabad', phone: '+91 90000 11111', rating: 4.5 },
-  ]);
+  const [scrapedLeads, setScrapedLeads] = useState<ScrapedLead[]>([]);
 
-  const handleStartScrape = () => {
+  const handleStartScrape = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery) return;
+    
     setIsScraping(true);
-    setTimeout(() => {
+    
+    try {
+      let lat, lng;
+      
+      if (locationName === 'My Current Location') {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      }
+
+      const results = await searchLocalBusinesses(searchQuery, lat, lng);
+      
+      const newLeads: ScrapedLead[] = results.map((r: any, index: number) => {
+        const { estimated_value, lead_status } = calculateLeadScore({ 
+          businessName: r.name, 
+          websiteUrl: r.hasNoWebsite ? '' : 'placeholder.com' 
+        });
+        
+        return {
+          id: `real-${Date.now()}-${index}`,
+          name: r.name || r.businessName || 'Unknown Business',
+          location: r.address || r.location || 'Location not provided',
+          phone: r.phone || 'Phone not found',
+          rating: r.rating || 0,
+          mapsUrl: r.mapsUrl || r.uri,
+          hasNoWebsite: r.hasNoWebsite || lead_status === 'no_website',
+          estimatedValue: estimated_value
+        };
+      });
+
+      setScrapedLeads(newLeads);
+    } catch (err) {
+      console.error("Discovery Error:", err);
+      alert("Failed to reach Google Maps infrastructure.");
+    } finally {
       setIsScraping(false);
-      const newLead = { id: Date.now().toString(), name: 'Bright Lights Mfg', location: 'Pimpri, Pune', phone: '+91 77777 66666', rating: 4.0 };
-      setScrapedLeads([newLead, ...scrapedLeads]);
-    }, 3000);
+    }
   };
 
-  const handleVideoGeneration = async (lead: ScrapedLead) => {
-    setIsVideoLoading(lead.id);
-    try {
-      const videoUrl = await onGenerateVideo(lead);
-      setScrapedLeads(prev => prev.map(l => l.id === lead.id ? { ...l, videoUrl } : l));
-    } catch (e: any) {
-      if (e.message === "API_KEY_RESET_REQUIRED") {
-        alert("Veo API Session Expired or Invalid Project Key. Please re-select your paid API key.");
-        if ((window as any).aistudio) {
-          await (window as any).aistudio.openSelectKey();
-        }
-      } else {
-        alert("Video generation failed. Please ensure your Veo API Key has billing enabled.");
-      }
-    } finally {
-      setIsVideoLoading(null);
-    }
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex items-center gap-0.5">
+        {[...Array(5)].map((_, i) => (
+          <svg key={i} xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill={i < Math.floor(rating) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" className={i < Math.floor(rating) ? "text-yellow-500" : "text-slate-300"}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        ))}
+      </div>
+    );
   };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tighter">G-Maps Discovery</h2>
-          <p className="text-slate-500 mt-1 font-medium italic">Finding businesses with no digital footprint.</p>
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tighter">Real-Time Lead Discovery</h2>
+          <p className="text-slate-500 mt-1 font-medium italic">Powered by Google Maps Grounding & Gemini 2.5</p>
         </div>
-        <button 
-          onClick={handleStartScrape}
-          disabled={isScraping}
-          className="bg-slate-900 text-white px-8 py-4 rounded-[20px] font-black text-xs uppercase tracking-[0.2em] shadow-xl flex items-center gap-3 active:scale-95 transition-all"
-        >
-          {isScraping ? (
-            <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          )}
-          {isScraping ? 'Searching Cloud Nodes...' : 'Start New Search'}
-        </button>
+      </div>
+
+      <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-xl">
+        <form onSubmit={handleStartScrape} className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <input 
+              type="text"
+              placeholder="What kind of business? (e.g. Gyms, Spas)"
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 pl-14 font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              required
+            />
+            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400">
+               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            </div>
+          </div>
+          <div className="md:w-64 relative">
+             <input 
+              type="text"
+              placeholder="Location (optional)"
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 pl-14 font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all"
+              value={locationName}
+              onChange={e => setLocationName(e.target.value)}
+            />
+            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400">
+               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+          </div>
+          <button 
+            type="submit"
+            disabled={isScraping}
+            className="bg-slate-900 text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
+          >
+            {isScraping ? (
+              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+            ) : (
+              'Scan Maps Node'
+            )}
+          </button>
+        </form>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        {scrapedLeads.map((lead) => (
-          <div key={lead.id} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col items-stretch gap-8 group hover:border-blue-300 transition-all">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center font-black text-2xl border border-red-100">
-                  {lead.name.charAt(0)}
-                </div>
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h4 className="text-xl font-bold text-slate-900">{lead.name}</h4>
-                    <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[8px] font-black uppercase rounded border border-red-200">Gap Detected</span>
+        {scrapedLeads.length === 0 ? (
+          <div className="py-20 text-center bg-white rounded-[40px] border border-dashed border-slate-200">
+             <p className="text-slate-400 font-black uppercase tracking-widest text-xs italic">No real-world nodes active. Initialize scan above.</p>
+          </div>
+        ) : (
+          scrapedLeads.map((lead) => (
+            <div key={lead.id} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col items-stretch gap-8 group hover:border-blue-300 transition-all animate-in slide-in-from-bottom-2">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-black text-2xl border border-blue-100 relative">
+                    {lead.name.charAt(0)}
                   </div>
-                  <p className="text-sm text-slate-500 font-medium mt-1">{lead.location} • ⭐ {lead.rating}</p>
-                  <p className="text-xs text-blue-600 font-bold mt-2">{lead.phone}</p>
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h4 className="text-xl font-bold text-slate-900">{lead.name}</h4>
+                      {lead.hasNoWebsite && (
+                        <span className="px-3 py-1 bg-red-600 text-white text-[10px] font-black uppercase rounded shadow-lg animate-pulse">NO WEBSITE</span>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-500 font-medium mt-1">{lead.location}</p>
+                    <div className="flex items-center gap-4 mt-2">
+                      <div className="flex items-center gap-2">
+                        {renderStars(lead.rating)}
+                        <span className="text-xs font-bold text-slate-400">({lead.rating})</span>
+                      </div>
+                      <a href={`tel:${lead.phone}`} className="text-xs font-black text-blue-600 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                        {lead.phone}
+                      </a>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                <button 
-                  onClick={() => handleVideoGeneration(lead)}
-                  disabled={isVideoLoading === lead.id}
-                  className={`flex-1 md:flex-none px-6 py-3 ${lead.videoUrl ? 'bg-green-50 text-green-600' : 'bg-purple-600 text-white shadow-lg shadow-purple-500/20'} font-black text-[10px] uppercase tracking-widest rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2`}
-                >
-                  {isVideoLoading === lead.id ? (
-                    <>
-                      <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                      Veo Rendering...
-                    </>
-                  ) : lead.videoUrl ? (
-                    'Intro Video Ready'
-                  ) : (
-                    '🎥 AI Video Intro'
-                  )}
-                </button>
-                <button 
-                  onClick={() => onGeneratePitch(lead)}
-                  className="flex-1 md:flex-none px-6 py-3 bg-blue-50 text-blue-600 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-blue-100 transition-all"
-                >
-                  Generate AI Pitch
-                </button>
-                <button 
-                  onClick={() => onPushToN8N(lead)}
-                  className="flex-1 md:flex-none px-6 py-3 bg-slate-100 text-slate-600 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all"
-                >
-                  Push to n8n
-                </button>
+                <div className="flex flex-col items-end gap-2">
+                  <div className="text-right mb-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Est. Pitch Value</p>
+                    <p className="text-2xl font-black text-slate-900 tracking-tighter">₹{lead.estimatedValue?.toLocaleString('en-IN')}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-3 w-full md:w-auto">
+                    <button 
+                      onClick={() => onPushToN8N(lead)}
+                      className="flex-1 md:flex-none px-6 py-3 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-all"
+                    >
+                      Capture Lead
+                    </button>
+                    <button 
+                      onClick={() => onGeneratePitch(lead)}
+                      className="flex-1 md:flex-none px-6 py-3 bg-blue-50 text-blue-600 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-blue-100 transition-all"
+                    >
+                      AI Pitch
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-
-            {lead.videoUrl && (
-              <div className="mt-4 animate-in slide-in-from-top-4 duration-500">
-                <video 
-                  src={lead.videoUrl} 
-                  controls 
-                  className="w-full h-auto rounded-[32px] shadow-2xl border border-slate-200 aspect-video bg-slate-900"
-                  poster="https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=1074&auto=format&fit=crop"
-                />
-                <div className="mt-4 flex justify-between items-center px-4">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Generated by Veo 3.1 Fast Node</p>
-                  <button 
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = lead.videoUrl!;
-                      link.download = `${lead.name}-Intro.mp4`;
-                      link.click();
-                    }}
-                    className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
-                  >
-                    Download MP4
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
-      {isVideoLoading && (
-        <div className="fixed inset-0 bg-[#030712]/90 backdrop-blur-xl z-[150] flex items-center justify-center p-10">
-          <div className="max-w-md w-full text-center space-y-10 animate-in zoom-in-95 duration-700">
-            <div className="relative w-40 h-40 mx-auto">
-               <div className="absolute inset-0 border-[8px] border-blue-600/10 rounded-full"></div>
-               <div className="absolute inset-0 border-[8px] border-t-blue-600 rounded-full animate-spin shadow-[0_0_60px_rgba(37,99,235,0.4)]"></div>
-               <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-4xl">🎬</span>
-               </div>
-            </div>
-            <div>
-              <h3 className="text-3xl font-black text-white tracking-tighter uppercase italic">Veo Rendering Engine</h3>
-              <p className="text-blue-200/60 font-black text-[10px] uppercase tracking-[0.4em] mt-6">
-                Personalizing Cinematic Assets for Lead Outreach...
-              </p>
-            </div>
-            <div className="space-y-3 bg-white/5 p-8 rounded-3xl border border-white/10">
-              <p className="text-xs text-slate-400 font-medium italic">"Great things take a moment. Your cinematic business intro is being calculated by our Veo Cloud nodes."</p>
-            </div>
-          </div>
+      {isScraping && (
+        <div className="fixed inset-0 bg-[#030712]/90 backdrop-blur-xl z-[200] flex items-center justify-center">
+           <div className="text-center space-y-10 animate-in zoom-in-95">
+              <div className="relative w-48 h-48 mx-auto">
+                 <div className="absolute inset-0 border-[10px] border-blue-600/10 rounded-full"></div>
+                 <div className="absolute inset-0 border-[10px] border-t-blue-600 rounded-full animate-spin shadow-[0_0_80px_rgba(37,99,235,0.3)]"></div>
+                 <div className="absolute inset-0 flex items-center justify-center text-5xl">📡</div>
+              </div>
+              <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">Maps Grounding Engine</h3>
+           </div>
         </div>
       )}
     </div>

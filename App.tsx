@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import LeadCard from './components/LeadCard';
@@ -15,7 +14,7 @@ import SubscriptionsView from './components/SubscriptionsView';
 import ScraperView from './components/ScraperView';
 import NotificationCenter from './components/NotificationCenter';
 import { MOCK_LEADS, MOCK_DEALS, MOCK_NOTIFICATIONS, MOCK_PROJECTS, MOCK_SUBSCRIPTIONS, MOCK_WORKFLOWS } from './services/mockData';
-import { Lead, AuditResult, Notification, User, Deal, AutomationWorkflow } from './types';
+import { Lead, AuditResult, Notification, User, Deal, AutomationWorkflow, LeadStatus, ServiceTier } from './types';
 import { generateAudit, generateOutreach, generateVideoIntro } from './services/geminiService';
 import { calculateLeadScore } from './utils/scoring';
 import { ICONS } from './constants';
@@ -25,7 +24,7 @@ const App: React.FC = () => {
   const [viewState, setViewState] = useState<'public' | 'login' | 'dashboard'>('public');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentTab, setCurrentTab] = useState('dashboard');
-  const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>(MOCK_DEALS);
   const [workflows, setWorkflows] = useState<AutomationWorkflow[]>(MOCK_WORKFLOWS);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
@@ -34,6 +33,13 @@ const App: React.FC = () => {
   const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult } | null>(null);
   const [currentPitch, setCurrentPitch] = useState<{ name: string; content: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Filters
+  const [filterStatus, setFilterStatus] = useState<LeadStatus | 'all'>('all');
+  const [filterHotOnly, setFilterHotOnly] = useState(false);
+  const [filterTier, setFilterTier] = useState<ServiceTier | 'all'>('all');
+  const [filterSource, setFilterSource] = useState<string | 'all'>('all');
+  
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('https://n8n.digitex.in/webhook/flowgent-orchestrator');
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
@@ -45,6 +51,7 @@ const App: React.FC = () => {
     const checkAuth = async () => {
       if (!isSupabaseConfigured) {
         setIsLoadingAuth(false);
+        setLeads(MOCK_LEADS as Lead[]);
         return;
       }
 
@@ -55,10 +62,12 @@ const App: React.FC = () => {
           await refreshLeads();
         } else {
           setIsLoadingAuth(false);
+          setLeads(MOCK_LEADS as Lead[]);
         }
       } catch (err) {
         console.error("Auth check failed:", err);
         setIsLoadingAuth(false);
+        setLeads(MOCK_LEADS as Lead[]);
       }
     };
 
@@ -94,13 +103,22 @@ const App: React.FC = () => {
         email: l.email,
         websiteUrl: l.website_url,
         city: l.city,
-        status: l.status,
+        status: l.lead_status || l.status,
         score: l.score,
         temperature: l.temperature,
         createdAt: l.created_at,
-        orgId: l.org_id
+        orgId: l.org_id,
+        lead_status: l.lead_status,
+        pitch_type: l.pitch_type,
+        is_hot_opportunity: l.is_hot_opportunity,
+        service_tier: l.service_tier,
+        estimated_value: l.estimated_value,
+        source: l.source,
+        phone: l.phone,
+        rating: l.rating,
+        google_maps_url: l.google_maps_url
       }));
-      setLeads([...formattedLeads, ...MOCK_LEADS]);
+      setLeads(formattedLeads);
     }
   };
 
@@ -138,7 +156,7 @@ const App: React.FC = () => {
   };
 
   const handlePushToN8N = async (lead: any) => {
-    addNotification('n8n Signal', `Dispatching ${lead.name} to orchestrator...`, 'automation');
+    addNotification('n8n Signal', `Dispatching ${lead.name || lead.businessName} to orchestrator...`, 'automation');
     try {
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -152,13 +170,13 @@ const App: React.FC = () => {
       });
       
       if (response.ok) {
-        addNotification('Webhook Success', `${lead.name} is now being processed by n8n.`, 'deal');
+        addNotification('Webhook Success', `${lead.name || lead.businessName} is now being processed.`, 'deal');
       } else {
         throw new Error('Endpoint rejected the signal');
       }
     } catch (err) {
       console.error("Webhook Error:", err);
-      addNotification('Webhook Error', 'Orchestrator did not respond. Verify n8n node status.', 'automation');
+      addNotification('Webhook Error', 'Orchestrator did not respond.', 'automation');
     }
   };
 
@@ -171,15 +189,16 @@ const App: React.FC = () => {
       if (isSupabaseConfigured && !isEmergencyBypass) {
         await supabase.from('leads').update({ 
           score: result.score, 
-          status: 'audit_viewed' 
+          status: 'scored',
+          lead_status: 'scored' 
         }).eq('id', lead.id);
       }
 
-      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, score: result.score, status: 'audit_viewed' } : l));
+      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, score: result.score, status: 'scored', lead_status: 'scored' } : l));
       setCurrentAudit({ lead, result });
     } catch (err) {
       console.error(err);
-      addNotification('System Error', 'AI Audit Engine failed to reach Gemini node.', 'automation');
+      addNotification('System Error', 'AI Audit Engine failed.', 'automation');
     } finally {
       setIsAuditing(false);
     }
@@ -188,7 +207,7 @@ const App: React.FC = () => {
   const handleConvertToDeal = async () => {
     if (!currentAudit) return;
     const { lead, result } = currentAudit;
-    const value = 50000 + (result.score * 1000);
+    const value = lead.estimated_value || (50000 + (result.score * 1000));
     
     const newDeal: Deal = {
       id: `d-${Date.now()}`,
@@ -196,7 +215,9 @@ const App: React.FC = () => {
       businessName: lead.businessName,
       stage: 'new',
       value,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      service_tier: lead.service_tier,
+      pitch_type: lead.pitch_type
     };
 
     if (isSupabaseConfigured && !isEmergencyBypass) {
@@ -204,49 +225,61 @@ const App: React.FC = () => {
         lead_id: lead.id,
         business_name: lead.businessName,
         stage: 'new',
-        value: value
+        value: value,
+        service_tier: lead.service_tier,
+        pitch_type: lead.pitch_type
       }]);
-      await supabase.from('leads').update({ status: 'converted' }).eq('id', lead.id);
+      await supabase.from('leads').update({ lead_status: 'converted', status: 'converted' }).eq('id', lead.id);
     }
 
     setDeals([newDeal, ...deals]);
-    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: 'converted' } : l));
-    addNotification('Deal Created', `${lead.businessName} moved to sales pipeline.`, 'deal');
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: 'converted', lead_status: 'converted' } : l));
+    addNotification('Deal Created', `${lead.businessName} moved to pipeline.`, 'deal');
     setCurrentAudit(null);
     setCurrentTab('crm');
   };
 
   const handleLeadSubmit = async (data: any) => {
-    const { score, temperature } = calculateLeadScore({ ...data, websiteUrl: data.websiteUrl });
+    const scoredData = calculateLeadScore({ ...data, websiteUrl: data.websiteUrl });
     const leadData = {
-      businessName: data.businessName,
-      websiteUrl: data.websiteUrl,
+      business_name: data.businessName,
+      website_url: data.websiteUrl,
       category: data.category || 'General',
       email: data.email || 'lead@inquiry.com',
       city: 'Inbound',
-      status: 'discovered' as const,
-      score,
-      temperature,
-      createdAt: new Date().toISOString()
+      status: scoredData.lead_status,
+      score: scoredData.score,
+      temperature: scoredData.temperature,
+      lead_status: scoredData.lead_status,
+      pitch_type: scoredData.pitch_type,
+      is_hot_opportunity: scoredData.is_hot_opportunity,
+      service_tier: scoredData.service_tier,
+      estimated_value: scoredData.estimated_value,
+      source: 'manual'
     };
 
     if (isSupabaseConfigured && !isEmergencyBypass) {
-      const { data: savedLead, error } = await supabase.from('leads').insert([{
-        business_name: leadData.businessName,
-        website_url: leadData.websiteUrl,
-        category: leadData.category,
-        email: leadData.email,
-        city: leadData.city,
-        status: leadData.status,
-        score: leadData.score,
-        temperature: leadData.temperature
-      }]).select().single();
-      
-      if (savedLead && !error) {
-        setLeads([{ ...leadData, id: savedLead.id }, ...leads]);
-      }
+      const { data: savedLead, error } = await supabase.from('leads').insert([leadData]).select().single();
+      if (savedLead && !error) await refreshLeads();
     } else {
-      setLeads([{ ...leadData, id: Math.random().toString(36).substr(2, 9) }, ...leads]);
+      setLeads([{ 
+        id: Math.random().toString(36).substr(2, 9), 
+        businessName: data.businessName,
+        websiteUrl: data.websiteUrl,
+        category: data.category || 'General',
+        email: data.email || 'lead@inquiry.com',
+        city: 'Inbound',
+        status: scoredData.lead_status,
+        score: scoredData.score,
+        temperature: scoredData.temperature,
+        lead_status: scoredData.lead_status,
+        pitch_type: scoredData.pitch_type,
+        is_hot_opportunity: scoredData.is_hot_opportunity,
+        service_tier: scoredData.service_tier,
+        estimated_value: scoredData.estimated_value,
+        source: 'manual',
+        createdAt: new Date().toISOString()
+      }, ...leads]);
     }
     
     setViewState('login');
@@ -255,58 +288,62 @@ const App: React.FC = () => {
   const handleManualLeadAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget as HTMLFormElement);
-    const data = {
+    const rawData = {
       businessName: formData.get('businessName') as string,
       websiteUrl: formData.get('websiteUrl') as string,
       category: formData.get('category') as string,
       email: formData.get('email') as string || 'manual@lead.com'
     };
-    const { score, temperature } = calculateLeadScore(data);
+    const scoredData = calculateLeadScore(rawData);
     
+    const finalData = {
+      business_name: rawData.businessName,
+      website_url: rawData.websiteUrl,
+      category: rawData.category,
+      email: rawData.email,
+      city: 'Direct Entry',
+      status: scoredData.lead_status,
+      score: scoredData.score,
+      temperature: scoredData.temperature,
+      lead_status: scoredData.lead_status,
+      pitch_type: scoredData.pitch_type,
+      is_hot_opportunity: scoredData.is_hot_opportunity,
+      service_tier: scoredData.service_tier,
+      estimated_value: scoredData.estimated_value,
+      source: 'manual'
+    };
+
     if (isSupabaseConfigured && !isEmergencyBypass) {
-      const { data: saved, error } = await supabase.from('leads').insert([{
-        business_name: data.businessName,
-        website_url: data.websiteUrl,
-        category: data.category,
-        email: data.email,
-        city: 'Direct Entry',
-        status: 'discovered',
-        score,
-        temperature
-      }]).select().single();
-      
-      if (saved && !error) {
-        setLeads([{ 
-          id: saved.id, 
-          ...data, 
-          city: 'Direct Entry', 
-          status: 'discovered', 
-          score, 
-          temperature, 
-          createdAt: saved.created_at 
-        }, ...leads]);
-      }
+      await supabase.from('leads').insert([finalData]);
+      await refreshLeads();
     } else {
       const newLead: Lead = {
         id: Math.random().toString(36).substr(2, 9),
-        ...data,
+        businessName: rawData.businessName,
+        websiteUrl: rawData.websiteUrl,
+        category: rawData.category,
+        email: rawData.email,
         city: 'Direct Entry',
-        status: 'discovered',
-        score,
-        temperature,
+        status: scoredData.lead_status,
+        score: scoredData.score,
+        temperature: scoredData.temperature,
+        lead_status: scoredData.lead_status,
+        pitch_type: scoredData.pitch_type,
+        is_hot_opportunity: scoredData.is_hot_opportunity,
+        service_tier: scoredData.service_tier,
+        estimated_value: scoredData.estimated_value,
+        source: 'manual',
         createdAt: new Date().toISOString()
       };
       setLeads([newLead, ...leads]);
     }
 
-    addNotification('Lead Added', `${data.businessName} has been manually registered.`);
+    addNotification('Lead Added', `${rawData.businessName} has been registered.`);
     setShowAddLeadModal(false);
   };
 
   const handleLogout = async () => {
-    if (isSupabaseConfigured && !isEmergencyBypass) {
-      await supabase.auth.signOut();
-    }
+    if (isSupabaseConfigured && !isEmergencyBypass) await supabase.auth.signOut();
     setCurrentUser(null);
     setViewState('public');
     setIsEmergencyBypass(false);
@@ -314,30 +351,40 @@ const App: React.FC = () => {
 
   const handleAppLogin = (mockUser?: User) => {
     if (mockUser) {
-      if (mockUser.id.includes('emergency')) {
-        setIsEmergencyBypass(true);
-        addNotification('System Alert', 'Emergency Override Active: Running in Isolated Prototype Mode.', 'automation');
-      }
+      if (mockUser.id.includes('emergency')) setIsEmergencyBypass(true);
       setCurrentUser(mockUser);
       setViewState('dashboard');
       setCurrentTab(mockUser.role === 'client' ? 'client_dashboard' : 'dashboard');
     }
   };
 
-  const filteredLeads = leads.filter(l => 
-    l.businessName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    l.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    l.city.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredLeads = leads.filter(l => {
+    const matchesQuery = l.businessName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                        l.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || l.lead_status === filterStatus;
+    const matchesHot = !filterHotOnly || l.is_hot_opportunity;
+    const matchesTier = filterTier === 'all' || l.service_tier === filterTier;
+    const matchesSource = filterSource === 'all' || l.source === filterSource;
+    
+    return matchesQuery && matchesStatus && matchesHot && matchesTier && matchesSource;
+  });
 
-  const totalMRR = MOCK_SUBSCRIPTIONS.filter(s => s.status === 'active').reduce((acc, s) => acc + s.amount, 0);
+  const noWebsiteLeads = leads.filter(l => l.lead_status === 'no_website');
+  const totalEstimatedValue = leads.reduce((acc, l) => acc + (l.estimated_value || 0), 0);
+
+  // Statistics Breakdown
+  const tierCounts = {
+    tier1: leads.filter(l => l.service_tier?.includes('Tier 1')).length,
+    tier2: leads.filter(l => l.service_tier?.includes('Tier 2')).length,
+    tier3: leads.filter(l => l.service_tier?.includes('Tier 3')).length,
+  };
 
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen bg-[#030712] flex items-center justify-center">
         <div className="space-y-4 text-center">
-           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto shadow-xl shadow-blue-500/20"></div>
-           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 animate-pulse">Syncing Cloud Node...</p>
+           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Syncing Cloud Node...</p>
         </div>
       </div>
     );
@@ -345,7 +392,6 @@ const App: React.FC = () => {
 
   if (viewState === 'public') return <LandingPage onLeadSubmit={handleLeadSubmit} onGoToLogin={() => setViewState('login')} />;
   if (viewState === 'login') return <LoginScreen onLogin={handleAppLogin} onGoBack={() => setViewState('public')} />;
-  
   if (!currentUser) return null;
 
   return (
@@ -363,7 +409,7 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-6">
-            <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-red-600 transition-all shadow-lg shadow-slate-200 active:scale-95">Logout</button>
+            <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-red-600 transition-all shadow-lg active:scale-95">Logout</button>
             <div className="relative">
               <button onClick={() => setShowNotifications(!showNotifications)} className="p-3.5 bg-slate-100 rounded-2xl relative hover:bg-slate-200 transition-all shadow-sm text-slate-900">
                 <ICONS.Bell />
@@ -380,27 +426,8 @@ const App: React.FC = () => {
             </div>
           </div>
         </header>
-        <main className="flex-1 p-12 overflow-y-auto">
-          {isEmergencyBypass && (
-            <div className="mb-8 p-6 bg-orange-50 border border-orange-100 rounded-[32px] flex items-center justify-between animate-in slide-in-from-top-4">
-               <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600">
-                    <ICONS.Alert />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-orange-900 text-sm uppercase tracking-tight">Cloud Database Synchronicity Error</h4>
-                    <p className="text-xs text-orange-700 mt-1 font-medium">You are using Manual Override. Real database mutations are currently disabled to protect system integrity.</p>
-                  </div>
-               </div>
-               <button 
-                 onClick={() => { setViewState('login'); setIsEmergencyBypass(false); setCurrentUser(null); }}
-                 className="px-6 py-3 bg-white text-orange-600 font-black text-[10px] uppercase tracking-widest rounded-xl border border-orange-200 shadow-sm hover:bg-orange-600 hover:text-white transition-all"
-               >
-                 Fix In Vercel Settings
-               </button>
-            </div>
-          )}
 
+        <main className="flex-1 p-12 overflow-y-auto">
           {currentTab === 'dashboard' && (
             <div className="space-y-10 animate-in fade-in duration-500">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
@@ -416,10 +443,10 @@ const App: React.FC = () => {
               
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-8">
                 {[
-                  { label: 'Infrastructure Nodes', value: leads.length },
-                  { label: 'Hot Targets', value: leads.filter(l => l.temperature === 'hot').length },
-                  { label: 'Active Deals', value: deals.length },
-                  { label: 'System MRR', value: `₹${(totalMRR / 1000).toFixed(1)}k` }
+                  { label: 'Total Node Depth', value: leads.length },
+                  { label: 'No Website Opps', value: noWebsiteLeads.length },
+                  { label: 'Est. Pipeline Value', value: `₹${(totalEstimatedValue / 1000).toFixed(0)}k` },
+                  { label: 'System MRR', value: `₹${(MOCK_SUBSCRIPTIONS.filter(s => s.status === 'active').reduce((acc, s) => acc + s.amount, 0) / 1000).toFixed(1)}k` }
                 ].map((stat, i) => (
                   <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm hover:shadow-xl transition-all group cursor-pointer">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{stat.label}</p>
@@ -441,26 +468,156 @@ const App: React.FC = () => {
                             <div className="w-14 h-14 bg-white rounded-2xl border border-slate-200 flex items-center justify-center font-black text-blue-600 shadow-sm">{l.businessName.charAt(0)}</div>
                             <div>
                                <p className="font-black text-slate-900 text-lg leading-tight tracking-tight">{l.businessName}</p>
-                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1.5 italic">{l.category}</p>
+                               <div className="flex items-center gap-2 mt-1">
+                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{l.category}</p>
+                                 {l.is_hot_opportunity && <span className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse"></span>}
+                               </div>
                             </div>
                          </div>
                          <div className="text-right">
-                            <p className="text-xl font-black text-slate-900">{l.score}%</p>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Score</p>
+                            <p className="text-xl font-black text-slate-900">₹{(l.estimated_value || 0).toLocaleString('en-IN')}</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">EST. VALUE</p>
                          </div>
                       </div>
                     ))}
                   </div>
                 </div>
                 
-                <div className="bg-[#0f172a] p-12 rounded-[56px] text-white shadow-2xl flex flex-col justify-between relative overflow-hidden border border-white/5">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600 opacity-10 rounded-full -mr-24 -mt-24"></div>
-                  <div className="relative z-10">
-                    <h3 className="text-3xl font-black tracking-tighter leading-tight">Flowgent™ <br/>Efficiency Engine</h3>
-                    <p className="text-slate-400 text-sm font-medium mt-6 leading-relaxed">Infrastructure health monitoring {leads.length} active entities. All n8n worker nodes synchronized.</p>
+                <div className="space-y-10">
+                  <div className="bg-[#0f172a] p-12 rounded-[56px] text-white shadow-2xl flex flex-col justify-between relative overflow-hidden border border-white/5">
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600 opacity-10 rounded-full -mr-24 -mt-24"></div>
+                    <div className="relative z-10">
+                      <h3 className="text-3xl font-black tracking-tighter leading-tight">Flowgent™ <br/>Efficiency Engine</h3>
+                      <p className="text-slate-400 text-sm font-medium mt-6 leading-relaxed">Infrastructure health monitoring {leads.length} active entities.</p>
+                    </div>
+                    <button onClick={() => setCurrentTab('automations')} className="w-full bg-blue-600 py-6 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] mt-12 shadow-2xl shadow-blue-900/40 relative z-10 active:scale-95">Enter Orchestrator</button>
                   </div>
-                  <button onClick={() => setCurrentTab('automations')} className="w-full bg-blue-600 py-6 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] mt-12 shadow-2xl shadow-blue-900/40 relative z-10 active:scale-95">Enter Orchestrator</button>
+
+                  <div className="bg-white p-10 rounded-[40px] border border-slate-200 shadow-sm">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Service Tier Distribution</h4>
+                    <div className="space-y-4">
+                      {[
+                        { label: 'Tier 1 - Presence', count: tierCounts.tier1, color: 'bg-blue-500' },
+                        { label: 'Tier 2 - Growth', count: tierCounts.tier2, color: 'bg-purple-500' },
+                        { label: 'Tier 3 - Automation', count: tierCounts.tier3, color: 'bg-slate-900' }
+                      ].map((t, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex justify-between text-[10px] font-bold">
+                            <span className="text-slate-500">{t.label}</span>
+                            <span className="text-slate-900">{t.count} Nodes</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                             <div className={`${t.color} h-full`} style={{ width: `${leads.length ? (t.count / leads.length) * 100 : 0}%` }}></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {currentTab === 'hot_opps' && (
+            <div className="space-y-10 animate-in fade-in duration-500">
+               <div>
+                 <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Hot Opportunities</h2>
+                 <p className="text-slate-500 mt-1 font-medium italic">High-conversion targets with zero digital footprint.</p>
+               </div>
+               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+                 {noWebsiteLeads.map(l => (
+                   <div key={l.id} className="relative group">
+                     <LeadCard lead={l} onAudit={handleAudit} />
+                     <button className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-[8px] uppercase tracking-widest shadow-xl opacity-0 group-hover:opacity-100 transition-all -translate-y-2 group-hover:translate-y-0">
+                       Pitch Website Dev
+                     </button>
+                   </div>
+                 ))}
+                 {noWebsiteLeads.length === 0 && (
+                    <div className="col-span-full py-20 text-center bg-white border border-dashed border-slate-200 rounded-[40px]">
+                      <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No "No Website" leads found in registry.</p>
+                    </div>
+                 )}
+               </div>
+            </div>
+          )}
+
+          {currentTab === 'leads' && (
+            <div className="space-y-10 animate-in fade-in duration-500">
+              <div className="flex flex-col gap-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Engine Nodes</h2>
+                  <div className="flex gap-4">
+                    <input 
+                      type="text" 
+                      placeholder="Search Nodes..." 
+                      className="bg-white border border-slate-200 rounded-2xl px-6 py-4 outline-none focus:ring-4 focus:ring-blue-600/10 font-bold text-sm"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                    />
+                    <button onClick={() => setShowAddLeadModal(true)} className="px-8 py-4 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl">+ Register</button>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-4 bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm">
+                  <select 
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest"
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as any)}
+                  >
+                    <option value="all">Status: All</option>
+                    <option value="no_website">No Website</option>
+                    <option value="has_website">Has Website</option>
+                    <option value="scored">Scored</option>
+                    <option value="converted">Converted</option>
+                  </select>
+
+                  <select 
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest"
+                    value={filterTier}
+                    onChange={(e) => setFilterTier(e.target.value as any)}
+                  >
+                    <option value="all">Tier: All</option>
+                    <option value="Tier 1 - Digital Presence">Tier 1</option>
+                    <option value="Tier 2 - Growth System">Tier 2</option>
+                    <option value="Tier 3 - Business Automation">Tier 3</option>
+                  </select>
+
+                  <select 
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest"
+                    value={filterSource}
+                    onChange={(e) => setFilterSource(e.target.value)}
+                  >
+                    <option value="all">Source: All</option>
+                    <option value="google_maps">Google Maps</option>
+                    <option value="manual">Manual Entry</option>
+                    <option value="referral">Referral</option>
+                    <option value="n8n_scraper">n8n Scraper</option>
+                  </select>
+
+                  <button 
+                    onClick={() => setFilterHotOnly(!filterHotOnly)}
+                    className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${filterHotOnly ? 'bg-yellow-400 border-yellow-500 text-yellow-900' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                  >
+                    Hot Only
+                  </button>
+
+                  <button 
+                    onClick={() => { setFilterStatus('all'); setFilterHotOnly(false); setFilterTier('all'); setFilterSource('all'); }}
+                    className="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-slate-100 text-slate-500 ml-auto"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+                {filteredLeads.map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
+                {filteredLeads.length === 0 && (
+                   <div className="col-span-full py-20 text-center bg-white border border-dashed border-slate-200 rounded-[40px]">
+                    <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No leads matching your criteria.</p>
+                   </div>
+                )}
               </div>
             </div>
           )}
@@ -475,50 +632,20 @@ const App: React.FC = () => {
             }} 
             onGenerateVideo={async (s) => {
               const url = await generateVideoIntro(s.name);
-              addNotification('Video Ready', `AI Intro for ${s.name} generated successfully.`, 'automation');
+              addNotification('Video Ready', `AI Intro for ${s.name} generated.`, 'automation');
               return url;
             }}
           />}
-          {currentTab === 'leads' && (
-            <div className="space-y-10 animate-in fade-in duration-500">
-              <div className="flex justify-between items-center">
-                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Engine Nodes</h2>
-                <div className="flex gap-4">
-                  <input 
-                    type="text" 
-                    placeholder="Search Nodes..." 
-                    className="bg-white border border-slate-200 rounded-2xl px-6 py-4 outline-none focus:ring-4 focus:ring-blue-600/10 font-bold text-sm"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                  />
-                  <button onClick={() => setShowAddLeadModal(true)} className="px-8 py-4 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl">+ Register</button>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
-                {filteredLeads.map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
-              </div>
-            </div>
-          )}
           {currentTab === 'funnel' && <FunnelView leads={leads} />}
           {currentTab === 'calendar' && <CalendarView />}
-          {currentTab === 'crm' && <CrmView deals={deals} onMoveDeal={(id, dir) => {
-            const stages: Deal['stage'][] = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
-            setDeals(prev => prev.map(deal => {
-              if (deal.id === id) {
-                const cur = stages.indexOf(deal.stage);
-                const next = dir === 'forward' ? Math.min(cur + 1, 5) : Math.max(cur - 1, 0);
-                return { ...deal, stage: stages[next] };
-              }
-              return deal;
-            }));
-          }} />}
+          {currentTab === 'crm' && <CrmView deals={deals} />}
           {currentTab === 'automations' && <AutomationView workflows={workflows} onToggleStatus={(id) => setWorkflows(prev => prev.map(w => w.id === id ? { ...w, status: w.status === 'active' ? 'inactive' : 'active' } : w))} />}
           {currentTab === 'billing' && <SubscriptionsView subscriptions={MOCK_SUBSCRIPTIONS} />}
           {currentTab === 'settings' && (
             <div className="space-y-12 animate-in fade-in duration-500">
                <div>
                   <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Control Center</h2>
-                  <p className="text-slate-500 mt-1 font-medium">Manage infrastructure parameters and system links.</p>
+                  <p className="text-slate-500 mt-1 font-medium italic">Manage infrastructure parameters and system links.</p>
                </div>
                <div className="bg-white p-12 rounded-[56px] border border-slate-200 max-w-2xl">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4">n8n Webhook Endpoint</label>
@@ -531,7 +658,6 @@ const App: React.FC = () => {
                </div>
             </div>
           )}
-          
           {currentTab === 'client_dashboard' && <ClientDashboard projects={MOCK_PROJECTS} leadStats={{ score: 78, rank: '#12' }} activityLogs={[]} />}
           {currentTab === 'projects' && <ProjectsListView projects={MOCK_PROJECTS} />}
           {currentTab === 'reports' && <ReportsView />}

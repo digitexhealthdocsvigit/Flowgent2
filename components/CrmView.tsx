@@ -1,7 +1,5 @@
-
 import React from 'react';
 import { Deal } from '../types';
-// Add missing import for ICONS
 import { ICONS } from '../constants';
 
 interface CrmViewProps {
@@ -56,11 +54,21 @@ const CrmView: React.FC<CrmViewProps> = ({ deals, onMoveDeal }) => {
                 {stageDeals.map((deal) => (
                   <div key={deal.id} className="bg-white p-7 rounded-[28px] border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all cursor-default group relative overflow-hidden">
                     {stage === 'won' && <div className="absolute top-0 right-0 p-3 text-green-500 opacity-20"><ICONS.Check /></div>}
-                    <div className="flex justify-between items-start mb-4">
+                    <div className="flex justify-between items-start mb-2">
                       <h4 className="font-bold text-slate-800 leading-tight text-lg group-hover:text-blue-600 transition-colors">{deal.businessName}</h4>
                     </div>
                     
-                    <div className="flex justify-between items-end mt-8">
+                    <div className="space-y-1 mb-4">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        {deal.service_tier || 'Infrastructure Tier TBD'}
+                      </p>
+                      <p className="text-[10px] font-bold text-blue-600 capitalize">
+                         <span className="text-[8px] text-slate-300 mr-1 uppercase">Recommended:</span>
+                         {(deal.pitch_type || 'Custom Automation').replace('_', ' ')}
+                      </p>
+                    </div>
+
+                    <div className="flex justify-between items-end mt-4">
                       <div>
                         <div className="text-2xl font-black text-slate-900 tracking-tighter">₹{deal.value.toLocaleString('en-IN')}</div>
                         <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Updated {deal.updatedAt.split('T')[0]}</div>

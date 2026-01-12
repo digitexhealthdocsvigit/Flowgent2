@@ -15,6 +15,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, userRole }) 
     { id: 'scraper', label: 'Discovery', icon: () => (
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
     )},
+    { id: 'hot_opps', label: 'Hot Opps', icon: () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    )},
     { id: 'leads', label: 'Lead Engine', icon: ICONS.Leads },
     { id: 'funnel', label: 'Funnel View', icon: ICONS.Audit },
     { id: 'calendar', label: 'Meetings', icon: ICONS.Calendar },
