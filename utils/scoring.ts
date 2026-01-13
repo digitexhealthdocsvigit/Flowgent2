@@ -6,17 +6,18 @@ export const calculateLeadScore = (lead: Partial<Lead>): {
   temperature: LeadTemperature; 
   pitch_type: PitchType;
   service_tier: ServiceTier;
-  estimated_value: number;
+  est_contract_value: number;
   is_hot_opportunity: boolean;
   lead_status: LeadStatus;
 } => {
   let score = 0;
-  let hasNoWebsite = !lead.websiteUrl || lead.websiteUrl.trim() === '';
+  const website = lead.website || (lead as any).website_url || '';
+  let hasNoWebsite = !website || website.trim() === '';
 
   // Website status scoring (40 points)
   if (hasNoWebsite) {
     score += 40;
-  } else if (lead.websiteUrl?.includes('broken') || lead.websiteUrl?.includes('error')) {
+  } else if (website.includes('broken') || website.includes('error')) {
     score += 30;
   } else {
     score += 10;
@@ -43,20 +44,20 @@ export const calculateLeadScore = (lead: Partial<Lead>): {
   // Determine Pitch and Tier based on your database requirements
   let pitch_type: PitchType = 'lead_gen';
   let service_tier: ServiceTier = 'Tier 1 - Digital Presence';
-  let estimated_value = 25000;
+  let est_contract_value = 25000;
 
   if (hasNoWebsite) {
     pitch_type = 'website_development';
     service_tier = 'Tier 1 - Digital Presence';
-    estimated_value = 45000;
+    est_contract_value = 45000;
   } else if (score > 80) {
     pitch_type = 'crm_setup';
     service_tier = 'Tier 3 - Business Automation';
-    estimated_value = 150000;
+    est_contract_value = 150000;
   } else if (score > 60) {
     pitch_type = 'seo_audit';
     service_tier = 'Tier 2 - Growth System';
-    estimated_value = 85000;
+    est_contract_value = 85000;
   }
 
   // Final Temperature and Hot Opportunity
@@ -73,7 +74,7 @@ export const calculateLeadScore = (lead: Partial<Lead>): {
     temperature, 
     pitch_type, 
     service_tier, 
-    estimated_value, 
+    est_contract_value, 
     is_hot_opportunity, 
     lead_status 
   };

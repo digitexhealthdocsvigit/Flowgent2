@@ -1,33 +1,36 @@
 
-export type LeadStatus = 'discovered' | 'no_website' | 'has_website' | 'scored' | 'converted' | 'audit_viewed' | 'form_submitted' | 'calendar_booked' | 'proposal_sent';
+export type LeadStatus = 'discovered' | 'no_website' | 'has_website' | 'scored' | 'converted' | 'audit_viewed' | 'form_submitted' | 'calendar_booked' | 'proposal_sent' | 'new' | 'qualified' | 'contacted';
 export type LeadTemperature = 'hot' | 'warm' | 'cold';
 export type UserRole = 'super_admin' | 'admin' | 'sales' | 'client' | 'agent';
-export type PitchType = 'website_development' | 'seo_audit' | 'lead_gen' | 'crm_setup';
+export type PitchType = 'website_development' | 'seo_audit' | 'lead_gen' | 'crm_setup' | 'seo' | 'automation';
 export type ServiceTier = 'Tier 1 - Digital Presence' | 'Tier 2 - Growth System' | 'Tier 3 - Business Automation';
 
 export interface Lead {
   id: string;
-  businessName: string;
+  business_name: string;
   category: string;
   email: string;
-  websiteUrl: string;
+  website: string;
   city: string;
   status: LeadStatus;
   score: number;
   temperature: LeadTemperature;
-  createdAt: string;
-  orgId?: string;
-  videoPitchUrl?: string;
-  // New Columns
+  created_at: string;
+  org_id?: string;
+  video_pitch_url?: string;
   lead_status: LeadStatus;
   pitch_type?: PitchType;
   is_hot_opportunity: boolean;
   service_tier?: ServiceTier;
-  estimated_value?: number;
+  est_contract_value?: number;
   source: string;
   phone?: string;
   rating?: number;
+  reviews?: number;
+  address?: string;
+  type?: string;
   google_maps_url?: string;
+  has_website?: boolean;
 }
 
 export interface Deal {

@@ -8,6 +8,12 @@ interface LeadCardProps {
 }
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
+  // Hardened data mapping to prevent "undefined"
+  const businessName = lead.business_name || (lead as any).businessName || 'Unknown Business';
+  const city = lead.city || 'Location Pending';
+  const status = lead.lead_status || lead.status || 'discovered';
+  const value = lead.est_contract_value || (lead as any).estimated_value || 0;
+
   const getTemperatureColor = (temp: string) => {
     switch(temp) {
       case 'hot': return 'bg-red-100 text-red-700 border-red-200';
@@ -17,9 +23,9 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
     }
   };
 
-  const getStatusBadgeColor = (status: string) => {
-    switch(status) {
-      case 'no_website': return 'bg-red-600 text-white shadow-lg shadow-red-500/20'; // Prominent Red per requirements
+  const getStatusBadgeColor = (s: string) => {
+    switch(s) {
+      case 'no_website': return 'bg-red-600 text-white shadow-lg shadow-red-500/20';
       case 'has_website': return 'bg-green-600 text-white';
       case 'discovered': return 'bg-blue-600 text-white';
       case 'scored': return 'bg-purple-600 text-white';
@@ -50,18 +56,29 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
       <div className="flex justify-between items-start mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors leading-tight">{lead.businessName}</h3>
+            <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors leading-tight">{businessName}</h3>
           </div>
           <div className="flex items-center gap-2">
-            <p className="text-[10px] text-slate-500">{lead.category} • {lead.city}</p>
-            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase ${getStatusBadgeColor(lead.lead_status || lead.status)}`}>
-              {(lead.lead_status || lead.status).replace('_', ' ')}
+            <p className="text-[10px] text-slate-500">{lead.category} • {city}</p>
+            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase ${getStatusBadgeColor(status)}`}>
+              {status.replace('_', ' ')}
             </span>
           </div>
         </div>
-        <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase border ${getTemperatureColor(lead.temperature)}`}>
-          {lead.temperature}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase border ${getTemperatureColor(lead.temperature)}`}>
+            {lead.temperature}
+          </span>
+          {lead.video_pitch_url && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); window.open(lead.video_pitch_url, '_blank'); }}
+              className="bg-blue-600 text-white p-1.5 rounded-lg shadow-lg hover:bg-blue-700 transition-all animate-pulse"
+              title="Play AI Pitch"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -71,7 +88,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
         </div>
         <div className="space-y-1 text-right">
           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Est. Contract Value</p>
-          <p className="text-[10px] font-black text-slate-900">₹{lead.estimated_value?.toLocaleString('en-IN') || 'TBD'}</p>
+          <p className="text-[10px] font-black text-slate-900">₹{value.toLocaleString('en-IN') || 'TBD'}</p>
         </div>
       </div>
 

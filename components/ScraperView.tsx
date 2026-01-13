@@ -1,20 +1,8 @@
-
 import React, { useState } from 'react';
 import { ICONS } from '../constants';
 import { searchLocalBusinesses } from '../services/geminiService';
 import { calculateLeadScore } from '../utils/scoring';
-
-interface ScrapedLead {
-  id: string;
-  name: string;
-  location: string;
-  phone: string;
-  rating: number;
-  mapsUrl?: string;
-  videoUrl?: string;
-  hasNoWebsite?: boolean;
-  estimatedValue?: number;
-}
+import { Lead } from '../types';
 
 interface ScraperViewProps {
   onPushToN8N: (lead: any) => void;
@@ -26,8 +14,7 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onPushToN8N, onGeneratePitch,
   const [isScraping, setIsScraping] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [locationName, setLocationName] = useState('My Current Location');
-  const [isVideoLoading, setIsVideoLoading] = useState<string | null>(null);
-  const [scrapedLeads, setScrapedLeads] = useState<ScrapedLead[]>([]);
+  const [scrapedLeads, setScrapedLeads] = useState<Lead[]>([]);
 
   const handleStartScrape = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,21 +35,35 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onPushToN8N, onGeneratePitch,
 
       const results = await searchLocalBusinesses(searchQuery, lat, lng);
       
-      const newLeads: ScrapedLead[] = results.map((r: any, index: number) => {
-        const { estimated_value, lead_status } = calculateLeadScore({ 
-          businessName: r.name, 
-          websiteUrl: r.hasNoWebsite ? '' : 'placeholder.com' 
+      const newLeads: Lead[] = results.map((r: any, index: number) => {
+        const scored = calculateLeadScore({ 
+          business_name: r.business_name || r.name, 
+          website: r.has_website ? 'placeholder.com' : '' 
         });
         
+        // Fix: Added missing required 'email' property to satisfy Lead interface
         return {
           id: `real-${Date.now()}-${index}`,
-          name: r.name || r.businessName || 'Unknown Business',
-          location: r.address || r.location || 'Location not provided',
+          business_name: r.business_name || r.name || 'Unknown Business',
+          city: r.city || r.address || 'Location Pending',
+          email: r.email || 'lead-discovery@flowgent.io',
           phone: r.phone || 'Phone not found',
           rating: r.rating || 0,
-          mapsUrl: r.mapsUrl || r.uri,
-          hasNoWebsite: r.hasNoWebsite || lead_status === 'no_website',
-          estimatedValue: estimated_value
+          reviews: r.reviews || 0,
+          google_maps_url: r.mapsUrl || r.uri,
+          has_website: r.has_website,
+          website: r.website || '',
+          category: r.type || r.category || 'General',
+          status: scored.lead_status,
+          lead_status: scored.lead_status,
+          score: scored.score,
+          temperature: scored.temperature,
+          est_contract_value: scored.est_contract_value,
+          pitch_type: scored.pitch_type,
+          is_hot_opportunity: scored.is_hot_opportunity,
+          service_tier: scored.service_tier,
+          source: 'google_maps',
+          created_at: new Date().toISOString()
         };
       });
 
@@ -145,26 +146,28 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onPushToN8N, onGeneratePitch,
             <div key={lead.id} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col items-stretch gap-8 group hover:border-blue-300 transition-all animate-in slide-in-from-bottom-2">
               <div className="flex flex-col md:flex-row items-center justify-between gap-8">
                 <div className="flex items-center gap-6">
-                  <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-black text-2xl border border-blue-100 relative">
-                    {lead.name.charAt(0)}
+                  <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl border border-blue-100 relative">
+                    {(lead.business_name || 'U').charAt(0)}
                   </div>
                   <div>
                     <div className="flex items-center gap-3">
-                      <h4 className="text-xl font-bold text-slate-900">{lead.name}</h4>
-                      {lead.hasNoWebsite && (
+                      <h4 className="text-xl font-bold text-slate-900">{lead.business_name || 'Unknown Business'}</h4>
+                      {!lead.has_website && (
                         <span className="px-3 py-1 bg-red-600 text-white text-[10px] font-black uppercase rounded shadow-lg animate-pulse">NO WEBSITE</span>
                       )}
                     </div>
-                    <p className="text-sm text-slate-500 font-medium mt-1">{lead.location}</p>
+                    <p className="text-sm text-slate-500 font-medium mt-1">{lead.city || 'Location N/A'}</p>
                     <div className="flex items-center gap-4 mt-2">
                       <div className="flex items-center gap-2">
-                        {renderStars(lead.rating)}
-                        <span className="text-xs font-bold text-slate-400">({lead.rating})</span>
+                        {renderStars(lead.rating || 0)}
+                        <span className="text-xs font-bold text-slate-400">({lead.rating || 0})</span>
                       </div>
-                      <a href={`tel:${lead.phone}`} className="text-xs font-black text-blue-600 flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                        {lead.phone}
-                      </a>
+                      {lead.phone && (
+                        <a href={`tel:${lead.phone}`} className="text-xs font-black text-blue-600 flex items-center gap-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                          {lead.phone}
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -172,7 +175,7 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onPushToN8N, onGeneratePitch,
                 <div className="flex flex-col items-end gap-2">
                   <div className="text-right mb-2">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Est. Pitch Value</p>
-                    <p className="text-2xl font-black text-slate-900 tracking-tighter">₹{lead.estimatedValue?.toLocaleString('en-IN')}</p>
+                    <p className="text-2xl font-black text-slate-900 tracking-tighter">₹{lead.est_contract_value?.toLocaleString('en-IN')}</p>
                   </div>
                   <div className="flex flex-wrap gap-3 w-full md:w-auto">
                     <button 

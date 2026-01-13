@@ -99,26 +99,27 @@ const App: React.FC = () => {
     if (data && !error) {
       const formattedLeads: Lead[] = data.map((l: any) => ({
         id: l.id,
-        businessName: l.business_name,
+        business_name: l.business_name || l.businessName || 'Unknown Business',
         category: l.category,
         email: l.email,
-        websiteUrl: l.website_url,
-        city: l.city,
-        status: l.lead_status || l.status,
-        score: l.score,
-        temperature: l.temperature,
-        createdAt: l.created_at,
-        orgId: l.org_id,
-        // Mapping new DB columns
-        lead_status: l.lead_status,
+        website: l.website_url || l.website || '',
+        city: l.city || 'Location N/A',
+        status: l.lead_status || l.status || 'discovered',
+        score: l.score || 0,
+        temperature: l.temperature || 'cold',
+        created_at: l.created_at,
+        org_id: l.org_id,
+        lead_status: l.lead_status || l.status || 'discovered',
         pitch_type: l.pitch_type,
-        is_hot_opportunity: l.is_hot_opportunity,
+        is_hot_opportunity: l.is_hot_opportunity || false,
         service_tier: l.service_tier,
-        estimated_value: l.estimated_value,
-        source: l.source,
+        est_contract_value: l.est_contract_value || l.estimated_value || 0,
+        source: l.source || 'manual',
         phone: l.phone,
         rating: l.rating,
-        google_maps_url: l.google_maps_url
+        reviews: l.reviews,
+        google_maps_url: l.google_maps_url,
+        video_pitch_url: l.video_pitch_url || l.videoPitchUrl
       }));
       setLeads(formattedLeads);
     }
@@ -158,7 +159,8 @@ const App: React.FC = () => {
   };
 
   const handlePushToN8N = async (lead: any) => {
-    addNotification('n8n Signal', `Dispatching ${lead.name || lead.businessName} to orchestrator...`, 'automation');
+    const name = lead.business_name || lead.name || 'New Lead';
+    addNotification('n8n Signal', `Dispatching ${name} to orchestrator...`, 'automation');
     try {
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -172,7 +174,7 @@ const App: React.FC = () => {
       });
       
       if (response.ok) {
-        addNotification('Webhook Success', `${lead.name || lead.businessName} is now being processed.`, 'deal');
+        addNotification('Webhook Success', `${name} is now being processed.`, 'deal');
       } else {
         throw new Error('Endpoint rejected the signal');
       }
@@ -186,10 +188,9 @@ const App: React.FC = () => {
     setIsAuditing(true);
     setCurrentAudit(null);
     try {
-      const result = await generateAudit(lead.businessName, lead.websiteUrl);
+      const result = await generateAudit(lead.business_name, lead.website);
       
       if (isSupabaseConfigured && !isEmergencyBypass) {
-        // Updating new lead_status field in Supabase
         await supabase.from('leads').update({ 
           score: result.score, 
           status: 'scored',
@@ -210,12 +211,12 @@ const App: React.FC = () => {
   const handleConvertToDeal = async () => {
     if (!currentAudit) return;
     const { lead, result } = currentAudit;
-    const value = lead.estimated_value || (50000 + (result.score * 1000));
+    const value = lead.est_contract_value || (50000 + (result.score * 1000));
     
     const newDeal: Deal = {
       id: `d-${Date.now()}`,
       leadId: lead.id,
-      businessName: lead.businessName,
+      businessName: lead.business_name,
       stage: 'new',
       value,
       updatedAt: new Date().toISOString(),
@@ -226,7 +227,7 @@ const App: React.FC = () => {
     if (isSupabaseConfigured && !isEmergencyBypass) {
       await supabase.from('deals').insert([{
         lead_id: lead.id,
-        business_name: lead.businessName,
+        business_name: lead.business_name,
         stage: 'new',
         value: value,
         service_tier: lead.service_tier,
@@ -237,13 +238,13 @@ const App: React.FC = () => {
 
     setDeals([newDeal, ...deals]);
     setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: 'converted', lead_status: 'converted' } : l));
-    addNotification('Deal Created', `${lead.businessName} moved to pipeline.`, 'deal');
+    addNotification('Deal Created', `${lead.business_name} moved to pipeline.`, 'deal');
     setCurrentAudit(null);
     setCurrentTab('crm');
   };
 
   const handleLeadSubmit = async (data: any) => {
-    const scoredData = calculateLeadScore({ ...data, websiteUrl: data.websiteUrl });
+    const scoredData = calculateLeadScore({ ...data, website: data.websiteUrl });
     const leadData = {
       business_name: data.businessName,
       website_url: data.websiteUrl,
@@ -257,7 +258,7 @@ const App: React.FC = () => {
       pitch_type: scoredData.pitch_type,
       is_hot_opportunity: scoredData.is_hot_opportunity,
       service_tier: scoredData.service_tier,
-      estimated_value: scoredData.estimated_value,
+      est_contract_value: scoredData.est_contract_value,
       source: 'manual'
     };
 
@@ -267,8 +268,8 @@ const App: React.FC = () => {
     } else {
       setLeads([{ 
         id: Math.random().toString(36).substr(2, 9), 
-        businessName: data.businessName,
-        websiteUrl: data.websiteUrl,
+        business_name: data.businessName,
+        website: data.websiteUrl,
         category: data.category || 'General',
         email: data.email || 'lead@inquiry.com',
         city: 'Inbound',
@@ -279,9 +280,9 @@ const App: React.FC = () => {
         pitch_type: scoredData.pitch_type,
         is_hot_opportunity: scoredData.is_hot_opportunity,
         service_tier: scoredData.service_tier,
-        estimated_value: scoredData.estimated_value,
+        est_contract_value: scoredData.est_contract_value,
         source: 'manual',
-        createdAt: new Date().toISOString()
+        created_at: new Date().toISOString()
       }, ...leads]);
     }
     
@@ -297,7 +298,7 @@ const App: React.FC = () => {
       category: formData.get('category') as string,
       email: formData.get('email') as string || 'manual@lead.com'
     };
-    const scoredData = calculateLeadScore(rawData);
+    const scoredData = calculateLeadScore({ ...rawData, website: rawData.websiteUrl });
     
     const finalData = {
       business_name: rawData.businessName,
@@ -312,7 +313,7 @@ const App: React.FC = () => {
       pitch_type: scoredData.pitch_type,
       is_hot_opportunity: scoredData.is_hot_opportunity,
       service_tier: scoredData.service_tier,
-      estimated_value: scoredData.estimated_value,
+      est_contract_value: scoredData.est_contract_value,
       source: 'manual'
     };
 
@@ -322,8 +323,8 @@ const App: React.FC = () => {
     } else {
       const newLead: Lead = {
         id: Math.random().toString(36).substr(2, 9),
-        businessName: rawData.businessName,
-        websiteUrl: rawData.websiteUrl,
+        business_name: rawData.businessName,
+        website: rawData.websiteUrl,
         category: rawData.category,
         email: rawData.email,
         city: 'Direct Entry',
@@ -334,9 +335,9 @@ const App: React.FC = () => {
         pitch_type: scoredData.pitch_type,
         is_hot_opportunity: scoredData.is_hot_opportunity,
         service_tier: scoredData.service_tier,
-        estimated_value: scoredData.estimated_value,
+        est_contract_value: scoredData.est_contract_value,
         source: 'manual',
-        createdAt: new Date().toISOString()
+        created_at: new Date().toISOString()
       };
       setLeads([newLead, ...leads]);
     }
@@ -362,7 +363,8 @@ const App: React.FC = () => {
   };
 
   const filteredLeads = leads.filter(l => {
-    const matchesQuery = l.businessName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const bName = l.business_name || '';
+    const matchesQuery = bName.toLowerCase().includes(searchQuery.toLowerCase()) || 
                         l.category.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === 'all' || l.lead_status === filterStatus;
     const matchesHot = !filterHotOnly || l.is_hot_opportunity;
@@ -373,7 +375,7 @@ const App: React.FC = () => {
   });
 
   const noWebsiteLeads = leads.filter(l => l.lead_status === 'no_website');
-  const totalEstimatedValue = leads.reduce((acc, l) => acc + (l.estimated_value || 0), 0);
+  const totalEstimatedValue = leads.reduce((acc, l) => acc + (l.est_contract_value || 0), 0);
 
   // Statistics Breakdown - Service Tier distribution
   const tierCounts = {
@@ -447,8 +449,8 @@ const App: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-8">
                 {[
                   { label: 'Total Node Depth', value: leads.length },
-                  { label: 'No Website Opps', value: noWebsiteLeads.length }, // Requirement: Hot opportunities count
-                  { label: 'Est. Pipeline Value', value: `₹${(totalEstimatedValue / 1000).toFixed(0)}k` }, // Requirement: Total estimated value
+                  { label: 'No Website Opps', value: noWebsiteLeads.length }, 
+                  { label: 'Est. Pipeline Value', value: `₹${(totalEstimatedValue / 1000).toFixed(0)}k` }, 
                   { label: 'System MRR', value: `₹${(MOCK_SUBSCRIPTIONS.filter(s => s.status === 'active').reduce((acc, s) => acc + s.amount, 0) / 1000).toFixed(1)}k` }
                 ].map((stat, i) => (
                   <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm hover:shadow-xl transition-all group cursor-pointer">
@@ -468,9 +470,9 @@ const App: React.FC = () => {
                     {leads.slice(0, 4).map(l => (
                       <div key={l.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:bg-white hover:border-blue-100 transition-all cursor-pointer" onClick={() => handleAudit(l)}>
                          <div className="flex items-center gap-6">
-                            <div className="w-14 h-14 bg-white rounded-2xl border border-slate-200 flex items-center justify-center font-black text-blue-600 shadow-sm">{l.businessName.charAt(0)}</div>
+                            <div className="w-14 h-14 bg-white rounded-2xl border border-slate-200 flex items-center justify-center font-black text-blue-600 shadow-sm">{(l.business_name || 'U').charAt(0)}</div>
                             <div>
-                               <p className="font-black text-slate-900 text-lg leading-tight tracking-tight">{l.businessName}</p>
+                               <p className="font-black text-slate-900 text-lg leading-tight tracking-tight">{l.business_name || 'Unknown Business'}</p>
                                <div className="flex items-center gap-2 mt-1">
                                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{l.category}</p>
                                  {l.is_hot_opportunity && <span className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse"></span>}
@@ -478,7 +480,7 @@ const App: React.FC = () => {
                             </div>
                          </div>
                          <div className="text-right">
-                            <p className="text-xl font-black text-slate-900">₹{(l.estimated_value || 0).toLocaleString('en-IN')}</p>
+                            <p className="text-xl font-black text-slate-900">₹{(l.est_contract_value || 0).toLocaleString('en-IN')}</p>
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">EST. VALUE</p>
                          </div>
                       </div>
@@ -496,7 +498,6 @@ const App: React.FC = () => {
                     <button onClick={() => setCurrentTab('automations')} className="w-full bg-blue-600 py-6 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] mt-12 shadow-2xl shadow-blue-900/40 relative z-10 active:scale-95">Enter Orchestrator</button>
                   </div>
 
-                  {/* Requirement: Breakdown by service_tier */}
                   <div className="bg-white p-10 rounded-[40px] border border-slate-200 shadow-sm">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Service Tier Distribution</h4>
                     <div className="space-y-4">
@@ -530,7 +531,7 @@ const App: React.FC = () => {
                    <p className="text-slate-500 mt-1 font-medium italic">High-intent businesses missing a primary conversion node.</p>
                  </div>
                  <div className="bg-blue-600 px-6 py-4 rounded-2xl text-white font-black text-xs uppercase tracking-widest">
-                    Pipeline Potential: ₹{(noWebsiteLeads.reduce((acc, l) => acc + (l.estimated_value || 0), 0) / 1000).toFixed(0)}k
+                    Pipeline Potential: ₹{(noWebsiteLeads.reduce((acc, l) => acc + (l.est_contract_value || 0), 0) / 1000).toFixed(0)}k
                  </div>
                </div>
                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
@@ -571,7 +572,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* All Filter Options Implemented */}
                 <div className="flex flex-wrap gap-4 bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm">
                   <select 
                     className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500"
@@ -639,13 +639,15 @@ const App: React.FC = () => {
             onPushToN8N={handlePushToN8N} 
             onGeneratePitch={async (s) => {
               setIsAuditing(true);
-              const p = await generateOutreach(s.name, s.location);
-              setCurrentPitch({ name: s.name, content: p });
+              const name = s.business_name || s.name || 'Lead';
+              const p = await generateOutreach(name, s.city || s.location);
+              setCurrentPitch({ name, content: p });
               setIsAuditing(false);
             }} 
             onGenerateVideo={async (s) => {
-              const url = await generateVideoIntro(s.name);
-              addNotification('Video Ready', `AI Intro for ${s.name} generated.`, 'automation');
+              const name = s.business_name || s.name || 'Lead';
+              const url = await generateVideoIntro(name);
+              addNotification('Video Ready', `AI Intro for ${name} generated.`, 'automation');
               return url;
             }}
           />}
@@ -730,7 +732,7 @@ const App: React.FC = () => {
               <div className="flex-1 space-y-12">
                 <div>
                    <span className="bg-blue-50 text-blue-600 font-black uppercase tracking-[0.2em] text-[10px] px-5 py-2 rounded-full border border-blue-100">Intelligent Digital Audit Node</span>
-                   <h2 className="text-6xl font-black text-slate-900 mt-8 tracking-tighter leading-[0.9]">{currentAudit.lead.businessName} Audit</h2>
+                   <h2 className="text-6xl font-black text-slate-900 mt-8 tracking-tighter leading-[0.9]">{currentAudit.lead.business_name} Audit</h2>
                    <p className="text-slate-700 font-medium text-xl mt-8 leading-relaxed italic border-l-4 border-blue-600 pl-8">"{currentAudit.result.summary}"</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
