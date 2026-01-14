@@ -47,7 +47,7 @@ const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStat
                <p className="text-slate-400 font-medium text-sm leading-relaxed">
                  <span className="text-white font-bold block mb-1">Worker Setup Protocol:</span>
                  1. Set up a <span className="text-white font-bold">Webhook Node</span> in n8n (POST method).<br/>
-                 2. Add an <span className="text-white font-bold">IF Node</span> to enforce the <code className="text-blue-400">readiness_score > 80</code> policy gate.<br/>
+                 2. Add an <span className="text-white font-bold">IF Node</span> to enforce the <code className="text-blue-400">readiness_score &gt; 80</code> policy gate.<br/>
                  3. Connect to your automation toolset (WhatsApp Business, CRM, or SMTP).
                </p>
              </div>
