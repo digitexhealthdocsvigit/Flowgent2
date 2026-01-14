@@ -5,9 +5,10 @@ import { AutomationWorkflow } from '../types';
 interface AutomationViewProps {
   workflows: AutomationWorkflow[];
   onToggleStatus: (id: string) => void;
+  signals?: {id: string, text: string, type: 'tool' | 'webhook', time: string}[];
 }
 
-const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStatus }) => {
+const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStatus, signals = [] }) => {
   const webhookUrl = "https://n8n.digitex.in/webhook/flowgent-orchestrator";
 
   const copyWebhook = () => {
@@ -19,7 +20,7 @@ const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStat
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tighter">AI Orchestration Hub</h2>
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tighter italic">AI Orchestration Hub</h2>
           <p className="text-slate-700 mt-1 font-medium italic">Gemini Agentic-Tools linked to n8n worker nodes.</p>
         </div>
         <div className="flex gap-4">
@@ -33,7 +34,7 @@ const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStat
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-[#0f172a] rounded-[48px] p-12 text-white shadow-2xl border border-white/5 space-y-8">
            <div className="flex justify-between items-center">
-             <h3 className="text-2xl font-black tracking-tight text-blue-400">Signal Endpoint</h3>
+             <h3 className="text-2xl font-black tracking-tight text-blue-400 italic">Signal Endpoint</h3>
              <span className="bg-blue-600/20 text-blue-400 text-[8px] font-black px-3 py-1 rounded-full uppercase">Secure Handshake</span>
            </div>
            <p className="text-slate-400 font-medium">This MCP-compliant URI receives autonomous tool calls from the Gemini AI Orchestrator for real-world execution.</p>
@@ -44,22 +45,22 @@ const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStat
         </div>
 
         <div className="bg-white rounded-[48px] border border-slate-200 p-12 shadow-sm space-y-6">
-           <h3 className="text-2xl font-black text-slate-900 tracking-tighter">Live Orchestrator Logs</h3>
-           <div className="space-y-4">
-             {[
-               { icon: '📡', text: 'n8n Webhook Listener: Sync Active', time: 'READY' },
-               { icon: '🧠', text: 'Gemini 3 Pro Tool: trigger_n8n_signal loaded', time: 'SYNCED' },
-               { icon: '🔒', text: 'MCP Handshake Signature: digitex-2026-v2', time: 'SECURE' },
-               { icon: '✓', text: 'Autonomous dispatch gate open', time: 'ACTIVE' }
-             ].map((log, i) => (
+           <h3 className="text-2xl font-black text-slate-900 tracking-tighter italic">Neural Signal Stream</h3>
+           <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+             {signals.length > 0 ? signals.map((log, i) => (
                <div key={i} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:bg-white hover:border-blue-100 transition-all">
-                  <span className="text-xl shrink-0">{log.icon}</span>
+                  <span className="text-xl shrink-0">{log.type === 'tool' ? '🧠' : '📡'}</span>
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-slate-800">{log.text}</p>
+                    <p className="text-sm font-bold text-slate-800 tracking-tight">{log.text}</p>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{log.time}</p>
                   </div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
                </div>
-             ))}
+             )) : (
+               <div className="py-20 text-center opacity-30 italic text-sm">
+                 Waiting for autonomous tool calls...
+               </div>
+             )}
            </div>
         </div>
       </div>

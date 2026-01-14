@@ -80,7 +80,7 @@ const App: React.FC = () => {
   };
 
   const logSignal = (text: string, type: 'tool' | 'webhook') => {
-    setSignals(prev => [{ id: Math.random().toString(), text, type, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 10));
+    setSignals(prev => [{ id: Math.random().toString(), text, type, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 15));
   };
 
   const handleAudit = async (lead: Lead) => {
@@ -92,7 +92,7 @@ const App: React.FC = () => {
       if (toolCalls && toolCalls.length > 0) {
         for (const call of toolCalls) {
           if (call.name === 'trigger_n8n_signal') {
-            logSignal(`AI Dispatching n8n signal for ${call.args.business_name}`, 'tool');
+            logSignal(`AI Dispatching signal for ${call.args.business_name}`, 'tool');
             await triggerWebhook(call.args);
           }
         }
@@ -124,7 +124,7 @@ const App: React.FC = () => {
         body: JSON.stringify({ event: 'ai_audit_completed', data, timestamp: new Date().toISOString() })
       });
     } catch (e) {
-      logSignal("n8n Connection Refused", "webhook");
+      logSignal("n8n Handshake Refused", "webhook");
     }
   };
 
@@ -144,21 +144,24 @@ const App: React.FC = () => {
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} userRole={currentUser.role} />
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-12 sticky top-0 z-40">
-           <h2 className="font-black text-slate-900 uppercase tracking-widest text-[10px] bg-slate-100 px-4 py-2 rounded-xl">Environment: {currentTab}</h2>
+           <div className="flex items-center gap-4">
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+              <h2 className="font-black text-slate-900 uppercase tracking-widest text-[10px] bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 italic">Node: {currentTab.toUpperCase()}</h2>
+           </div>
            <div className="flex items-center gap-6">
-            <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-red-600 transition-all">Logout</button>
-            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black shadow-xl">{currentUser.name.charAt(0)}</div>
+            <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-red-600 transition-all shadow-lg active:scale-95">Logout</button>
+            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black shadow-xl shadow-blue-500/20">{currentUser.name.charAt(0)}</div>
           </div>
         </header>
 
-        <main className="flex-1 p-12 overflow-y-auto">
+        <main className="flex-1 p-12 overflow-y-auto custom-scrollbar">
           {currentTab === 'dashboard' && (
             <div className="space-y-10 animate-in fade-in duration-500">
               <div className="flex justify-between items-center">
-                <h2 className="text-5xl font-black text-slate-900 tracking-tighter italic">System Control</h2>
-                <div className="bg-[#0f172a] p-6 rounded-3xl text-white shadow-2xl flex items-center gap-6">
-                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                   <span className="text-[10px] font-black uppercase tracking-widest">Handshake Active: {signals.length} Dispatches</span>
+                <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">System Control</h2>
+                <div className="bg-[#0f172a] p-6 rounded-[32px] text-white shadow-2xl flex items-center gap-6 border border-white/5">
+                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(37,99,235,1)]"></div>
+                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Handshake: {signals.length} Dispatches In-Flight</span>
                 </div>
               </div>
               
@@ -169,9 +172,9 @@ const App: React.FC = () => {
                   <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Lead Intelligence Feed</h3>
                   <div className="space-y-6">
                     {leads.slice(0, 5).map(l => (
-                      <div key={l.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:border-blue-200 cursor-pointer" onClick={() => handleAudit(l)}>
+                      <div key={l.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:border-blue-200 cursor-pointer transition-all" onClick={() => handleAudit(l)}>
                          <div className="flex items-center gap-6">
-                            <div className="w-14 h-14 bg-white border border-slate-200 rounded-2xl flex items-center justify-center font-black text-slate-900 shadow-sm">{l.business_name.charAt(0)}</div>
+                            <div className="w-14 h-14 bg-white border border-slate-200 rounded-2xl flex items-center justify-center font-black text-slate-900 shadow-sm group-hover:bg-slate-900 group-hover:text-white transition-all">{l.business_name.charAt(0)}</div>
                             <div>
                                <p className="font-black text-slate-900 text-lg leading-tight tracking-tight">{l.business_name}</p>
                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{l.category}</p>
@@ -185,7 +188,7 @@ const App: React.FC = () => {
                     ))}
                   </div>
                 </div>
-                <div className="bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm">
+                <div className="bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm overflow-hidden">
                    <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Handshake Telemetry</h3>
                    <SignalLog signals={signals} />
                 </div>
@@ -196,7 +199,7 @@ const App: React.FC = () => {
           {currentTab === 'client_dashboard' && <ClientDashboard projects={MOCK_PROJECTS} leadStats={{ score: 88, rank: '#1' }} activityLogs={[]} />}
           {currentTab === 'hot_opps' && (
             <div className="space-y-10 animate-in slide-in-from-bottom-4">
-               <h2 className="text-5xl font-black text-slate-900 tracking-tighter italic">High-Intensity Opportunities</h2>
+               <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">High-Intensity Opportunities</h2>
                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                   {leads.filter(l => l.is_hot_opportunity).map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
                </div>
@@ -211,7 +214,7 @@ const App: React.FC = () => {
           )}
           {currentTab === 'calendar' && <CalendarView />}
           {currentTab === 'crm' && <CrmView deals={deals} />}
-          {currentTab === 'automations' && <AutomationView workflows={workflows} onToggleStatus={() => {}} />}
+          {currentTab === 'automations' && <AutomationView workflows={workflows} onToggleStatus={() => {}} signals={signals} />}
           {currentTab === 'reports' && <ReportsView />}
         </main>
       </div>
@@ -224,7 +227,7 @@ const App: React.FC = () => {
       )}
 
       {currentAudit && (
-        <div className="fixed inset-0 bg-[#0f172a]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto">
+        <div className="fixed inset-0 bg-[#0f172a]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto custom-scrollbar">
           <div className="bg-white rounded-[64px] max-w-6xl w-full p-20 relative animate-in zoom-in-95 duration-500 shadow-2xl overflow-hidden">
              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-slate-50 rounded-full -mr-[250px] -mt-[250px]"></div>
              <button onClick={() => setCurrentAudit(null)} className="absolute top-12 right-12 text-slate-300 p-4 hover:bg-slate-50 hover:text-slate-900 rounded-full transition-all z-20 font-black text-xl">✕</button>
