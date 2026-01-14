@@ -16,12 +16,12 @@ import DecisionScienceView from './components/DecisionScienceView';
 import AdminInfographic from './components/AdminInfographic';
 import { DecisionBanner, SignalLog } from './components/AppContent';
 import { MOCK_LEADS, MOCK_DEALS, MOCK_NOTIFICATIONS, MOCK_PROJECTS, MOCK_WORKFLOWS, MOCK_SUBSCRIPTIONS } from './services/mockData';
-import { Lead, AuditResult, Notification, User, Deal, AutomationWorkflow, LeadStatus } from './types';
-import { generateAuditWithTools, generateOutreach, generateVideoIntro } from './services/geminiService';
+import { Lead, AuditResult, User, Deal, AutomationWorkflow } from './types';
+import { generateAuditWithTools, generateVideoIntro } from './services/geminiService';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 
 /**
- * SettingsView: Production-Grade Configuration Node
+ * SettingsView: Terminal Configuration Node
  */
 const SettingsView: React.FC<{ webhookUrl: string; onUpdate: (url: string) => void; onTest: () => void }> = ({ webhookUrl, onUpdate, onTest }) => {
   const [localUrl, setLocalUrl] = useState(webhookUrl);
@@ -61,50 +61,25 @@ const SettingsView: React.FC<{ webhookUrl: string; onUpdate: (url: string) => vo
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <button 
-                onClick={handleSave}
-                className="bg-slate-900 text-white px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl active:scale-95"
-              >
-                Save Config
-              </button>
-              <button 
-                onClick={onTest}
-                className="bg-blue-600 text-white px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl active:scale-95"
-              >
-                Test Signal
-              </button>
-            </div>
-            <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100">
-              <p className="text-xs text-blue-700 leading-relaxed font-bold italic">
-                Use 'Test Signal' to verify your n8n workflow is listening. It will send a dummy 'mcp_signal' payload.
-              </p>
+              <button onClick={handleSave} className="bg-slate-900 text-white px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl active:scale-95">Save Config</button>
+              <button onClick={onTest} className="bg-blue-600 text-white px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl active:scale-95">Test Signal</button>
             </div>
           </div>
         </div>
 
         <div className="bg-[#0f172a] p-12 rounded-[56px] text-white shadow-2xl space-y-8 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 p-8 opacity-5">
-            <svg width="150" height="150" viewBox="0 0 100 100"><circle cx="100" cy="100" r="80" fill="none" stroke="white" strokeWidth="2" strokeDasharray="10 10"/></svg>
-          </div>
-          <div>
-            <h3 className="text-xl font-black text-blue-400 italic mb-8">Node Telemetry Status</h3>
-            <div className="space-y-6">
-              {[
-                { label: 'Supabase Sync', status: 'Synchronized', color: 'text-green-500' },
-                { label: 'Gemini 3 Pro Bridge', status: 'Active', color: 'text-green-500' },
-                { label: 'n8n Handshake', status: webhookUrl.includes('placeholder') ? 'Pending' : 'Connected', color: webhookUrl.includes('placeholder') ? 'text-orange-500' : 'text-blue-500' },
-                { label: 'Identity Gateway', status: 'Encrypted', color: 'text-slate-400' }
-              ].map((node, i) => (
-                <div key={i} className="flex justify-between items-center border-b border-white/5 pb-4">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{node.label}</span>
-                  <span className={`${node.color} font-black italic text-sm`}>{node.status}</span>
-                </div>
-              ))}
+          <h3 className="text-xl font-black text-blue-400 italic mb-8">Node Telemetry Status</h3>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Supabase Sync</span>
+              <span className="text-green-500 font-black italic text-sm">Synchronized</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">n8n Handshake</span>
+              <span className="text-blue-500 font-black italic text-sm">Active</span>
             </div>
           </div>
-          <div className="pt-6">
-            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-600">Infrastructure Build: v2.7.5-stable</p>
-          </div>
+          <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-600">Infrastructure Build: v2.7.8-stable</p>
         </div>
       </div>
     </div>
@@ -116,17 +91,12 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [deals, setDeals] = useState<Deal[]>(MOCK_DEALS);
-  const [workflows, setWorkflows] = useState<AutomationWorkflow[]>(MOCK_WORKFLOWS);
+  const [deals] = useState<Deal[]>(MOCK_DEALS);
+  const [workflows] = useState<AutomationWorkflow[]>(MOCK_WORKFLOWS);
   const [isAuditing, setIsAuditing] = useState(false);
   const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult } | null>(null);
   const [signals, setSignals] = useState<{id: string, text: string, type: 'tool' | 'webhook', time: string}[]>([]);
-  
-  // Persistent Webhook Storage
-  const [webhookUrl, setWebhookUrl] = useState(() => {
-    return localStorage.getItem('flowgent_n8n_webhook') || 'https://n8n.digitex.in/webhook/flowgent-orchestrator';
-  });
-  
+  const [webhookUrl, setWebhookUrl] = useState(() => localStorage.getItem('flowgent_n8n_webhook') || 'https://n8n.digitex.in/webhook/flowgent-orchestrator');
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   useEffect(() => {
@@ -186,80 +156,36 @@ const App: React.FC = () => {
   };
 
   const triggerWebhook = async (data: any) => {
-    logSignal(`Pushing Payload to n8n Policy Gate`, 'webhook');
+    logSignal(`Pushing Payload to n8n`, 'webhook');
     try {
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          event: 'mcp_signal', 
-          payload: data, 
-          timestamp: new Date().toISOString(),
-          source: 'flowgent_frontend_test'
-        })
+        body: JSON.stringify({ event: 'mcp_signal', payload: data, timestamp: new Date().toISOString() })
       });
-      if (response.ok) {
-        logSignal("n8n Handshake: 200 OK", "webhook");
-      }
+      if (response.ok) logSignal("n8n Bridge: 200 OK", "webhook");
     } catch (e) {
       logSignal("n8n Bridge: Connection Refused", "webhook");
     }
   };
 
-  const handleTestSignal = () => {
-    triggerWebhook({
-      business_name: "FLOWGENT TEST NODE",
-      est_contract_value: 99999,
-      pitch_type: "automation_test",
-      is_hot: true,
-      test_mode: true
-    });
-  };
-
   const handleAudit = async (lead: Lead) => {
     setIsAuditing(true);
     setCurrentAudit(null);
-    logSignal(`Initializing Audit for ${lead.business_name}`, 'tool');
+    logSignal(`Auditing ${lead.business_name}`, 'tool');
     try {
       const { audit, toolCalls } = await generateAuditWithTools(lead);
-      
-      const updatedLeadData: Partial<Lead> = { 
-        score: audit.score, 
-        readiness_score: audit.score,
-        radar_metrics: audit.radar_metrics, 
-        decision_logic: audit.decision_logic,
-        projected_roi_lift: audit.projected_roi_lift,
-        last_audit_at: new Date().toISOString(),
-        is_hot_opportunity: audit.score > 80
-      };
-
-      if (isSupabaseConfigured) {
-        await supabase.from('leads').update(updatedLeadData).eq('id', lead.id);
-        await supabase.from('activity_logs').insert({
-          lead_id: lead.id,
-          event_type: 'ai_audit_completed',
-          actor: 'gemini-orchestrator',
-          payload: { readiness: audit.score, dispatch: !!toolCalls?.length }
-        });
-      }
-
-      if (toolCalls && toolCalls.length > 0) {
+      if (toolCalls?.length) {
         for (const call of toolCalls) {
           if (call.name === 'trigger_n8n_signal') {
-            logSignal(`MCP Dispatch: Signal sent for ${lead.business_name}`, 'tool');
+            logSignal(`MCP Dispatch: Signal sent`, 'tool');
             await triggerWebhook({ ...call.args, lead_id: lead.id, readiness: audit.score });
           }
         }
-      } else {
-        logSignal("Audit Finished: Policy Threshold Not Met", "tool");
       }
-
-      const updatedLead = { ...lead, ...updatedLeadData };
-      setLeads(prev => prev.map(l => l.id === lead.id ? updatedLead : l));
-      setCurrentAudit({ lead: updatedLead, result: audit });
+      setCurrentAudit({ lead: { ...lead, ...audit }, result: audit });
     } catch (err) {
-      console.error("Neural Path Error:", err);
-      logSignal("Audit Gateway Failure: Schema Mismatch", "tool");
+      logSignal("Neural Path Failure", "tool");
     } finally {
       setIsAuditing(false);
     }
@@ -282,54 +208,42 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-12 sticky top-0 z-40">
            <div className="flex items-center gap-4">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.6)]"></div>
-              <h2 className="font-black text-slate-900 uppercase tracking-tighter text-[10px] bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 italic">Command Node: {currentTab.toUpperCase()}</h2>
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+              <h2 className="font-black text-slate-900 uppercase tracking-tighter text-[10px] bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 italic">Node: {currentTab.toUpperCase()}</h2>
            </div>
            <div className="flex items-center gap-6">
-            <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-red-600 transition-all shadow-lg active:scale-95">Logout</button>
-            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black shadow-xl shadow-blue-500/20">{currentUser.name.charAt(0)}</div>
+            <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-red-600 transition-all shadow-lg">Logout</button>
+            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black shadow-xl">{currentUser.name.charAt(0)}</div>
           </div>
         </header>
 
         <main className="flex-1 p-12 overflow-y-auto custom-scrollbar">
-          {currentTab === 'dashboard' && currentUser.role === 'admin' && (
-            <div className="space-y-10 animate-in fade-in duration-500">
-              <div className="flex justify-between items-center">
-                <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">Founder Portal</h2>
-                <div className="bg-[#0f172a] p-6 rounded-[32px] text-white shadow-2xl flex items-center gap-6 border border-white/5">
-                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(37,99,235,1)]"></div>
-                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Signals: {signals.length}</span>
-                </div>
-              </div>
-              
+          {currentTab === 'dashboard' && (
+            <div className="space-y-10 animate-in fade-in">
+              <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic">Founder Portal</h2>
               <AdminInfographic />
-
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 <div className="lg:col-span-2 bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm">
-                  <div className="flex justify-between items-center mb-10">
-                    <h3 className="font-black text-2xl text-slate-900 tracking-tight italic">Intelligence Feed</h3>
-                    <span className="text-[10px] font-black text-blue-600 uppercase italic">Latest: {leads[0]?.business_name || 'Scanning...'}</span>
-                  </div>
+                  <h3 className="font-black text-2xl text-slate-900 mb-10 italic">Intelligence Feed</h3>
                   <div className="space-y-6">
                     {leads.slice(0, 5).map(l => (
-                      <div key={l.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:border-blue-200 cursor-pointer transition-all" onClick={() => handleAudit(l)}>
+                      <div key={l.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:border-blue-200 cursor-pointer" onClick={() => handleAudit(l)}>
                          <div className="flex items-center gap-6">
                             <div className="w-14 h-14 bg-white border border-slate-200 rounded-2xl flex items-center justify-center font-black text-slate-900 shadow-sm group-hover:bg-slate-900 group-hover:text-white transition-all">{l.business_name.charAt(0)}</div>
                             <div>
-                               <p className="font-black text-slate-900 text-lg leading-tight tracking-tight">{l.business_name}</p>
+                               <p className="font-black text-slate-900 text-lg">{l.business_name}</p>
                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{l.category}</p>
                             </div>
                          </div>
                          <div className="text-right">
                             <p className="text-xl font-black text-blue-600 italic">{l.readiness_score || 0}%</p>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Readiness</p>
                          </div>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div className="bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm overflow-hidden">
-                   <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Signal Telemetry</h3>
+                   <h3 className="font-black text-2xl text-slate-900 mb-10 italic">Signal Telemetry</h3>
                    <SignalLog signals={signals} />
                 </div>
               </div>
@@ -338,8 +252,8 @@ const App: React.FC = () => {
 
           {currentTab === 'client_dashboard' && <ClientDashboard projects={MOCK_PROJECTS} leadStats={{ score: 88, rank: '#1' }} activityLogs={[]} />}
           {currentTab === 'hot_opps' && (
-            <div className="space-y-10 animate-in slide-in-from-bottom-4">
-               <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Neural Opportunities</h2>
+            <div className="space-y-10">
+               <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic uppercase">Neural Opps</h2>
                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                   {leads.filter(l => l.is_hot_opportunity).map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
                </div>
@@ -357,32 +271,28 @@ const App: React.FC = () => {
           {currentTab === 'automations' && <AutomationView workflows={workflows} onToggleStatus={() => {}} signals={signals} />}
           {currentTab === 'reports' && <ReportsView />}
           {currentTab === 'billing' && <SubscriptionsView subscriptions={MOCK_SUBSCRIPTIONS} />}
-          {currentTab === 'settings' && <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} onTest={handleTestSignal} />}
+          {currentTab === 'settings' && <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} onTest={() => triggerWebhook({ test: true })} />}
         </main>
       </div>
 
       {isAuditing && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex flex-col items-center justify-center text-white">
-          <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-8 shadow-[0_0_80px_rgba(37,99,235,0.4)]"></div>
+          <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-8"></div>
           <p className="font-black uppercase tracking-[0.4em] text-xs italic">Synchronizing Neural Node...</p>
         </div>
       )}
 
       {currentAudit && (
-        <div className="fixed inset-0 bg-[#0f172a]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto custom-scrollbar">
+        <div className="fixed inset-0 bg-[#0f172a]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto">
           <div className="bg-white rounded-[64px] max-w-6xl w-full p-20 relative animate-in zoom-in-95 duration-500 shadow-2xl overflow-hidden">
-             <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-slate-50 rounded-full -mr-[250px] -mt-[250px]"></div>
              <button onClick={() => setCurrentAudit(null)} className="absolute top-12 right-12 text-slate-300 p-4 hover:bg-slate-50 hover:text-slate-900 rounded-full transition-all z-20 font-black text-xl">✕</button>
-             
              <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-20">
                 <div className="lg:col-span-2 space-y-12">
                    <div>
                       <h2 className="text-6xl font-black text-slate-900 tracking-tighter leading-[0.9]">{currentAudit.lead.business_name}</h2>
                       <p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[10px] mt-4 italic">Neural Architecture Audit</p>
                    </div>
-                   
                    <DecisionBanner audit={currentAudit.result} />
-                   
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                       <div className="p-10 bg-slate-50 rounded-[48px] border border-slate-100">
                          <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 italic">Growth Gaps</h4>
@@ -405,62 +315,18 @@ const App: React.FC = () => {
                          </ul>
                       </div>
                    </div>
-
                    <DecisionScienceView nodes={currentAudit.result.decision_logic || []} />
                 </div>
-
                 <div className="space-y-12 h-fit sticky top-0">
                    <div className="bg-slate-900 p-12 rounded-[56px] text-white flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden group">
-                      <div className="absolute inset-0 bg-blue-600 opacity-0 group-hover:opacity-10 transition-opacity"></div>
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Readiness Score</span>
                       <span className="text-8xl font-black my-6 tracking-tighter italic">{currentAudit.result.score}%</span>
-                      <div className="bg-blue-600 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Grade: Alpha Deployment</div>
-                   </div>
-
-                   <div className="bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm flex flex-col items-center">
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-8 italic">Health Matrix Radar</h4>
-                      <RadarInfographic metrics={currentAudit.result.radar_metrics} />
-                   </div>
-
-                   <div className="bg-blue-50 p-10 rounded-[48px] border border-blue-100 flex flex-col gap-2 text-center">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 italic">Predictive Annual Lift</p>
-                      <p className="text-3xl font-black text-blue-700 tracking-tighter">{currentAudit.result.projected_roi_lift || "₹14.2L /yr Potential"}</p>
                    </div>
                 </div>
              </div>
           </div>
         </div>
       )}
-    </div>
-  );
-};
-
-const RadarInfographic: React.FC<{ metrics: any }> = ({ metrics }) => {
-  const m = metrics || { presence: 40, automation: 20, seo: 30, capture: 10 };
-  const size = 180;
-  const center = size / 2;
-  const radius = 60;
-  
-  const points = [
-    { x: center, y: center - (radius * (m.presence / 100)), label: 'P' },
-    { x: center + (radius * (m.automation / 100)), y: center, label: 'A' },
-    { x: center, y: center + (radius * (m.seo / 100)), label: 'S' },
-    { x: center - (radius * (m.capture / 100)), y: center, label: 'C' }
-  ];
-  const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
-
-  return (
-    <div className="relative group">
-      <svg width={size} height={size} className="overflow-visible">
-         <circle cx={center} cy={center} r={radius} fill="none" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4 4" />
-         <circle cx={center} cy={center} r={radius/2} fill="none" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4 4" />
-         <line x1={center - radius} y1={center} x2={center + radius} y2={center} stroke="#f1f5f9" strokeWidth="1" />
-         <line x1={center} y1={center - radius} x2={center} y2={center + radius} stroke="#f1f5f9" strokeWidth="1" />
-         <path d={pathData} fill="rgba(37, 99, 235, 0.2)" stroke="#2563eb" strokeWidth="3" className="animate-in zoom-in duration-1000 group-hover:fill-blue-600/30 transition-all" />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-         <p className="text-[8px] font-black text-blue-600 bg-white px-2 py-1 rounded shadow-sm italic">AI OPTIMIZED</p>
-      </div>
     </div>
   );
 };

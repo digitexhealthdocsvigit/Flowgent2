@@ -8,21 +8,12 @@ interface LeadCardProps {
 }
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
-  // Hardened data mapping to prioritize snake_case (Supabase) but fallback to camelCase (Frontend)
+  // Hardened data mapping
   const businessName = lead.business_name || (lead as any).businessName || 'Unknown Business';
   const city = lead.city || 'Location Pending';
   const status = lead.lead_status || lead.status || 'discovered';
   const value = lead.est_contract_value || (lead as any).estimated_value || 0;
   const score = lead.readiness_score || lead.score || 0;
-
-  const getTemperatureColor = (temp: string) => {
-    switch(temp) {
-      case 'hot': return 'bg-red-100 text-red-700 border-red-200';
-      case 'warm': return 'bg-orange-100 text-orange-700 border-orange-200';
-      case 'cold': return 'bg-blue-100 text-blue-700 border-blue-200';
-      default: return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-  };
 
   const getStatusBadgeColor = (s: string) => {
     switch(s) {
@@ -35,45 +26,27 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
     }
   };
 
-  const renderStars = (rating: number = 0) => {
-    return (
-      <div className="flex items-center gap-0.5">
-        {[...Array(5)].map((_, i) => (
-          <svg key={i} xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill={i < Math.floor(rating) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" className={i < Math.floor(rating) ? "text-yellow-500" : "text-slate-300"}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        ))}
-      </div>
-    );
-  };
-
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 hover:shadow-lg transition-all group relative overflow-hidden">
       {lead.is_hot_opportunity && (
         <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 px-3 py-1 text-[8px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm z-10">
-          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           Hot Opportunity
         </div>
       )}
 
       <div className="flex justify-between items-start mb-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors leading-tight">{businessName}</h3>
-          </div>
-          <div className="flex items-center gap-2">
+          <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors leading-tight">{businessName}</h3>
+          <div className="flex items-center gap-2 mt-1">
             <p className="text-[10px] text-slate-500">{lead.category} • {city}</p>
             <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase ${getStatusBadgeColor(status)}`}>
               {status.replace('_', ' ')}
             </span>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase border ${getTemperatureColor(lead.temperature || 'cold')}`}>
-            {lead.temperature || 'COLD'}
-          </span>
-        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-4 border-t border-slate-50 pt-4">
         <div className="space-y-1">
           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Recommended Pitch</p>
           <p className="text-[10px] font-bold text-blue-700 capitalize">{(lead.pitch_type || 'Discovery').replace('_', ' ')}</p>
@@ -86,25 +59,15 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
 
       <div className="space-y-2 mb-4">
         <div className="flex justify-between items-center text-[10px]">
-          <div className="flex items-center gap-2">
-            {renderStars(lead.rating)}
-            <span className="text-slate-400 font-bold">{lead.rating || '0.0'}</span>
-          </div>
-          <span className={`font-black ${score > 70 ? 'text-green-600' : score > 40 ? 'text-orange-500' : 'text-red-500'}`}>{score}/100</span>
+          <span className="text-slate-400 font-bold">Readiness Score</span>
+          <span className={`font-black ${score > 70 ? 'text-green-600' : 'text-slate-900'}`}>{score}/100</span>
         </div>
         <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
           <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${score}%` }}></div>
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <button 
-          onClick={() => onAudit(lead)}
-          className="flex-1 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-3 rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
-        >
-          Run AI Audit
-        </button>
-      </div>
+      <button onClick={() => onAudit(lead)} className="w-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-3 rounded-xl hover:bg-slate-800 transition-colors">Run AI Audit</button>
     </div>
   );
 };
