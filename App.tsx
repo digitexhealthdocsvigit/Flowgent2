@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import LeadCard from './components/LeadCard';
 import ClientDashboard from './components/ClientDashboard';
@@ -21,56 +21,89 @@ import { generateAuditWithTools, generateOutreach, generateVideoIntro } from './
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 
 /**
- * SettingsView: Terminal Configuration Node
+ * SettingsView: Production-Grade Configuration Node
  */
-const SettingsView: React.FC<{ webhookUrl: string; onUpdate: (url: string) => void }> = ({ webhookUrl, onUpdate }) => {
+const SettingsView: React.FC<{ webhookUrl: string; onUpdate: (url: string) => void; onTest: () => void }> = ({ webhookUrl, onUpdate, onTest }) => {
+  const [localUrl, setLocalUrl] = useState(webhookUrl);
+  
+  const handleSave = () => {
+    onUpdate(localUrl);
+    localStorage.setItem('flowgent_n8n_webhook', localUrl);
+    alert("Neural Bridge Configured: n8n Orchestrator Updated.");
+  };
+
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tighter italic leading-none">Terminal Configuration</h2>
-          <p className="text-slate-500 mt-2 font-medium italic">Synchronize the Neural Orchestration layer.</p>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">System Architecture</h2>
+          <p className="text-slate-500 mt-2 font-medium italic">Terminal ID: flowgent-master-node-01</p>
         </div>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         <div className="bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm space-y-8">
-          <h3 className="text-xl font-black text-slate-900 italic">n8n Orchestrator Bridge</h3>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </div>
+            <h3 className="text-xl font-black text-slate-900 italic">n8n Orchestrator Bridge</h3>
+          </div>
           <div className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Production Webhook URI</label>
               <input 
                 type="text"
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all"
-                value={webhookUrl}
-                onChange={(e) => onUpdate(e.target.value)}
+                value={localUrl}
+                onChange={(e) => setLocalUrl(e.target.value)}
+                placeholder="https://n8n.your-domain.com/webhook/..."
               />
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed italic">
-              All agentic tool calls from Gemini are routed through this endpoint. The policy gate in n8n enforces filtering based on the 'readiness_score'.
-            </p>
-            <button className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl active:scale-95">Update Endpoint</button>
+            <div className="grid grid-cols-2 gap-4">
+              <button 
+                onClick={handleSave}
+                className="bg-slate-900 text-white px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl active:scale-95"
+              >
+                Save Config
+              </button>
+              <button 
+                onClick={onTest}
+                className="bg-blue-600 text-white px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl active:scale-95"
+              >
+                Test Signal
+              </button>
+            </div>
+            <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100">
+              <p className="text-xs text-blue-700 leading-relaxed font-bold italic">
+                Use 'Test Signal' to verify your n8n workflow is listening. It will send a dummy 'mcp_signal' payload.
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="bg-[#0f172a] p-12 rounded-[56px] text-white shadow-2xl space-y-8 relative overflow-hidden">
+        <div className="bg-[#0f172a] p-12 rounded-[56px] text-white shadow-2xl space-y-8 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 p-8 opacity-5">
-            <svg width="100" height="100" viewBox="0 0 100 100"><circle cx="100" cy="100" r="80" fill="none" stroke="white" strokeWidth="2" strokeDasharray="10 10"/></svg>
+            <svg width="150" height="150" viewBox="0 0 100 100"><circle cx="100" cy="100" r="80" fill="none" stroke="white" strokeWidth="2" strokeDasharray="10 10"/></svg>
           </div>
-          <h3 className="text-xl font-black text-blue-400 italic">Node Infrastructure Health</h3>
-          <div className="space-y-6">
-            <div className="flex justify-between items-center border-b border-white/5 pb-4">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Database Persistence</span>
-              <span className="text-green-500 font-bold italic text-sm">Synchronized</span>
+          <div>
+            <h3 className="text-xl font-black text-blue-400 italic mb-8">Node Telemetry Status</h3>
+            <div className="space-y-6">
+              {[
+                { label: 'Supabase Sync', status: 'Synchronized', color: 'text-green-500' },
+                { label: 'Gemini 3 Pro Bridge', status: 'Active', color: 'text-green-500' },
+                { label: 'n8n Handshake', status: webhookUrl.includes('placeholder') ? 'Pending' : 'Connected', color: webhookUrl.includes('placeholder') ? 'text-orange-500' : 'text-blue-500' },
+                { label: 'Identity Gateway', status: 'Encrypted', color: 'text-slate-400' }
+              ].map((node, i) => (
+                <div key={i} className="flex justify-between items-center border-b border-white/5 pb-4">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{node.label}</span>
+                  <span className={`${node.color} font-black italic text-sm`}>{node.status}</span>
+                </div>
+              ))}
             </div>
-            <div className="flex justify-between items-center border-b border-white/5 pb-4">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Gemini 3 Pro Bridge</span>
-              <span className="text-green-500 font-bold italic text-sm">Active</span>
-            </div>
-            <div className="flex justify-between items-center border-b border-white/5 pb-4">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">n8n Policy Gate</span>
-              <span className="text-blue-500 font-bold italic text-sm">Handshaking...</span>
-            </div>
+          </div>
+          <div className="pt-6">
+            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-600">Infrastructure Build: v2.7.5-stable</p>
           </div>
         </div>
       </div>
@@ -88,7 +121,12 @@ const App: React.FC = () => {
   const [isAuditing, setIsAuditing] = useState(false);
   const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult } | null>(null);
   const [signals, setSignals] = useState<{id: string, text: string, type: 'tool' | 'webhook', time: string}[]>([]);
-  const [webhookUrl, setWebhookUrl] = useState('https://n8n.digitex.in/webhook/flowgent-orchestrator');
+  
+  // Persistent Webhook Storage
+  const [webhookUrl, setWebhookUrl] = useState(() => {
+    return localStorage.getItem('flowgent_n8n_webhook') || 'https://n8n.digitex.in/webhook/flowgent-orchestrator';
+  });
+  
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   useEffect(() => {
@@ -115,9 +153,6 @@ const App: React.FC = () => {
     checkAuth();
   }, []);
 
-  /**
-   * Robust Lead Refresh with Field Hardening
-   */
   const refreshLeads = async () => {
     if (!isSupabaseConfigured) return;
     try {
@@ -128,7 +163,8 @@ const App: React.FC = () => {
           business_name: l.business_name || l.businessName || 'Unknown Business',
           lead_status: l.lead_status || l.status || 'discovered',
           readiness_score: l.readiness_score || l.score || 0,
-          temperature: l.temperature || (l.readiness_score > 70 ? 'hot' : 'cold')
+          temperature: l.temperature || (l.readiness_score > 70 ? 'hot' : 'cold'),
+          is_hot_opportunity: l.is_hot_opportunity || (l.readiness_score > 75)
         })));
       }
     } catch (e) {
@@ -149,10 +185,41 @@ const App: React.FC = () => {
     setSignals(prev => [{ id: Math.random().toString(), text, type, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 15));
   };
 
+  const triggerWebhook = async (data: any) => {
+    logSignal(`Pushing Payload to n8n Policy Gate`, 'webhook');
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          event: 'mcp_signal', 
+          payload: data, 
+          timestamp: new Date().toISOString(),
+          source: 'flowgent_frontend_test'
+        })
+      });
+      if (response.ok) {
+        logSignal("n8n Handshake: 200 OK", "webhook");
+      }
+    } catch (e) {
+      logSignal("n8n Bridge: Connection Refused", "webhook");
+    }
+  };
+
+  const handleTestSignal = () => {
+    triggerWebhook({
+      business_name: "FLOWGENT TEST NODE",
+      est_contract_value: 99999,
+      pitch_type: "automation_test",
+      is_hot: true,
+      test_mode: true
+    });
+  };
+
   const handleAudit = async (lead: Lead) => {
     setIsAuditing(true);
     setCurrentAudit(null);
-    logSignal(`Initializing Audit for ${lead.business_name || 'Business'}`, 'tool');
+    logSignal(`Initializing Audit for ${lead.business_name}`, 'tool');
     try {
       const { audit, toolCalls } = await generateAuditWithTools(lead);
       
@@ -179,12 +246,12 @@ const App: React.FC = () => {
       if (toolCalls && toolCalls.length > 0) {
         for (const call of toolCalls) {
           if (call.name === 'trigger_n8n_signal') {
-            logSignal(`MCP Handshake: Dispatched Signal for ${lead.business_name}`, 'tool');
+            logSignal(`MCP Dispatch: Signal sent for ${lead.business_name}`, 'tool');
             await triggerWebhook({ ...call.args, lead_id: lead.id, readiness: audit.score });
           }
         }
       } else {
-        logSignal("Audit Finished (Below Policy Gate Threshold)", "tool");
+        logSignal("Audit Finished: Policy Threshold Not Met", "tool");
       }
 
       const updatedLead = { ...lead, ...updatedLeadData };
@@ -192,25 +259,9 @@ const App: React.FC = () => {
       setCurrentAudit({ lead: updatedLead, result: audit });
     } catch (err) {
       console.error("Neural Path Error:", err);
-      logSignal("Audit Gateway Failure / Schema Mismatch", "tool");
+      logSignal("Audit Gateway Failure: Schema Mismatch", "tool");
     } finally {
       setIsAuditing(false);
-    }
-  };
-
-  const triggerWebhook = async (data: any) => {
-    logSignal(`Pushing Payload to n8n Policy Gate`, 'webhook');
-    try {
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: 'mcp_signal', payload: data, timestamp: new Date().toISOString() })
-      });
-      if (response.ok) {
-        logSignal("n8n Orchestrator Node: 200 OK", "webhook");
-      }
-    } catch (e) {
-      logSignal("n8n Connection Refused / Timeout", "webhook");
     }
   };
 
@@ -220,7 +271,7 @@ const App: React.FC = () => {
     setViewState('public');
   };
 
-  if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black tracking-widest uppercase italic">Initializing Terminal Nodes...</div>;
+  if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black tracking-widest uppercase italic">Synchronizing Core Terminal...</div>;
   if (viewState === 'public') return <LandingPage onLeadSubmit={() => {}} onGoToLogin={() => setViewState('login')} />;
   if (viewState === 'login') return <LoginScreen onLogin={() => {}} onGoBack={() => setViewState('public')} />;
   if (!currentUser) return null;
@@ -232,7 +283,7 @@ const App: React.FC = () => {
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-12 sticky top-0 z-40">
            <div className="flex items-center gap-4">
               <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.6)]"></div>
-              <h2 className="font-black text-slate-900 uppercase tracking-tighter text-[10px] bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 italic">Terminal Node: {currentTab.toUpperCase()}</h2>
+              <h2 className="font-black text-slate-900 uppercase tracking-tighter text-[10px] bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 italic">Command Node: {currentTab.toUpperCase()}</h2>
            </div>
            <div className="flex items-center gap-6">
             <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-red-600 transition-all shadow-lg active:scale-95">Logout</button>
@@ -241,10 +292,10 @@ const App: React.FC = () => {
         </header>
 
         <main className="flex-1 p-12 overflow-y-auto custom-scrollbar">
-          {currentTab === 'dashboard' && (
+          {currentTab === 'dashboard' && currentUser.role === 'admin' && (
             <div className="space-y-10 animate-in fade-in duration-500">
               <div className="flex justify-between items-center">
-                <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">Command Center</h2>
+                <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">Founder Portal</h2>
                 <div className="bg-[#0f172a] p-6 rounded-[32px] text-white shadow-2xl flex items-center gap-6 border border-white/5">
                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(37,99,235,1)]"></div>
                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Signals: {signals.length}</span>
@@ -255,7 +306,10 @@ const App: React.FC = () => {
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 <div className="lg:col-span-2 bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm">
-                  <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Intelligence Feed</h3>
+                  <div className="flex justify-between items-center mb-10">
+                    <h3 className="font-black text-2xl text-slate-900 tracking-tight italic">Intelligence Feed</h3>
+                    <span className="text-[10px] font-black text-blue-600 uppercase italic">Latest: {leads[0]?.business_name || 'Scanning...'}</span>
+                  </div>
                   <div className="space-y-6">
                     {leads.slice(0, 5).map(l => (
                       <div key={l.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:border-blue-200 cursor-pointer transition-all" onClick={() => handleAudit(l)}>
@@ -275,7 +329,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className="bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm overflow-hidden">
-                   <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Telemetry Log</h3>
+                   <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Signal Telemetry</h3>
                    <SignalLog signals={signals} />
                 </div>
               </div>
@@ -285,9 +339,9 @@ const App: React.FC = () => {
           {currentTab === 'client_dashboard' && <ClientDashboard projects={MOCK_PROJECTS} leadStats={{ score: 88, rank: '#1' }} activityLogs={[]} />}
           {currentTab === 'hot_opps' && (
             <div className="space-y-10 animate-in slide-in-from-bottom-4">
-               <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">Neural Opportunities</h2>
+               <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Neural Opportunities</h2>
                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                  {leads.filter(l => l.is_hot_opportunity || (l.readiness_score && l.readiness_score > 80)).map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
+                  {leads.filter(l => l.is_hot_opportunity).map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
                </div>
             </div>
           )}
@@ -303,7 +357,7 @@ const App: React.FC = () => {
           {currentTab === 'automations' && <AutomationView workflows={workflows} onToggleStatus={() => {}} signals={signals} />}
           {currentTab === 'reports' && <ReportsView />}
           {currentTab === 'billing' && <SubscriptionsView subscriptions={MOCK_SUBSCRIPTIONS} />}
-          {currentTab === 'settings' && <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} />}
+          {currentTab === 'settings' && <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} onTest={handleTestSignal} />}
         </main>
       </div>
 
@@ -368,7 +422,7 @@ const App: React.FC = () => {
                       <RadarInfographic metrics={currentAudit.result.radar_metrics} />
                    </div>
 
-                   <div className="bg-blue-50 p-10 rounded-[48px] border border-blue-100 flex flex-col gap-2">
+                   <div className="bg-blue-50 p-10 rounded-[48px] border border-blue-100 flex flex-col gap-2 text-center">
                       <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 italic">Predictive Annual Lift</p>
                       <p className="text-3xl font-black text-blue-700 tracking-tighter">{currentAudit.result.projected_roi_lift || "₹14.2L /yr Potential"}</p>
                    </div>
