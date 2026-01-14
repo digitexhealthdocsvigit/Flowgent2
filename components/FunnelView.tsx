@@ -46,10 +46,16 @@ const FunnelView: React.FC<FunnelViewProps> = ({ leads }) => {
                     style={{ width: `${100 - i * 22}%`, opacity: 0.9 }}
                   ></div>
                   <div className="relative z-10 flex justify-between w-full items-center">
-                     <span className="text-white font-black text-2xl italic tracking-tighter">{stage.count} DISPATCHED</span>
-                     <div className="flex items-center gap-4 bg-white/10 px-6 py-2 rounded-full backdrop-blur-sm">
-                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
-                        <span className="text-white text-[10px] font-black uppercase tracking-[0.4em]">{stage.velocity}</span>
+                     {/* 
+                         CRITICAL UI FIX: Changed 'text-white' to 'text-slate-900' for high contrast 
+                         on both the vibrant bar colors and the light slate-50 background.
+                     */}
+                     <span className="text-slate-900 font-black text-2xl italic tracking-tighter drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+                        {stage.count} DISPATCHED
+                     </span>
+                     <div className="flex items-center gap-4 bg-slate-900/10 px-6 py-2 rounded-full backdrop-blur-sm border border-slate-900/5">
+                        <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></div>
+                        <span className="text-slate-900 text-[10px] font-black uppercase tracking-[0.4em]">{stage.velocity}</span>
                      </div>
                   </div>
                </div>
