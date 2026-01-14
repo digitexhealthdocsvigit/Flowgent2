@@ -88,7 +88,7 @@ const App: React.FC = () => {
     setIsAuditing(true);
     setCurrentAudit(null);
     try {
-      // 1. Generate AI Audit & Check for Tool Calls (Agentic Handshake)
+      // 1. Generate AI Audit with Agentic Tools (Gemini 3 Pro)
       const { audit, toolCalls } = await generateAuditWithTools(lead);
       
       const updatedLeadData: Partial<Lead> = { 
@@ -101,34 +101,38 @@ const App: React.FC = () => {
         is_hot_opportunity: audit.score > 80
       };
 
-      // 2. Persist to Supabase 'leads' table (Data Hardening)
+      // 2. Persistent Dual-Write (Leads + Activity Logs)
       if (isSupabaseConfigured) {
-        await supabase.from('leads').update(updatedLeadData).eq('id', lead.id);
+        // Update Lead Health Data
+        const { error: updateError } = await supabase.from('leads').update(updatedLeadData).eq('id', lead.id);
         
-        // 3. Dual-write to 'activity_logs' for n8n/Orchestrator visibility
-        await supabase.from('activity_logs').insert({
+        // Log the Handshake Event for Infrastructure Visibility
+        const { error: logError } = await supabase.from('activity_logs').insert({
           lead_id: lead.id,
           event_type: 'ai_audit_completed',
           actor: 'gemini-orchestrator',
           payload: { 
             readiness: audit.score, 
             roi_potential: audit.projected_roi_lift,
-            policy_gate_met: audit.score > 80
+            dispatch_node: toolCalls && toolCalls.length > 0 ? 'mcp_trigger' : 'audit_only'
           }
         });
+
+        if (updateError || logError) console.warn("Supabase Handshake partially failed:", { updateError, logError });
       }
 
-      // 4. Dispatch Signal to n8n if tool called by Gemini
+      // 3. Dispatch Signal to n8n Policy Gate
       if (toolCalls && toolCalls.length > 0) {
         for (const call of toolCalls) {
           if (call.name === 'trigger_n8n_signal') {
-            logSignal(`Titli n8n Handshake: Dispatched Signal for ${lead.business_name}`, 'tool');
+            logSignal(`AI Dispatch: Triggering n8n for ${lead.business_name}`, 'tool');
             await triggerWebhook({ 
               ...call.args, 
               lead_id: lead.id, 
               readiness_score: audit.score,
               radar: audit.radar_metrics,
-              event_type: 'infrastructure_provisioning'
+              business_email: lead.email,
+              orchestration_source: 'frontend_node_bridge'
             });
           }
         }
@@ -138,30 +142,33 @@ const App: React.FC = () => {
       setLeads(prev => prev.map(l => l.id === lead.id ? updatedLead : l));
       setCurrentAudit({ lead: updatedLead, result: audit });
     } catch (err) {
-      console.error("Neural Orchestration Failed:", err);
+      console.error("Neural Bridge Failure:", err);
+      logSignal("Critical Error in Neural Path", "tool");
     } finally {
       setIsAuditing(false);
     }
   };
 
   const triggerWebhook = async (data: any) => {
-    logSignal(`Pushing Decision Science payload to n8n Policy Gate`, 'webhook');
+    logSignal(`Pushing MCP Payload to n8n Orchestrator`, 'webhook');
     try {
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          event: 'mcp_handshake_signal', 
-          data, 
-          timestamp: new Date().toISOString(),
-          policy_gate: "active_enforcement"
+          event: 'mcp_infrastructure_signal', 
+          payload: data, 
+          meta: { 
+            timestamp: new Date().toISOString(),
+            policy_enforcement: "readiness > 80"
+          }
         })
       });
       if (response.ok) {
-        logSignal("n8n Orchestration Node: 200 OK", "webhook");
+        logSignal("n8n Handshake Verified (200 OK)", "webhook");
       }
     } catch (e) {
-      logSignal("n8n Connection Refused / Timeout", "webhook");
+      logSignal("n8n Orchestrator Connection Timeout", "webhook");
     }
   };
 
@@ -195,10 +202,10 @@ const App: React.FC = () => {
           {currentTab === 'dashboard' && (
             <div className="space-y-10 animate-in fade-in duration-500">
               <div className="flex justify-between items-center">
-                <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">Command Center</h2>
+                <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">Command Tower</h2>
                 <div className="bg-[#0f172a] p-6 rounded-[32px] text-white shadow-2xl flex items-center gap-6 border border-white/5">
                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(37,99,235,1)]"></div>
-                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Signals Dispatched: {signals.length}</span>
+                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Handshake Signals: {signals.length}</span>
                 </div>
               </div>
               
@@ -206,7 +213,7 @@ const App: React.FC = () => {
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 <div className="lg:col-span-2 bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm">
-                  <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Priority Intel Feed</h3>
+                  <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Intelligence Feed</h3>
                   <div className="space-y-6">
                     {leads.slice(0, 5).map(l => (
                       <div key={l.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:border-blue-200 cursor-pointer transition-all" onClick={() => handleAudit(l)}>
@@ -219,14 +226,14 @@ const App: React.FC = () => {
                          </div>
                          <div className="text-right">
                             <p className="text-xl font-black text-blue-600 italic">{l.readiness_score || 0}%</p>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Readiness Score</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Readiness</p>
                          </div>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div className="bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm overflow-hidden">
-                   <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Handshake Telemetry</h3>
+                   <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Telemetry Stream</h3>
                    <SignalLog signals={signals} />
                 </div>
               </div>
@@ -259,7 +266,7 @@ const App: React.FC = () => {
       {isAuditing && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex flex-col items-center justify-center text-white">
           <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-8 shadow-[0_0_80px_rgba(37,99,235,0.4)]"></div>
-          <p className="font-black uppercase tracking-[0.4em] text-xs">Computing Neural Handshake...</p>
+          <p className="font-black uppercase tracking-[0.4em] text-xs">Processing Decision Handshake...</p>
         </div>
       )}
 
