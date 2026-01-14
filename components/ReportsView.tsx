@@ -16,7 +16,7 @@ const ReportsView: React.FC = () => {
         <div className="lg:col-span-2 bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm">
           <div className="flex justify-between items-center mb-10">
             <h3 className="font-black text-2xl text-slate-900 tracking-tight italic">Velocity Intelligence</h3>
-            <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">Source: lead_velocity_index</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100">Live: lead_velocity_index</span>
           </div>
           <div className="h-64 flex items-end justify-between gap-6">
             {[
@@ -28,7 +28,7 @@ const ReportsView: React.FC = () => {
             ].map((d, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-4 group">
                 <div 
-                  className={`w-full ${d.color} rounded-2xl transition-all duration-1000 group-hover:scale-x-105`} 
+                  className={`w-full ${d.color} rounded-2xl transition-all duration-1000 group-hover:scale-x-105 shadow-lg group-hover:shadow-blue-500/20`} 
                   style={{ height: `${d.val}%`, opacity: 0.8 }}
                 ></div>
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">{d.label}</span>
@@ -38,7 +38,7 @@ const ReportsView: React.FC = () => {
         </div>
 
         <div className="bg-[#0f172a] p-12 rounded-[56px] text-white shadow-2xl flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
             <svg width="120" height="120" viewBox="0 0 100 100"><circle cx="100" cy="100" r="80" fill="none" stroke="white" strokeWidth="2" strokeDasharray="10 10"/></svg>
           </div>
           <div>

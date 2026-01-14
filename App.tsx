@@ -65,7 +65,8 @@ const App: React.FC = () => {
       setLeads(data.map((l: any) => ({
         ...l,
         business_name: l.business_name || 'Unknown',
-        lead_status: l.lead_status || 'discovered'
+        lead_status: l.lead_status || 'discovered',
+        readiness_score: l.readiness_score || 0
       })));
     }
   };
@@ -87,61 +88,80 @@ const App: React.FC = () => {
     setIsAuditing(true);
     setCurrentAudit(null);
     try {
+      // 1. Generate AI Audit & Check for Tool Calls (Agentic Handshake)
       const { audit, toolCalls } = await generateAuditWithTools(lead);
       
-      if (toolCalls && toolCalls.length > 0) {
-        for (const call of toolCalls) {
-          if (call.name === 'trigger_n8n_signal') {
-            logSignal(`AI Dispatching signal for ${call.args.business_name}`, 'tool');
-            await triggerWebhook({ ...call.args, lead_id: lead.id, audit_score: audit.score });
-          }
-        }
-      }
-
       const updatedLeadData: Partial<Lead> = { 
         score: audit.score, 
         readiness_score: audit.score,
         radar_metrics: audit.radar_metrics, 
         decision_logic: audit.decision_logic,
         projected_roi_lift: audit.projected_roi_lift,
-        last_audit_at: new Date().toISOString()
+        last_audit_at: new Date().toISOString(),
+        is_hot_opportunity: audit.score > 80
       };
 
+      // 2. Persist to Supabase 'leads' table (Data Hardening)
       if (isSupabaseConfigured) {
         await supabase.from('leads').update(updatedLeadData).eq('id', lead.id);
         
-        // Log to activity_logs
+        // 3. Dual-write to 'activity_logs' for n8n/Orchestrator visibility
         await supabase.from('activity_logs').insert({
           lead_id: lead.id,
           event_type: 'ai_audit_completed',
-          actor: 'gemini',
-          payload: { audit_result: audit }
+          actor: 'gemini-orchestrator',
+          payload: { 
+            readiness: audit.score, 
+            roi_potential: audit.projected_roi_lift,
+            policy_gate_met: audit.score > 80
+          }
         });
+      }
+
+      // 4. Dispatch Signal to n8n if tool called by Gemini
+      if (toolCalls && toolCalls.length > 0) {
+        for (const call of toolCalls) {
+          if (call.name === 'trigger_n8n_signal') {
+            logSignal(`Titli n8n Handshake: Dispatched Signal for ${lead.business_name}`, 'tool');
+            await triggerWebhook({ 
+              ...call.args, 
+              lead_id: lead.id, 
+              readiness_score: audit.score,
+              radar: audit.radar_metrics,
+              event_type: 'infrastructure_provisioning'
+            });
+          }
+        }
       }
 
       const updatedLead = { ...lead, ...updatedLeadData };
       setLeads(prev => prev.map(l => l.id === lead.id ? updatedLead : l));
       setCurrentAudit({ lead: updatedLead, result: audit });
     } catch (err) {
-      console.error(err);
+      console.error("Neural Orchestration Failed:", err);
     } finally {
       setIsAuditing(false);
     }
   };
 
   const triggerWebhook = async (data: any) => {
-    logSignal(`Pushing Decision Science payload to n8n`, 'webhook');
+    logSignal(`Pushing Decision Science payload to n8n Policy Gate`, 'webhook');
     try {
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: 'ai_audit_completed', data, timestamp: new Date().toISOString() })
+        body: JSON.stringify({ 
+          event: 'mcp_handshake_signal', 
+          data, 
+          timestamp: new Date().toISOString(),
+          policy_gate: "active_enforcement"
+        })
       });
       if (response.ok) {
-        logSignal("n8n Handshake Verified", "webhook");
+        logSignal("n8n Orchestration Node: 200 OK", "webhook");
       }
     } catch (e) {
-      logSignal("n8n Connection Timeout", "webhook");
+      logSignal("n8n Connection Refused / Timeout", "webhook");
     }
   };
 
@@ -151,7 +171,7 @@ const App: React.FC = () => {
     setViewState('public');
   };
 
-  if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black tracking-widest uppercase">Initializing Neural Layer...</div>;
+  if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black tracking-widest uppercase italic">Initializing Neural Layer...</div>;
   if (viewState === 'public') return <LandingPage onLeadSubmit={() => {}} onGoToLogin={() => setViewState('login')} />;
   if (viewState === 'login') return <LoginScreen onLogin={() => {}} onGoBack={() => setViewState('public')} />;
   if (!currentUser) return null;
@@ -162,8 +182,8 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-12 sticky top-0 z-40">
            <div className="flex items-center gap-4">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
-              <h2 className="font-black text-slate-900 uppercase tracking-widest text-[10px] bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 italic">Node: {currentTab.toUpperCase()}</h2>
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.6)]"></div>
+              <h2 className="font-black text-slate-900 uppercase tracking-tighter text-[10px] bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 italic">Terminal Node: {currentTab.toUpperCase()}</h2>
            </div>
            <div className="flex items-center gap-6">
             <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3.5 bg-slate-900 text-white rounded-2xl hover:bg-red-600 transition-all shadow-lg active:scale-95">Logout</button>
@@ -175,10 +195,10 @@ const App: React.FC = () => {
           {currentTab === 'dashboard' && (
             <div className="space-y-10 animate-in fade-in duration-500">
               <div className="flex justify-between items-center">
-                <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">System Control</h2>
+                <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">Command Center</h2>
                 <div className="bg-[#0f172a] p-6 rounded-[32px] text-white shadow-2xl flex items-center gap-6 border border-white/5">
                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(37,99,235,1)]"></div>
-                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Handshake: {signals.length} Dispatches In-Flight</span>
+                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Signals Dispatched: {signals.length}</span>
                 </div>
               </div>
               
@@ -186,7 +206,7 @@ const App: React.FC = () => {
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 <div className="lg:col-span-2 bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm">
-                  <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Lead Intelligence Feed</h3>
+                  <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Priority Intel Feed</h3>
                   <div className="space-y-6">
                     {leads.slice(0, 5).map(l => (
                       <div key={l.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:border-blue-200 cursor-pointer transition-all" onClick={() => handleAudit(l)}>
@@ -198,8 +218,8 @@ const App: React.FC = () => {
                             </div>
                          </div>
                          <div className="text-right">
-                            <p className="text-xl font-black text-blue-600 italic">{l.readiness_score || l.score}%</p>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Readiness</p>
+                            <p className="text-xl font-black text-blue-600 italic">{l.readiness_score || 0}%</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Readiness Score</p>
                          </div>
                       </div>
                     ))}
@@ -213,17 +233,10 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {currentTab === 'client_dashboard' && (
-            <ClientDashboard 
-              projects={MOCK_PROJECTS} 
-              leadStats={{ score: 88, rank: '#1' }} 
-              activityLogs={[]} 
-              decisionLogic={leads.find(l => l.email === currentUser.email)?.decision_logic}
-            />
-          )}
+          {currentTab === 'client_dashboard' && <ClientDashboard projects={MOCK_PROJECTS} leadStats={{ score: 88, rank: '#1' }} activityLogs={[]} />}
           {currentTab === 'hot_opps' && (
             <div className="space-y-10 animate-in slide-in-from-bottom-4">
-               <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">High-Intensity Opportunities</h2>
+               <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">Neural Opportunities</h2>
                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                   {leads.filter(l => l.is_hot_opportunity || (l.readiness_score && l.readiness_score > 80)).map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
                </div>
@@ -246,7 +259,7 @@ const App: React.FC = () => {
       {isAuditing && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex flex-col items-center justify-center text-white">
           <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-8 shadow-[0_0_80px_rgba(37,99,235,0.4)]"></div>
-          <p className="font-black uppercase tracking-[0.4em] text-xs">Generating Neural Decision Path...</p>
+          <p className="font-black uppercase tracking-[0.4em] text-xs">Computing Neural Handshake...</p>
         </div>
       )}
 
@@ -296,7 +309,7 @@ const App: React.FC = () => {
                       <div className="absolute inset-0 bg-blue-600 opacity-0 group-hover:opacity-10 transition-opacity"></div>
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Readiness Score</span>
                       <span className="text-8xl font-black my-6 tracking-tighter italic">{currentAudit.result.score}%</span>
-                      <div className="bg-blue-600 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest italic">Neural Grade: Alpha</div>
+                      <div className="bg-blue-600 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest italic tracking-tighter">Grade: Alpha Deployment</div>
                    </div>
 
                    <div className="bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm flex flex-col items-center">
@@ -341,7 +354,7 @@ const RadarInfographic: React.FC<{ metrics: any }> = ({ metrics }) => {
          <path d={pathData} fill="rgba(37, 99, 235, 0.2)" stroke="#2563eb" strokeWidth="3" className="animate-in zoom-in duration-1000 group-hover:fill-blue-600/30 transition-all" />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-         <p className="text-[8px] font-black text-blue-600 bg-white px-2 py-1 rounded shadow-sm">AI CALCULATED</p>
+         <p className="text-[8px] font-black text-blue-600 bg-white px-2 py-1 rounded shadow-sm italic">AI OPTIMIZED</p>
       </div>
     </div>
   );
