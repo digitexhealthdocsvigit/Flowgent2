@@ -8,11 +8,12 @@ interface LeadCardProps {
 }
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
-  // Hardened data mapping to prevent "undefined"
+  // Hardened data mapping to prioritize snake_case (Supabase) but fallback to camelCase (Frontend)
   const businessName = lead.business_name || (lead as any).businessName || 'Unknown Business';
   const city = lead.city || 'Location Pending';
   const status = lead.lead_status || lead.status || 'discovered';
   const value = lead.est_contract_value || (lead as any).estimated_value || 0;
+  const score = lead.readiness_score || lead.score || 0;
 
   const getTemperatureColor = (temp: string) => {
     switch(temp) {
@@ -66,18 +67,9 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase border ${getTemperatureColor(lead.temperature)}`}>
-            {lead.temperature}
+          <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase border ${getTemperatureColor(lead.temperature || 'cold')}`}>
+            {lead.temperature || 'COLD'}
           </span>
-          {lead.video_pitch_url && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); window.open(lead.video_pitch_url, '_blank'); }}
-              className="bg-blue-600 text-white p-1.5 rounded-lg shadow-lg hover:bg-blue-700 transition-all animate-pulse"
-              title="Play AI Pitch"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            </button>
-          )}
         </div>
       </div>
 
@@ -88,7 +80,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
         </div>
         <div className="space-y-1 text-right">
           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Est. Contract Value</p>
-          <p className="text-[10px] font-black text-slate-900">₹{value.toLocaleString('en-IN') || 'TBD'}</p>
+          <p className="text-[10px] font-black text-slate-900">₹{value.toLocaleString('en-IN')}</p>
         </div>
       </div>
 
@@ -96,23 +88,13 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
         <div className="flex justify-between items-center text-[10px]">
           <div className="flex items-center gap-2">
             {renderStars(lead.rating)}
-            <span className="text-slate-400 font-bold">{lead.rating}</span>
+            <span className="text-slate-400 font-bold">{lead.rating || '0.0'}</span>
           </div>
-          <span className={`font-black ${lead.score > 70 ? 'text-green-600' : lead.score > 40 ? 'text-orange-500' : 'text-red-500'}`}>{lead.score}/100</span>
+          <span className={`font-black ${score > 70 ? 'text-green-600' : score > 40 ? 'text-orange-500' : 'text-red-500'}`}>{score}/100</span>
         </div>
         <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
-          <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${lead.score}%` }}></div>
+          <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${score}%` }}></div>
         </div>
-      </div>
-
-      <div className="flex flex-col gap-2 mb-5">
-        {lead.phone && (
-          <a href={`tel:${lead.phone}`} className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-2 w-fit">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-            {lead.phone}
-          </a>
-        )}
-        <p className="text-[9px] text-slate-400 font-medium italic">{lead.service_tier}</p>
       </div>
 
       <div className="flex gap-2">
@@ -122,9 +104,6 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
         >
           Run AI Audit
         </button>
-        <div className="px-3 bg-slate-100 text-slate-500 rounded-xl flex items-center justify-center text-[8px] font-black uppercase tracking-tighter border border-slate-200">
-          {(lead.source || 'Manual').replace('_', ' ')}
-        </div>
       </div>
     </div>
   );

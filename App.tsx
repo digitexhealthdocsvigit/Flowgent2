@@ -11,14 +11,72 @@ import LandingPage from './components/LandingPage';
 import LoginScreen from './components/LoginScreen';
 import AutomationView from './components/AutomationView';
 import ScraperView from './components/ScraperView';
+import SubscriptionsView from './components/SubscriptionsView';
 import DecisionScienceView from './components/DecisionScienceView';
 import AdminInfographic from './components/AdminInfographic';
 import { DecisionBanner, SignalLog } from './components/AppContent';
-import { MOCK_LEADS, MOCK_DEALS, MOCK_NOTIFICATIONS, MOCK_PROJECTS, MOCK_WORKFLOWS } from './services/mockData';
+import { MOCK_LEADS, MOCK_DEALS, MOCK_NOTIFICATIONS, MOCK_PROJECTS, MOCK_WORKFLOWS, MOCK_SUBSCRIPTIONS } from './services/mockData';
 import { Lead, AuditResult, Notification, User, Deal, AutomationWorkflow, LeadStatus } from './types';
 import { generateAuditWithTools, generateOutreach, generateVideoIntro } from './services/geminiService';
-import { calculateLeadScore } from './utils/scoring';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
+
+/**
+ * SettingsView: Terminal Configuration Node
+ */
+const SettingsView: React.FC<{ webhookUrl: string; onUpdate: (url: string) => void }> = ({ webhookUrl, onUpdate }) => {
+  return (
+    <div className="space-y-10 animate-in fade-in duration-500">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tighter italic leading-none">Terminal Configuration</h2>
+          <p className="text-slate-500 mt-2 font-medium italic">Synchronize the Neural Orchestration layer.</p>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <div className="bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm space-y-8">
+          <h3 className="text-xl font-black text-slate-900 italic">n8n Orchestrator Bridge</h3>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Production Webhook URI</label>
+              <input 
+                type="text"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all"
+                value={webhookUrl}
+                onChange={(e) => onUpdate(e.target.value)}
+              />
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed italic">
+              All agentic tool calls from Gemini are routed through this endpoint. The policy gate in n8n enforces filtering based on the 'readiness_score'.
+            </p>
+            <button className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl active:scale-95">Update Endpoint</button>
+          </div>
+        </div>
+
+        <div className="bg-[#0f172a] p-12 rounded-[56px] text-white shadow-2xl space-y-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-5">
+            <svg width="100" height="100" viewBox="0 0 100 100"><circle cx="100" cy="100" r="80" fill="none" stroke="white" strokeWidth="2" strokeDasharray="10 10"/></svg>
+          </div>
+          <h3 className="text-xl font-black text-blue-400 italic">Node Infrastructure Health</h3>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Database Persistence</span>
+              <span className="text-green-500 font-bold italic text-sm">Synchronized</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Gemini 3 Pro Bridge</span>
+              <span className="text-green-500 font-bold italic text-sm">Active</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">n8n Policy Gate</span>
+              <span className="text-blue-500 font-bold italic text-sm">Handshaking...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const [viewState, setViewState] = useState<'public' | 'login' | 'dashboard'>('public');
@@ -27,7 +85,6 @@ const App: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>(MOCK_DEALS);
   const [workflows, setWorkflows] = useState<AutomationWorkflow[]>(MOCK_WORKFLOWS);
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
   const [isAuditing, setIsAuditing] = useState(false);
   const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult } | null>(null);
   const [signals, setSignals] = useState<{id: string, text: string, type: 'tool' | 'webhook', time: string}[]>([]);
@@ -58,16 +115,24 @@ const App: React.FC = () => {
     checkAuth();
   }, []);
 
+  /**
+   * Robust Lead Refresh with Field Hardening
+   */
   const refreshLeads = async () => {
     if (!isSupabaseConfigured) return;
-    const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
-    if (data && !error) {
-      setLeads(data.map((l: any) => ({
-        ...l,
-        business_name: l.business_name || 'Unknown',
-        lead_status: l.lead_status || 'discovered',
-        readiness_score: l.readiness_score || 0
-      })));
+    try {
+      const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+      if (data && !error) {
+        setLeads(data.map((l: any) => ({
+          ...l,
+          business_name: l.business_name || l.businessName || 'Unknown Business',
+          lead_status: l.lead_status || l.status || 'discovered',
+          readiness_score: l.readiness_score || l.score || 0,
+          temperature: l.temperature || (l.readiness_score > 70 ? 'hot' : 'cold')
+        })));
+      }
+    } catch (e) {
+      console.error("Refresh Leads Terminal Error:", e);
     }
   };
 
@@ -87,8 +152,8 @@ const App: React.FC = () => {
   const handleAudit = async (lead: Lead) => {
     setIsAuditing(true);
     setCurrentAudit(null);
+    logSignal(`Initializing Audit for ${lead.business_name || 'Business'}`, 'tool');
     try {
-      // 1. Generate AI Audit with Agentic Tools (Gemini 3 Pro)
       const { audit, toolCalls } = await generateAuditWithTools(lead);
       
       const updatedLeadData: Partial<Lead> = { 
@@ -101,74 +166,51 @@ const App: React.FC = () => {
         is_hot_opportunity: audit.score > 80
       };
 
-      // 2. Persistent Dual-Write (Leads + Activity Logs)
       if (isSupabaseConfigured) {
-        // Update Lead Health Data
-        const { error: updateError } = await supabase.from('leads').update(updatedLeadData).eq('id', lead.id);
-        
-        // Log the Handshake Event for Infrastructure Visibility
-        const { error: logError } = await supabase.from('activity_logs').insert({
+        await supabase.from('leads').update(updatedLeadData).eq('id', lead.id);
+        await supabase.from('activity_logs').insert({
           lead_id: lead.id,
           event_type: 'ai_audit_completed',
           actor: 'gemini-orchestrator',
-          payload: { 
-            readiness: audit.score, 
-            roi_potential: audit.projected_roi_lift,
-            dispatch_node: toolCalls && toolCalls.length > 0 ? 'mcp_trigger' : 'audit_only'
-          }
+          payload: { readiness: audit.score, dispatch: !!toolCalls?.length }
         });
-
-        if (updateError || logError) console.warn("Supabase Handshake partially failed:", { updateError, logError });
       }
 
-      // 3. Dispatch Signal to n8n Policy Gate
       if (toolCalls && toolCalls.length > 0) {
         for (const call of toolCalls) {
           if (call.name === 'trigger_n8n_signal') {
-            logSignal(`AI Dispatch: Triggering n8n for ${lead.business_name}`, 'tool');
-            await triggerWebhook({ 
-              ...call.args, 
-              lead_id: lead.id, 
-              readiness_score: audit.score,
-              radar: audit.radar_metrics,
-              business_email: lead.email,
-              orchestration_source: 'frontend_node_bridge'
-            });
+            logSignal(`MCP Handshake: Dispatched Signal for ${lead.business_name}`, 'tool');
+            await triggerWebhook({ ...call.args, lead_id: lead.id, readiness: audit.score });
           }
         }
+      } else {
+        logSignal("Audit Finished (Below Policy Gate Threshold)", "tool");
       }
 
       const updatedLead = { ...lead, ...updatedLeadData };
       setLeads(prev => prev.map(l => l.id === lead.id ? updatedLead : l));
       setCurrentAudit({ lead: updatedLead, result: audit });
     } catch (err) {
-      console.error("Neural Bridge Failure:", err);
-      logSignal("Critical Error in Neural Path", "tool");
+      console.error("Neural Path Error:", err);
+      logSignal("Audit Gateway Failure / Schema Mismatch", "tool");
     } finally {
       setIsAuditing(false);
     }
   };
 
   const triggerWebhook = async (data: any) => {
-    logSignal(`Pushing MCP Payload to n8n Orchestrator`, 'webhook');
+    logSignal(`Pushing Payload to n8n Policy Gate`, 'webhook');
     try {
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          event: 'mcp_infrastructure_signal', 
-          payload: data, 
-          meta: { 
-            timestamp: new Date().toISOString(),
-            policy_enforcement: "readiness > 80"
-          }
-        })
+        body: JSON.stringify({ event: 'mcp_signal', payload: data, timestamp: new Date().toISOString() })
       });
       if (response.ok) {
-        logSignal("n8n Handshake Verified (200 OK)", "webhook");
+        logSignal("n8n Orchestrator Node: 200 OK", "webhook");
       }
     } catch (e) {
-      logSignal("n8n Orchestrator Connection Timeout", "webhook");
+      logSignal("n8n Connection Refused / Timeout", "webhook");
     }
   };
 
@@ -178,7 +220,7 @@ const App: React.FC = () => {
     setViewState('public');
   };
 
-  if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black tracking-widest uppercase italic">Initializing Neural Layer...</div>;
+  if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black tracking-widest uppercase italic">Initializing Terminal Nodes...</div>;
   if (viewState === 'public') return <LandingPage onLeadSubmit={() => {}} onGoToLogin={() => setViewState('login')} />;
   if (viewState === 'login') return <LoginScreen onLogin={() => {}} onGoBack={() => setViewState('public')} />;
   if (!currentUser) return null;
@@ -202,10 +244,10 @@ const App: React.FC = () => {
           {currentTab === 'dashboard' && (
             <div className="space-y-10 animate-in fade-in duration-500">
               <div className="flex justify-between items-center">
-                <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">Command Tower</h2>
+                <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">Command Center</h2>
                 <div className="bg-[#0f172a] p-6 rounded-[32px] text-white shadow-2xl flex items-center gap-6 border border-white/5">
                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(37,99,235,1)]"></div>
-                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Handshake Signals: {signals.length}</span>
+                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Signals: {signals.length}</span>
                 </div>
               </div>
               
@@ -233,7 +275,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className="bg-white p-12 rounded-[56px] border border-slate-200 shadow-sm overflow-hidden">
-                   <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Telemetry Stream</h3>
+                   <h3 className="font-black text-2xl text-slate-900 mb-10 tracking-tight italic">Telemetry Log</h3>
                    <SignalLog signals={signals} />
                 </div>
               </div>
@@ -260,13 +302,15 @@ const App: React.FC = () => {
           {currentTab === 'crm' && <CrmView deals={deals} />}
           {currentTab === 'automations' && <AutomationView workflows={workflows} onToggleStatus={() => {}} signals={signals} />}
           {currentTab === 'reports' && <ReportsView />}
+          {currentTab === 'billing' && <SubscriptionsView subscriptions={MOCK_SUBSCRIPTIONS} />}
+          {currentTab === 'settings' && <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} />}
         </main>
       </div>
 
       {isAuditing && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex flex-col items-center justify-center text-white">
           <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-8 shadow-[0_0_80px_rgba(37,99,235,0.4)]"></div>
-          <p className="font-black uppercase tracking-[0.4em] text-xs">Processing Decision Handshake...</p>
+          <p className="font-black uppercase tracking-[0.4em] text-xs italic">Synchronizing Neural Node...</p>
         </div>
       )}
 
