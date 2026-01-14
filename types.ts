@@ -5,6 +5,19 @@ export type UserRole = 'super_admin' | 'admin' | 'sales' | 'client' | 'agent';
 export type PitchType = 'website_development' | 'seo_audit' | 'lead_gen' | 'crm_setup' | 'seo' | 'automation';
 export type ServiceTier = 'Tier 1 - Digital Presence' | 'Tier 2 - Growth System' | 'Tier 3 - Business Automation';
 
+export interface DecisionNode {
+  factor: string;
+  impact: 'high' | 'medium' | 'low';
+  reasoning: string;
+}
+
+export interface RadarMetrics {
+  presence: number;
+  automation: number;
+  seo: number;
+  capture: number;
+}
+
 export interface Lead {
   id: string;
   business_name: string;
@@ -31,6 +44,19 @@ export interface Lead {
   type?: string;
   google_maps_url?: string;
   has_website?: boolean;
+  radar_metrics?: RadarMetrics;
+  decision_logic?: DecisionNode[];
+  projected_roi_lift?: string;
+}
+
+export interface AuditResult {
+  summary: string;
+  gaps: string[];
+  recommendations: string[];
+  score: number;
+  projected_roi_lift?: string;
+  decision_logic?: DecisionNode[];
+  radar_metrics?: RadarMetrics;
 }
 
 export interface Deal {
@@ -52,13 +78,7 @@ export interface Project {
   type: string;
   startDate: string;
   nextMilestone: string;
-}
-
-export interface AuditResult {
-  summary: string;
-  gaps: string[];
-  recommendations: string[];
-  score: number;
+  velocity_score?: number;
 }
 
 export interface Notification {

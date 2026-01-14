@@ -2,32 +2,35 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { AuditResult, Lead } from "../types";
 
-// Tool Definition for MCP-style connection to n8n
 export const n8nToolDeclaration: FunctionDeclaration = {
   name: 'trigger_n8n_signal',
   parameters: {
     type: Type.OBJECT,
-    description: 'Dispatches a high-priority lead signal to the n8n orchestrator for automated outreach.',
+    description: 'Dispatches high-priority signals to the n8n orchestrator for infrastructure provisioning.',
     properties: {
-      business_name: { type: Type.STRING, description: 'The verified name of the business.' },
-      est_contract_value: { type: Type.NUMBER, description: 'Calculated potential value in INR.' },
-      pitch_type: { type: Type.STRING, description: 'The specific service to be pitched (e.g., website_development).' },
-      is_hot: { type: Type.BOOLEAN, description: 'True if the lead meets high-intent criteria.' }
+      business_name: { type: Type.STRING },
+      est_contract_value: { type: Type.NUMBER },
+      pitch_type: { type: Type.STRING },
+      is_hot: { type: Type.BOOLEAN }
     },
     required: ['business_name', 'est_contract_value', 'pitch_type', 'is_hot']
   },
 };
 
 /**
- * Perform a digital audit using Tools to potentially trigger n8n
+ * Generates a Fractal-style Decision Science Audit.
  */
 export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: AuditResult, toolCalls?: any[] }> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Perform a digital audit for "${lead.business_name}" at "${lead.website}". 
-  If the business score is above 80 and they have NO website, you MUST use the trigger_n8n_signal tool 
-  to initiate a website development pitch immediately.
+  const prompt = `Perform a Decision Science Audit for "${lead.business_name}" (${lead.category}).
   
-  Otherwise, just return the audit results in JSON.`;
+  You must calculate:
+  1. Business Health Score (0-100)
+  2. Radar Metrics (Presence, Automation, SEO, Capture - 0 to 100 each)
+  3. Decision Logic Nodes (Explain 3-4 factors that determine this lead's value)
+  4. Projected ROI Lift (A string like "₹12.4L Annual Potential")
+  
+  Return the response in JSON format. Use tool calling if the score is > 75 and it's a high-priority opportunity.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -42,9 +45,32 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
             summary: { type: Type.STRING },
             gaps: { type: Type.ARRAY, items: { type: Type.STRING } },
             recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
-            score: { type: Type.NUMBER }
+            score: { type: Type.NUMBER },
+            projected_roi_lift: { type: Type.STRING },
+            radar_metrics: {
+              type: Type.OBJECT,
+              properties: {
+                presence: { type: Type.NUMBER },
+                automation: { type: Type.NUMBER },
+                seo: { type: Type.NUMBER },
+                capture: { type: Type.NUMBER }
+              },
+              required: ["presence", "automation", "seo", "capture"]
+            },
+            decision_logic: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  factor: { type: Type.STRING },
+                  impact: { type: Type.STRING, enum: ["high", "medium", "low"] },
+                  reasoning: { type: Type.STRING }
+                },
+                required: ["factor", "impact", "reasoning"]
+              }
+            }
           },
-          required: ["summary", "gaps", "recommendations", "score"]
+          required: ["summary", "gaps", "recommendations", "score", "radar_metrics", "decision_logic"]
         }
       }
     });
@@ -52,89 +78,68 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
     const audit = JSON.parse(response.text || "{}");
     return { audit, toolCalls: response.functionCalls };
   } catch (error) {
-    console.error("Gemini Tool Error:", error);
+    console.error("Decision Science Error:", error);
     return { 
       audit: {
-        summary: "Standard Audit Backup engaged. LEAD: " + lead.business_name,
-        gaps: ["Mobile responsiveness issues", "No integrated booking"],
-        recommendations: ["Deploy Flowgent Capture Node"],
-        score: 65
+        summary: "Standard Audit Fallback: System node engaged.",
+        gaps: ["Mobile visibility gaps identified"],
+        recommendations: ["Initialize Digital Node 01"],
+        score: 65,
+        radar_metrics: { presence: 40, automation: 20, seo: 30, capture: 10 },
+        decision_logic: [{ factor: "System Logic", impact: "medium", reasoning: "Automatic prioritization based on sector data." }]
       }
     };
   }
 };
 
-/**
- * Generate outreach text for WhatsApp/Email.
- */
-export const generateOutreach = async (businessName: string, location: string): Promise<string> => {
+export const generateOutreach = async (lead: Lead): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Write a short, professional WhatsApp pitch for the business owner of "${businessName}" in "${location}". 
-  Mention that they currently don't have a business website and are missing out on at least 20-30 leads a month. 
-  Propose a "Business Automation System" including a site and CRM. Keep it friendly and ROI-focused.`;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt
-    });
-    return response.text || "Hi, we noticed your business is growing but missing a digital infrastructure.";
-  } catch (error) {
-    return "Hi, noticed your business in Google Maps. You're missing a website! Interested?";
-  }
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Draft a high-conversion pitch for ${lead.business_name} in ${lead.city}. Focus on moving them from ${lead.radar_metrics?.presence || 20}% digital presence to 100%.`,
+  });
+  return response.text || "";
 };
 
-/**
- * Find real businesses using Google Maps Grounding.
- */
-export const searchLocalBusinesses = async (query: string, lat?: number, lng?: number): Promise<any[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Find 5 businesses related to "${query}" in the location. Provide JSON array with keys: name, address, rating, phone, mapsUrl, has_website, website.`;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite-latest",
-      contents: prompt,
-      config: {
-        tools: [{ googleMaps: {} }],
-        toolConfig: {
-          retrievalConfig: {
-            latLng: lat && lng ? { latitude: lat, longitude: lng } : undefined
-          }
-        }
-      }
-    });
-
-    const text = response.text;
-    const jsonMatch = text.match(/\[.*\]/s);
-    return jsonMatch ? JSON.parse(jsonMatch[0]) : [];
-  } catch (error) {
-    console.error("Maps Grounding Error:", error);
-    return [];
-  }
-};
-
-/**
- * Generates a cinematic AI video intro for a lead using the Veo model.
- */
 export const generateVideoIntro = async (businessName: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  try {
-    const prompt = `A cinematic office fly-through with holograms showing "${businessName}" and "DIGITAL TRANSFORMATION".`;
-    let operation = await ai.models.generateVideos({
-      model: 'veo-3.1-fast-generate-preview',
-      prompt: prompt,
-      config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
-    });
-    while (!operation.done) {
-      await new Promise(resolve => setTimeout(resolve, 8000));
-      operation = await ai.operations.getVideosOperation({ operation: operation });
-    }
-    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-    const videoBlob = await videoResponse.blob();
-    return URL.createObjectURL(videoBlob);
-  } catch (error: any) {
-    throw error;
+  let operation = await ai.models.generateVideos({
+    model: 'veo-3.1-fast-generate-preview',
+    prompt: `Futuristic cinematic business introduction for ${businessName}. Professional lighting, 4K resolution, sleek animations.`,
+    config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
+  });
+  while (!operation.done) {
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    operation = await ai.operations.getVideosOperation({operation: operation});
   }
+  return `${operation.response?.generatedVideos?.[0]?.video?.uri}&key=${process.env.API_KEY}`;
+};
+
+export const searchLocalBusinesses = async (query: string, lat?: number, lng?: number) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: "gemini-3-pro-preview",
+    contents: `Find 5 ${query} businesses in the area. Return as a clean JSON list.`,
+    config: {
+      tools: [{ googleMaps: {} }],
+      toolConfig: {
+        retrievalConfig: {
+          latLng: lat && lng ? { latitude: lat, longitude: lng } : undefined
+        }
+      }
+    },
+  });
+
+  const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  return chunks.filter((c: any) => c.maps).map((c: any) => ({
+    business_name: c.maps.title,
+    city: c.maps.address,
+    rating: c.maps.rating,
+    reviews: c.maps.reviewCount,
+    has_website: !!c.maps.websiteUri,
+    website: c.maps.websiteUri || '',
+    phone: c.maps.phoneNumber,
+    type: c.maps.type || query,
+    mapsUrl: c.maps.uri
+  }));
 };

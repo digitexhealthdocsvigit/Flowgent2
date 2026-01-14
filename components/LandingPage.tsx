@@ -248,7 +248,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
         <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest">
           <button onClick={() => alert("Privacy Policy coming soon.")} className="hover:text-white transition-colors">Privacy Policy</button>
           <button onClick={() => alert("Terms of Service coming soon.")} className="hover:text-white transition-colors">Terms of Service</button>
-          <a href="https://github.com/digitexhealthdocsvigit/Flowgent" className="hover:text-white transition-colors underline">GitHub Repo</a>
+          <a href="https://github.com/digitex-studio/Flowgent2" className="hover:text-white transition-colors underline">GitHub Repo</a>
         </div>
       </footer>
     </div>

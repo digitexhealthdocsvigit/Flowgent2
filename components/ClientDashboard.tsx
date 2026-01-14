@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Project, Notification } from '../types';
+import React from 'react';
+import { Project } from '../types';
 import { ICONS } from '../constants';
 
 interface ClientDashboardProps {
@@ -9,153 +9,126 @@ interface ClientDashboardProps {
   activityLogs: { msg: string; time: string }[];
 }
 
-const ClientDashboard: React.FC<ClientDashboardProps> = ({ projects, leadStats, activityLogs }) => {
-  const [localNotifications, setLocalNotifications] = useState<Notification[]>([]);
+const HealthRadar: React.FC<{ metrics: any }> = ({ metrics = { presence: 80, automation: 45, seo: 60, capture: 30 } }) => {
+  // SVG Radar logic
+  const size = 200;
+  const center = size / 2;
+  const radius = 80;
+  
+  const points = [
+    { x: center, y: center - (radius * (metrics.presence / 100)), label: 'Presence' },
+    { x: center + (radius * (metrics.automation / 100)), y: center, label: 'Auto' },
+    { x: center, y: center + (radius * (metrics.seo / 100)), label: 'SEO' },
+    { x: center - (radius * (metrics.capture / 100)), y: center, label: 'Capture' }
+  ];
 
-  const handleDownload = () => {
-    const newNotification: Notification = {
-      id: Date.now().toString(),
-      type: 'automation',
-      title: 'Report Compiled',
-      message: 'Your system performance intelligence has been generated successfully.',
-      timestamp: 'Just now',
-      isRead: false
-    };
-    setLocalNotifications([newNotification, ...localNotifications]);
-    alert('System Intelligence Compilation Started. Check notifications for your link.');
-  };
-
-  const handleSupportTicket = () => {
-    const issue = window.prompt("Briefly describe the automation gap or system issue:");
-    if (issue) {
-      alert("System ID #FG-9021 Created. A Digitex Studio engineer will reach out within 4 hours.");
-    }
-  };
+  const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
 
   return (
+    <div className="flex flex-col items-center">
+      <svg width={size} height={size} className="overflow-visible">
+        {/* Grid lines */}
+        <circle cx={center} cy={center} r={radius} fill="none" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 4" />
+        <circle cx={center} cy={center} r={radius/2} fill="none" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 4" />
+        <line x1={center - radius} y1={center} x2={center + radius} y2={center} stroke="#e2e8f0" strokeWidth="1" />
+        <line x1={center} y1={center - radius} x2={center} y2={center + radius} stroke="#e2e8f0" strokeWidth="1" />
+        
+        {/* Data Path */}
+        <path d={pathData} fill="rgba(37, 99, 235, 0.2)" stroke="#2563eb" strokeWidth="2" className="animate-in fade-in zoom-in duration-1000" />
+        
+        {/* Labels */}
+        {points.map((p, i) => (
+          <text key={i} x={p.x} y={p.y > center ? p.y + 15 : p.y - 10} textAnchor="middle" className="text-[10px] font-black uppercase tracking-tighter fill-slate-400">
+            {p.label}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
+};
+
+const ClientDashboard: React.FC<ClientDashboardProps> = ({ projects, leadStats }) => {
+  return (
     <div className="space-y-10 animate-in fade-in duration-500">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+      <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
         <div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Growth Command</h2>
-          <p className="text-slate-500 mt-1 font-medium">Real-time oversight of your Flowgent™ automation stack.</p>
+          <p className="text-slate-500 mt-1 font-medium">Fractal Intelligence Layer: Decision Science Active.</p>
         </div>
-        <div className="flex gap-4 w-full lg:w-auto">
-          <button 
-            onClick={handleSupportTicket}
-            className="flex-1 lg:flex-none px-8 py-4 bg-white border border-slate-200 text-slate-900 font-black text-xs uppercase tracking-widest rounded-xl shadow-sm hover:bg-slate-50 transition-all"
-          >
-            Open Support Ticket
-          </button>
-          <button 
-            onClick={handleDownload}
-            className="flex-1 lg:flex-none px-8 py-4 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all"
-          >
-            Download Intelligence
-          </button>
+        <div className="bg-slate-900 text-white px-8 py-4 rounded-2xl flex items-center gap-4">
+           <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+           <span className="text-[10px] font-black uppercase tracking-widest">System ROI: +34% Projected</span>
         </div>
       </div>
 
-      {/* Hero Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {[
-          { label: 'System Health', value: `${leadStats.score}%`, color: 'text-blue-600', bg: 'bg-blue-50', icon: <ICONS.Audit /> },
-          { label: 'Capture Nodes', value: 'Live', color: 'text-green-600', bg: 'bg-green-50', icon: <ICONS.Leads /> },
-          { label: 'Global Rank', value: leadStats.rank, color: 'text-orange-600', bg: 'bg-orange-50', icon: <ICONS.CRM /> }
-        ].map((stat, i) => (
-          <div key={i} className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm flex items-center gap-8 group hover:border-blue-200 transition-all">
-            <div className={`w-16 h-16 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform`}>
-              {stat.icon}
-            </div>
-            <div>
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-1">{stat.label}</p>
-              <h3 className={`text-4xl font-black text-slate-900 tracking-tighter`}>{stat.value}</h3>
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm flex flex-col items-center justify-center">
+           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6">Business Health Radar</p>
+           <HealthRadar metrics={{ presence: 78, automation: 92, seo: 45, capture: 60 }} />
+        </div>
+
+        <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-8">
+           {[
+             { label: 'Intelligence Depth', value: 'Quantum', color: 'text-blue-600' },
+             { label: 'Automation Velocity', value: '0.82s', color: 'text-green-600' },
+             { label: 'Decision Nodes', value: '14 Active', color: 'text-purple-600' }
+           ].map((stat, i) => (
+             <div key={i} className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{stat.label}</p>
+                <h3 className={`text-4xl font-black text-slate-900 tracking-tighter`}>{stat.value}</h3>
+                <div className="w-full bg-slate-100 h-1 rounded-full mt-6">
+                  <div className={`h-full bg-blue-600 rounded-full w-[${70 + i * 10}%]`}></div>
+                </div>
+             </div>
+           ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        <div className="lg:col-span-2 space-y-10">
-          <div className="bg-white rounded-[56px] border border-slate-200 p-12 shadow-sm relative overflow-hidden">
-            <h3 className="text-2xl font-black text-slate-900 mb-10 tracking-tight">Active Infrastructure Projects</h3>
-            <div className="space-y-10">
-              {projects.map((p) => (
-                <div key={p.id} className="p-10 bg-slate-50 rounded-[40px] border border-slate-100 space-y-8 group hover:bg-white hover:border-blue-100 transition-all">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-2xl tracking-tight">{p.name}</h4>
-                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1 italic">{p.type}</p>
-                    </div>
-                    <span className={`px-5 py-2 text-[10px] font-black uppercase rounded-xl border-2 ${p.status === 'active' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
-                      {p.status}
-                    </span>
+        <div className="lg:col-span-2 bg-white rounded-[56px] border border-slate-200 p-12 shadow-sm">
+          <h3 className="text-2xl font-black text-slate-900 mb-10 tracking-tight italic">Engineering Roadmap</h3>
+          <div className="space-y-8">
+            {projects.map((p) => (
+              <div key={p.id} className="p-8 bg-slate-50 rounded-[40px] border border-slate-100 flex items-center justify-between group hover:border-blue-200 transition-all">
+                <div className="flex items-center gap-6">
+                  <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center border border-slate-200 shadow-sm group-hover:scale-110 transition-transform">
+                     <span className="text-xl font-black">P{p.id.slice(-1)}</span>
                   </div>
-                  <div className="space-y-4">
-                    <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.2em]">
-                      <span className="text-slate-400">Implementation Pulse</span>
-                      <span className="text-slate-900">{p.progress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 h-4 rounded-full overflow-hidden border border-white">
-                      <div className="bg-blue-600 h-full transition-all duration-1000 shadow-lg shadow-blue-500/20" style={{ width: `${p.progress}%` }}></div>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center pt-2">
-                    <p className="text-xs text-slate-600 font-medium">Next Milestone: <span className="font-black text-slate-900">{p.nextMilestone}</span></p>
-                    <button className="text-blue-600 text-[10px] font-black uppercase tracking-widest hover:text-blue-700 transition-all group-hover:translate-x-1 duration-300">Detailed Roadmap →</button>
+                  <div>
+                    <h4 className="font-bold text-slate-900 tracking-tight">{p.name}</h4>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{p.status} • {p.progress}% Completeness</p>
                   </div>
                 </div>
-              ))}
-            </div>
+                <button className="text-[10px] font-black uppercase tracking-widest px-6 py-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-900 hover:text-white transition-all">Audit Module</button>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="space-y-10">
-          <div className="bg-[#0f172a] rounded-[56px] p-12 text-white shadow-2xl relative overflow-hidden group border border-white/5">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600 opacity-10 rounded-full -mr-20 -mt-20 group-hover:scale-125 transition-transform duration-700"></div>
-            <div className="relative z-10">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subscription Node</p>
-                  <h4 className="text-3xl font-black mt-2 tracking-tighter">Flowgent <br/>Growth Stack</h4>
-                </div>
-                <span className="bg-blue-600 text-[9px] font-black uppercase px-3 py-1.5 rounded-lg shadow-xl shadow-blue-500/30">Active Retainer</span>
-              </div>
-              <div className="mt-12 space-y-8">
-                <div className="flex justify-between items-end border-b border-white/10 pb-8">
-                  <p className="text-sm text-slate-400 font-medium">Monthly AMC</p>
-                  <p className="text-4xl font-black tracking-tighter">₹8,000</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-xs text-slate-400 font-medium">Next Invoicing</p>
-                  <p className="text-xs font-black uppercase tracking-widest">12 Dec 2026</p>
-                </div>
-              </div>
-              <button onClick={() => alert("Connecting to Digitex Studio Billing System...")} className="w-full bg-white text-slate-900 font-black py-6 rounded-2xl mt-12 text-[10px] uppercase tracking-[0.3em] hover:bg-slate-50 transition-all shadow-xl shadow-white/5">Manage Billing</button>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-[48px] border border-slate-200 p-10 shadow-sm">
-            <h3 className="font-black text-xl text-slate-900 mb-10 tracking-tight">Infrastructure Logs</h3>
-            <div className="space-y-8">
-              {[
-                { msg: "AI Lead Capture Node synchronized", time: "2m ago", status: "ok" },
-                { msg: "CRM pipeline updated via n8n", time: "1h ago", status: "ok" },
-                { msg: "New strategy meeting recorded", time: "4h ago", status: "pending" },
-                { msg: "System backup to GitHub: Success", time: "6h ago", status: "ok" }
-              ].map((log, i) => (
-                <div key={i} className="flex gap-5 items-start p-2 group cursor-default">
-                  <div className={`w-12 h-12 ${log.status === 'ok' ? 'bg-slate-100 group-hover:bg-blue-50 group-hover:text-blue-500' : 'bg-orange-50 text-orange-500 animate-pulse'} rounded-2xl flex items-center justify-center text-slate-400 transition-all shrink-0 shadow-sm`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+        <div className="bg-[#0f172a] rounded-[56px] p-12 text-white shadow-2xl relative overflow-hidden flex flex-col justify-between">
+           <div>
+             <h4 className="text-3xl font-black tracking-tighter italic">Predictive ROI <br/> Infographic</h4>
+             <div className="mt-10 space-y-4">
+                {[
+                  { label: 'Year 1 Impact', val: '₹14.2L' },
+                  { label: 'Efficiency Gain', val: '220%' },
+                  { label: 'Scale Potential', val: 'Global' }
+                ].map((item, i) => (
+                  <div key={i} className="flex justify-between border-b border-white/10 pb-4">
+                     <span className="text-slate-400 text-xs font-medium">{item.label}</span>
+                     <span className="font-black text-blue-400">{item.val}</span>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-slate-800 leading-snug">{log.msg}</p>
-                    <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1.5">{log.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button className="w-full mt-10 py-5 border-2 border-slate-100 rounded-3xl text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-slate-50 transition-all">View All Orchestrator Logs</button>
-          </div>
+                ))}
+             </div>
+           </div>
+           <div className="mt-12">
+              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-500 mb-4">Neural Architecture</p>
+              <div className="flex gap-2">
+                 {[...Array(6)].map((_, i) => (
+                   <div key={i} className={`h-8 flex-1 rounded-sm bg-blue-600 transition-all`} style={{ opacity: 0.1 * (i + 1), height: `${20 + Math.random() * 30}px` }}></div>
+                 ))}
+              </div>
+           </div>
         </div>
       </div>
     </div>
