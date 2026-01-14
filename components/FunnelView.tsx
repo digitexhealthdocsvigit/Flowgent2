@@ -7,67 +7,82 @@ interface FunnelViewProps {
 }
 
 const FunnelView: React.FC<FunnelViewProps> = ({ leads }) => {
-  const getStageCount = (status: string) => leads.filter(l => l.status === status).length;
-
   const stages = [
-    { label: 'Ingestion', count: 1420, velocity: 'High', color: 'bg-blue-600' },
-    { label: 'AI Validation', count: 380, velocity: 'Medium', color: 'bg-indigo-600' },
-    { label: 'Agentic Score', count: 95, velocity: 'High', color: 'bg-purple-600' },
-    { label: 'Closed Node', count: 42, velocity: 'Optimized', color: 'bg-slate-900' },
+    { label: 'Neural Ingestion', count: 1240, velocity: 'Critical', color: 'bg-blue-600' },
+    { label: 'Discovery Node', count: 420, velocity: 'Nominal', color: 'bg-indigo-600' },
+    { label: 'Logic Validation', count: 185, velocity: 'High', color: 'bg-purple-600' },
+    { label: 'System Integration', count: 42, velocity: 'Complete', color: 'bg-slate-900' },
   ];
 
   return (
-    <div className="space-y-12 animate-in zoom-in-95 duration-500">
-      <div className="flex justify-between items-center">
+    <div className="space-y-16 animate-in zoom-in-95 duration-700">
+      <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tighter">System Velocity Map</h2>
-          <p className="text-slate-500 mt-1 font-medium">Orchestration telemetry across the Fractal Decision Layer.</p>
+          <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">Velocity Map</h2>
+          <p className="text-slate-500 mt-4 font-bold text-lg">Infrastructure Telemetry: Monitoring Flow Inefficiency across Nodes.</p>
+        </div>
+        <div className="flex gap-4">
+           <div className="bg-slate-100 p-6 rounded-3xl border border-slate-200">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Throughput</p>
+              <p className="text-2xl font-black text-slate-900 tracking-tighter italic">1,887 Nodes</p>
+           </div>
         </div>
       </div>
 
-      <div className="bg-white p-20 rounded-[64px] border border-slate-200 shadow-sm overflow-hidden relative">
-        {/* Fractal Background Grid */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+      <div className="bg-white p-24 rounded-[80px] border border-slate-200 shadow-sm overflow-hidden relative">
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(#000 1.5px, transparent 0)', backgroundSize: '40px 40px' }}></div>
         
-        <div className="relative flex flex-col gap-12 max-w-4xl mx-auto">
+        <div className="relative flex flex-col gap-16 max-w-5xl mx-auto">
           {stages.map((stage, i) => (
-            <div key={i} className="flex items-center gap-12 group">
-               <div className="w-40 shrink-0 text-right">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Stage {i + 1}</p>
-                  <h4 className="text-lg font-black text-slate-900">{stage.label}</h4>
+            <div key={i} className="flex items-center gap-16 group">
+               <div className="w-48 shrink-0 text-right">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 mb-2 italic">Node Stage 0{i + 1}</p>
+                  <h4 className="text-2xl font-black text-slate-900 italic tracking-tight">{stage.label}</h4>
                </div>
                
-               <div className="flex-1 relative h-20 bg-slate-50 rounded-full border border-slate-100 flex items-center px-10">
+               <div className="flex-1 relative h-24 bg-slate-50 rounded-[40px] border border-slate-100 flex items-center px-12 group-hover:border-blue-200 transition-all">
                   <div 
-                    className={`absolute left-0 top-0 h-full ${stage.color} rounded-full transition-all duration-1000 shadow-xl`} 
-                    style={{ width: `${100 - i * 20}%`, opacity: 0.8 }}
+                    className={`absolute left-0 top-0 h-full ${stage.color} rounded-[40px] transition-all duration-1000 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)]`} 
+                    style={{ width: `${100 - i * 22}%`, opacity: 0.9 }}
                   ></div>
-                  <div className="relative z-10 flex justify-between w-full">
-                     <span className="text-white font-black text-xl italic">{stage.count} Nodes</span>
-                     <span className="text-white/50 text-[10px] font-black uppercase tracking-[0.3em]">{stage.velocity} Velocity</span>
+                  <div className="relative z-10 flex justify-between w-full items-center">
+                     <span className="text-white font-black text-2xl italic tracking-tighter">{stage.count} DISPATCHED</span>
+                     <div className="flex items-center gap-4 bg-white/10 px-6 py-2 rounded-full backdrop-blur-sm">
+                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
+                        <span className="text-white text-[10px] font-black uppercase tracking-[0.4em]">{stage.velocity}</span>
+                     </div>
                   </div>
                </div>
             </div>
           ))}
+          
+          {/* Velocity Connectors */}
+          <div className="absolute top-12 left-[208px] bottom-12 w-1 border-l-2 border-dashed border-slate-200 -z-10"></div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-         <div className="bg-[#0f172a] p-12 rounded-[56px] text-white">
-            <h3 className="text-2xl font-black italic mb-8">AI Governance Logic</h3>
-            <div className="space-y-6 font-mono text-[10px] text-slate-400">
-               <p className="border-l-2 border-blue-600 pl-4 py-1">Executing Neural Pathfinding: [SUCCESS]</p>
-               <p className="border-l-2 border-blue-600 pl-4 py-1">Validating Market Signals: [142 Gaps Found]</p>
-               <p className="border-l-2 border-blue-600 pl-4 py-1">Optimizing ROI Curve: [98.2% Accuracy]</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+         <div className="bg-[#0f172a] p-16 rounded-[64px] text-white shadow-2xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full -mr-16 -mt-16 group-hover:scale-125 transition-transform"></div>
+            <h3 className="text-3xl font-black italic mb-10 tracking-tighter">Governance Logic</h3>
+            <div className="space-y-8 font-mono text-[11px] text-slate-400">
+               <p className="flex gap-4 items-center"><span className="text-blue-500 font-black">NODE_01:</span> Pathfinding optimized for sector "${leads[0]?.category || 'IT'}"</p>
+               <p className="flex gap-4 items-center"><span className="text-blue-500 font-black">SIG_DISP:</span> 0x82 Agentic Handshake triggered [SUCCESS]</p>
+               <p className="flex gap-4 items-center"><span className="text-blue-500 font-black">VAL_GATE:</span> Privacy policy audit completed for 142 leads</p>
             </div>
          </div>
-         <div className="bg-blue-600 p-12 rounded-[56px] text-white flex flex-col justify-between">
-            <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Enterprise Infographic</p>
-            <h4 className="text-4xl font-black tracking-tighter">Scale Your Intelligence.</h4>
-            <div className="mt-8 flex gap-4">
-               {[...Array(4)].map((_, i) => (
-                 <div key={i} className="w-8 h-8 rounded-lg bg-white/20 border border-white/20 flex items-center justify-center">
-                    <div className="w-1 h-1 bg-white rounded-full"></div>
+         <div className="lg:col-span-2 bg-blue-600 p-16 rounded-[64px] text-white flex flex-col justify-between shadow-2xl shadow-blue-600/30 relative overflow-hidden">
+            <div className="absolute bottom-0 right-0 opacity-10">
+               <svg width="400" height="400" viewBox="0 0 100 100"><circle cx="100" cy="100" r="80" fill="none" stroke="white" strokeWidth="2" strokeDasharray="10 10"/></svg>
+            </div>
+            <div>
+               <p className="text-[10px] font-black uppercase tracking-[0.5em] opacity-60 mb-4 italic">Neural Scaling</p>
+               <h4 className="text-6xl font-black tracking-tighter italic leading-none">Automate your <br/> Intelligence.</h4>
+            </div>
+            <div className="mt-12 flex gap-6">
+               {[...Array(6)].map((_, i) => (
+                 <div key={i} className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center group hover:bg-white hover:text-blue-600 transition-all cursor-crosshair">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full group-hover:bg-blue-600"></div>
                  </div>
                ))}
             </div>

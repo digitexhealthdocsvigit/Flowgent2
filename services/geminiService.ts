@@ -22,15 +22,15 @@ export const n8nToolDeclaration: FunctionDeclaration = {
  */
 export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: AuditResult, toolCalls?: any[] }> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Perform a Decision Science Audit for "${lead.business_name}" (${lead.category}).
+  const prompt = `Perform a high-density Decision Science Audit for "${lead.business_name}" (${lead.category}).
   
   You must calculate:
-  1. Business Health Score (0-100)
-  2. Radar Metrics (Presence, Automation, SEO, Capture - 0 to 100 each)
-  3. Decision Logic Nodes (Explain 3-4 factors that determine this lead's value)
-  4. Projected ROI Lift (A string like "₹12.4L Annual Potential")
+  1. Business Readiness Score (0-100)
+  2. Radar Metrics (Presence, Automation, SEO, Capture - 0 to 100 each representing competitive health)
+  3. Decision Logic Chain (Provide 3-4 specific nodes explaining WHY this lead is prioritized or what the critical failure point is)
+  4. Projected Annual ROI Lift (A string like "₹14.5L /yr Est.")
   
-  Return the response in JSON format. Use tool calling if the score is > 75 and it's a high-priority opportunity.`;
+  Return strictly in JSON format. If the score is > 80, also call 'trigger_n8n_signal' to provision a high-priority slot.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -81,12 +81,12 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
     console.error("Decision Science Error:", error);
     return { 
       audit: {
-        summary: "Standard Audit Fallback: System node engaged.",
-        gaps: ["Mobile visibility gaps identified"],
+        summary: "Standard Audit Fallback Node engaged.",
+        gaps: ["Mobile viewport optimization missing"],
         recommendations: ["Initialize Digital Node 01"],
         score: 65,
         radar_metrics: { presence: 40, automation: 20, seo: 30, capture: 10 },
-        decision_logic: [{ factor: "System Logic", impact: "medium", reasoning: "Automatic prioritization based on sector data." }]
+        decision_logic: [{ factor: "Fallback Logic", impact: "medium", reasoning: "Primary Decision Node timeout, using sector defaults." }]
       }
     };
   }
@@ -96,7 +96,7 @@ export const generateOutreach = async (lead: Lead): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Draft a high-conversion pitch for ${lead.business_name} in ${lead.city}. Focus on moving them from ${lead.radar_metrics?.presence || 20}% digital presence to 100%.`,
+    contents: `Write a hyper-personalized, engineering-focused pitch for ${lead.business_name}. Mention their ${lead.radar_metrics?.presence || 15}% presence score and how our automation layer will fix it.`,
   });
   return response.text || "";
 };
@@ -105,7 +105,7 @@ export const generateVideoIntro = async (businessName: string): Promise<string> 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   let operation = await ai.models.generateVideos({
     model: 'veo-3.1-fast-generate-preview',
-    prompt: `Futuristic cinematic business introduction for ${businessName}. Professional lighting, 4K resolution, sleek animations.`,
+    prompt: `A high-end cinematic 3D logo reveal and tech introduction for "${businessName}". Blue neon lights, 4K resolution, sleek metal textures.`,
     config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
   });
   while (!operation.done) {
@@ -119,7 +119,7 @@ export const searchLocalBusinesses = async (query: string, lat?: number, lng?: n
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
-    contents: `Find 5 ${query} businesses in the area. Return as a clean JSON list.`,
+    contents: `Locate 5 prime "${query}" businesses in the area for digital transformation.`,
     config: {
       tools: [{ googleMaps: {} }],
       toolConfig: {

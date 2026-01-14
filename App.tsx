@@ -194,6 +194,14 @@ const App: React.FC = () => {
           )}
 
           {currentTab === 'client_dashboard' && <ClientDashboard projects={MOCK_PROJECTS} leadStats={{ score: 88, rank: '#1' }} activityLogs={[]} />}
+          {currentTab === 'hot_opps' && (
+            <div className="space-y-10 animate-in slide-in-from-bottom-4">
+               <h2 className="text-5xl font-black text-slate-900 tracking-tighter italic">High-Intensity Opportunities</h2>
+               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {leads.filter(l => l.is_hot_opportunity).map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
+               </div>
+            </div>
+          )}
           {currentTab === 'funnel' && <FunnelView leads={leads} />}
           {currentTab === 'scraper' && <ScraperView onPushToN8N={triggerWebhook} onGeneratePitch={() => {}} onGenerateVideo={async (l) => await generateVideoIntro(l.business_name)} />}
           {currentTab === 'leads' && (
@@ -256,7 +264,7 @@ const App: React.FC = () => {
                    <DecisionScienceView nodes={currentAudit.result.decision_logic || []} />
                 </div>
 
-                <div className="space-y-12">
+                <div className="space-y-12 h-fit sticky top-0">
                    <div className="bg-slate-900 p-12 rounded-[56px] text-white flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden group">
                       <div className="absolute inset-0 bg-blue-600 opacity-0 group-hover:opacity-10 transition-opacity"></div>
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Business Readiness</span>
