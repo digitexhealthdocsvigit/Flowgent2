@@ -93,19 +93,33 @@ const App: React.FC = () => {
         for (const call of toolCalls) {
           if (call.name === 'trigger_n8n_signal') {
             logSignal(`AI Dispatching signal for ${call.args.business_name}`, 'tool');
-            await triggerWebhook(call.args);
+            await triggerWebhook({ ...call.args, lead_id: lead.id, audit_score: audit.score });
           }
         }
       }
 
-      const updatedLead = { 
-        ...lead, 
+      const updatedLeadData: Partial<Lead> = { 
         score: audit.score, 
+        readiness_score: audit.score,
         radar_metrics: audit.radar_metrics, 
         decision_logic: audit.decision_logic,
-        projected_roi_lift: audit.projected_roi_lift
+        projected_roi_lift: audit.projected_roi_lift,
+        last_audit_at: new Date().toISOString()
       };
 
+      if (isSupabaseConfigured) {
+        await supabase.from('leads').update(updatedLeadData).eq('id', lead.id);
+        
+        // Log to activity_logs
+        await supabase.from('activity_logs').insert({
+          lead_id: lead.id,
+          event_type: 'ai_audit_completed',
+          actor: 'gemini',
+          payload: { audit_result: audit }
+        });
+      }
+
+      const updatedLead = { ...lead, ...updatedLeadData };
       setLeads(prev => prev.map(l => l.id === lead.id ? updatedLead : l));
       setCurrentAudit({ lead: updatedLead, result: audit });
     } catch (err) {
@@ -118,13 +132,16 @@ const App: React.FC = () => {
   const triggerWebhook = async (data: any) => {
     logSignal(`Pushing Decision Science payload to n8n`, 'webhook');
     try {
-      await fetch(webhookUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event: 'ai_audit_completed', data, timestamp: new Date().toISOString() })
       });
+      if (response.ok) {
+        logSignal("n8n Handshake Verified", "webhook");
+      }
     } catch (e) {
-      logSignal("n8n Handshake Refused", "webhook");
+      logSignal("n8n Connection Timeout", "webhook");
     }
   };
 
@@ -181,8 +198,8 @@ const App: React.FC = () => {
                             </div>
                          </div>
                          <div className="text-right">
-                            <p className="text-xl font-black text-blue-600 italic">{l.score}%</p>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Decision Score</p>
+                            <p className="text-xl font-black text-blue-600 italic">{l.readiness_score || l.score}%</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Readiness</p>
                          </div>
                       </div>
                     ))}
@@ -196,12 +213,19 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {currentTab === 'client_dashboard' && <ClientDashboard projects={MOCK_PROJECTS} leadStats={{ score: 88, rank: '#1' }} activityLogs={[]} />}
+          {currentTab === 'client_dashboard' && (
+            <ClientDashboard 
+              projects={MOCK_PROJECTS} 
+              leadStats={{ score: 88, rank: '#1' }} 
+              activityLogs={[]} 
+              decisionLogic={leads.find(l => l.email === currentUser.email)?.decision_logic}
+            />
+          )}
           {currentTab === 'hot_opps' && (
             <div className="space-y-10 animate-in slide-in-from-bottom-4">
                <h2 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">High-Intensity Opportunities</h2>
                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                  {leads.filter(l => l.is_hot_opportunity).map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
+                  {leads.filter(l => l.is_hot_opportunity || (l.readiness_score && l.readiness_score > 80)).map(l => <LeadCard key={l.id} lead={l} onAudit={handleAudit} />)}
                </div>
             </div>
           )}
@@ -270,7 +294,7 @@ const App: React.FC = () => {
                 <div className="space-y-12 h-fit sticky top-0">
                    <div className="bg-slate-900 p-12 rounded-[56px] text-white flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden group">
                       <div className="absolute inset-0 bg-blue-600 opacity-0 group-hover:opacity-10 transition-opacity"></div>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Business Readiness</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Readiness Score</span>
                       <span className="text-8xl font-black my-6 tracking-tighter italic">{currentAudit.result.score}%</span>
                       <div className="bg-blue-600 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest italic">Neural Grade: Alpha</div>
                    </div>

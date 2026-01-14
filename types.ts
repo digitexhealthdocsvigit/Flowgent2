@@ -47,6 +47,8 @@ export interface Lead {
   radar_metrics?: RadarMetrics;
   decision_logic?: DecisionNode[];
   projected_roi_lift?: string;
+  readiness_score?: number;
+  last_audit_at?: string;
 }
 
 export interface AuditResult {
