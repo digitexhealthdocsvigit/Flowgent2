@@ -1,57 +1,29 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * Flowgent™ Security & Persistence Layer
- * 
- * Safely resolves Supabase configuration and provides a configuration status flag.
+ * Flowgent™ Infrastructure Layer - InsForge Gateway
  */
 
-const getEnvValue = (key: string): string | undefined => {
-  let val: string | undefined;
-  
-  // 1. Check process.env (Standard/Replit)
-  if (typeof process !== 'undefined' && process.env && (process.env as any)[key]) {
-    val = (process.env as any)[key];
-  }
-  
-  // 2. Check import.meta.env (Vite/ESM)
-  const metaEnv = (import.meta as any).env;
-  if (!val && metaEnv) {
-    if (metaEnv[key]) val = metaEnv[key];
-    else if (metaEnv[`VITE_${key}`]) val = metaEnv[`VITE_${key}`];
-  }
-  
-  return val?.trim();
-};
+// Your Specific InsForge Project Credentials
+const INSFORGE_URL = 'https://jsk8snxz.ap-southeast.insforge.app';
+const INSFORGE_KEY = 'ik_2ef615853868d11f26c1b6a8cd7550ad';
 
-const rawUrl = getEnvValue('SUPABASE_URL');
-const rawKey = getEnvValue('SUPABASE_ANON_KEY');
+export const isSupabaseConfigured = true; // Hardcoded as we have the credentials
 
-export const isSupabaseConfigured = !!(rawUrl && rawKey && !rawUrl.includes('placeholder'));
-
-/**
- * Extracts the 20-character project reference from the URL
- */
-export const getProjectRef = (url: string | undefined): string => {
-  if (!url) return "";
+export const getProjectRef = (url: string): string => {
   try {
-    // Pattern matches the subdomain before .supabase.co
-    const match = url.match(/https?:\/\/([^.]+)\.supabase\.co/);
-    return match ? match[1] : "";
+    const match = url.match(/https?:\/\/([^.]+)\./);
+    return match ? match[1] : "insforge-node";
   } catch (e) {
-    return "";
+    return "insforge-node";
   }
 };
 
-const projectRef = getProjectRef(rawUrl);
+export const activeProjectRef = getProjectRef(INSFORGE_URL);
 
-// Most Supabase projects have exactly 20 characters. 
-// Truncated IDs (like the 19-char one in the logs) cause DNS failures.
-export const hasPotentialDnsIssue = isSupabaseConfigured && (projectRef.length < 20);
-export const activeProjectRef = projectRef;
+// Fix: Exported hasPotentialDnsIssue to satisfy the import in LoginScreen.tsx.
+// Implementation checks for the 20-character rule unless it's an InsForge domain.
+export const hasPotentialDnsIssue = activeProjectRef.length !== 20 && !INSFORGE_URL.includes('insforge.app');
 
-// Constructor requirements: Must provide a string even if in demo mode
-const supabaseUrl = rawUrl || 'https://placeholder-project.supabase.co';
-const supabaseAnonKey = rawKey || 'placeholder-anon-key';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(INSFORGE_URL, INSFORGE_KEY);

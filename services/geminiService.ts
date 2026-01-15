@@ -17,6 +17,18 @@ export const n8nToolDeclaration: FunctionDeclaration = {
   },
 };
 
+export const insforgeDocsTool: FunctionDeclaration = {
+  name: 'insforge_fetch_docs',
+  parameters: {
+    type: Type.OBJECT,
+    description: 'Fetches documentation and platform instructions from the InsForge backend to ensure compatible tool calls.',
+    properties: {
+      topic: { type: Type.STRING, description: 'The specific documentation topic or node type to research.' }
+    },
+    required: ['topic']
+  },
+};
+
 /**
  * Generates a Fractal-style Decision Science Audit.
  */
@@ -24,20 +36,22 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Perform a high-density Decision Science Audit for "${lead.business_name}" (${lead.category}).
   
+  CONTEXT: We are using InsForge as our backend platform. If you are unsure of how to structure n8n signals for this environment, call 'insforge_fetch_docs' first.
+  
   You must calculate:
   1. Business Readiness Score (0-100)
-  2. Radar Metrics (Presence, Automation, SEO, Capture - 0 to 100 each representing competitive health)
-  3. Decision Logic Chain (Provide 3-4 specific nodes explaining WHY this lead is prioritized or what the critical failure point is)
-  4. Projected Annual ROI Lift (A string like "₹14.5L /yr Est.")
+  2. Radar Metrics (Presence, Automation, SEO, Capture - 0 to 100 each)
+  3. Decision Logic Chain (3-4 nodes)
+  4. Projected Annual ROI Lift
   
-  Return strictly in JSON format. If the score is > 80, also call 'trigger_n8n_signal' to provision a high-priority slot.`;
+  Return strictly in JSON format. If score > 80, call 'trigger_n8n_signal'.`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
-        tools: [{ functionDeclarations: [n8nToolDeclaration] }],
+        tools: [{ functionDeclarations: [n8nToolDeclaration, insforgeDocsTool] }],
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -82,11 +96,11 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
     return { 
       audit: {
         summary: "Standard Audit Fallback Node engaged.",
-        gaps: ["Mobile viewport optimization missing"],
-        recommendations: ["Initialize Digital Node 01"],
+        gaps: ["Infrastructure handshake timeout"],
+        recommendations: ["Manually verify InsForge Project Node"],
         score: 65,
         radar_metrics: { presence: 40, automation: 20, seo: 30, capture: 10 },
-        decision_logic: [{ factor: "Fallback Logic", impact: "medium", reasoning: "Primary Decision Node timeout, using sector defaults." }]
+        decision_logic: [{ factor: "System Error", impact: "high", reasoning: "AI Engine could not verify InsForge documentation in real-time." }]
       }
     };
   }
@@ -96,7 +110,7 @@ export const generateOutreach = async (lead: Lead): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Write a hyper-personalized, engineering-focused pitch for ${lead.business_name}. Mention their ${lead.radar_metrics?.presence || 15}% presence score and how our automation layer will fix it.`,
+    contents: `Write a hyper-personalized pitch for ${lead.business_name}. Mention our new InsForge-powered backend for 10x faster automation.`,
   });
   return response.text || "";
 };
@@ -105,7 +119,7 @@ export const generateVideoIntro = async (businessName: string): Promise<string> 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   let operation = await ai.models.generateVideos({
     model: 'veo-3.1-fast-generate-preview',
-    prompt: `A high-end cinematic 3D logo reveal and tech introduction for "${businessName}". Blue neon lights, 4K resolution, sleek metal textures.`,
+    prompt: `A cinematic 3D reveal for "${businessName}". High-tech data flow visualization.`,
     config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
   });
   while (!operation.done) {
@@ -118,8 +132,9 @@ export const generateVideoIntro = async (businessName: string): Promise<string> 
 export const searchLocalBusinesses = async (query: string, lat?: number, lng?: number) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
-    model: "gemini-3-pro-preview",
-    contents: `Locate 5 prime "${query}" businesses in the area for digital transformation.`,
+    // Fix: Updated model to a 2.5 series model as Maps grounding is only supported there.
+    model: "gemini-2.5-flash-lite-latest",
+    contents: `Locate 5 prime "${query}" businesses.`,
     config: {
       tools: [{ googleMaps: {} }],
       toolConfig: {
