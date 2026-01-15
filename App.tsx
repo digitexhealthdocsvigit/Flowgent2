@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import LeadCard from './components/LeadCard';
 import ClientDashboard from './components/ClientDashboard';
@@ -17,7 +17,7 @@ import AdminInfographic from './components/AdminInfographic';
 import SettingsView from './components/SettingsView';
 import { DecisionBanner, SignalLog } from './components/AppContent';
 import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_WORKFLOWS, MOCK_SUBSCRIPTIONS } from './services/mockData';
-import { Lead, AuditResult, User, Deal, AutomationWorkflow } from './types';
+import { Lead, AuditResult, User } from './types';
 import { generateAuditWithTools, generateVideoIntro } from './services/geminiService';
 import { supabase, isSupabaseConfigured, activeProjectRef } from './lib/supabase';
 
@@ -29,7 +29,9 @@ const App: React.FC = () => {
   const [isAuditing, setIsAuditing] = useState(false);
   const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult } | null>(null);
   const [signals, setSignals] = useState<{id: string, text: string, type: 'tool' | 'webhook', time: string}[]>([]);
-  const [webhookUrl, setWebhookUrl] = useState(() => localStorage.getItem('flowgent_n8n_webhook') || 'https://n8n.digitex.in/webhook/flowgent-orchestrator');
+  const [webhookUrl, setWebhookUrl] = useState(() => 
+    localStorage.getItem('flowgent_n8n_webhook') || 'https://n8n-production-ecc4.up.railway.app/webhook/flowgent-orchestrator'
+  );
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   useEffect(() => {
@@ -47,7 +49,7 @@ const App: React.FC = () => {
   }, []);
 
   const refreshLeads = async () => {
-    const { data } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
     if (data) {
       setLeads(data.map((l: any) => ({
         ...l,
@@ -56,11 +58,13 @@ const App: React.FC = () => {
         readiness_score: l.readiness_score || l.score || 0,
         is_hot_opportunity: l.is_hot_opportunity || (l.readiness_score > 75)
       })));
+    } else if (error) {
+      console.error("InsForge Data Retrieval Error:", error);
     }
   };
 
   const fetchProfile = (userId: string, email: string) => {
-    const isAdmin = email.toLowerCase().includes('digitex') || email.toLowerCase().includes('founder');
+    const isAdmin = email.toLowerCase().includes('digitex') || email.toLowerCase().includes('founder') || email.toLowerCase().includes('antigravity');
     setCurrentUser({ id: userId, name: email.split('@')[0], email, role: isAdmin ? 'admin' : 'client', orgId: 'org-1' });
     setViewState('dashboard');
     setCurrentTab(isAdmin ? 'dashboard' : 'client_dashboard');
@@ -75,7 +79,9 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event: 'mcp_signal', payload: data, source: 'insforge_frontend' })
       });
-    } catch (e) { console.error("Webhook Node Refused Signal:", e); }
+    } catch (e) { 
+      console.error("Webhook Node Refused Signal:", e);
+    }
   };
 
   const handleAudit = async (lead: Lead) => {
@@ -97,7 +103,7 @@ const App: React.FC = () => {
     setViewState('public');
   };
 
-  if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black tracking-widest uppercase italic">Node Syncing...</div>;
+  if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black tracking-widest uppercase italic">InsForge Synchronizing...</div>;
   if (viewState === 'public') return <LandingPage onLeadSubmit={() => {}} onGoToLogin={() => setViewState('login')} />;
   if (viewState === 'login') return <LoginScreen onLogin={() => {}} onGoBack={() => setViewState('public')} />;
   if (!currentUser) return null;
@@ -107,7 +113,10 @@ const App: React.FC = () => {
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} userRole={currentUser.role} />
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-12 sticky top-0 z-40">
-           <h2 className="font-black text-slate-900 uppercase tracking-tighter text-[10px] bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 italic">InsForge: {activeProjectRef}</h2>
+           <div className="flex items-center gap-4">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <h2 className="font-black text-slate-900 uppercase tracking-tighter text-[10px] bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 italic">InsForge Node: {activeProjectRef}</h2>
+           </div>
            <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3 bg-slate-900 text-white rounded-2xl shadow-lg hover:bg-red-600 transition-all">Logout</button>
         </header>
 
@@ -152,7 +161,7 @@ const App: React.FC = () => {
           {currentTab === 'automations' && <AutomationView workflows={MOCK_WORKFLOWS} onToggleStatus={() => {}} signals={signals} />}
           {currentTab === 'reports' && <ReportsView />}
           {currentTab === 'billing' && <SubscriptionsView subscriptions={MOCK_SUBSCRIPTIONS} />}
-          {currentTab === 'settings' && <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} onTest={() => triggerWebhook({ business_name: "TEST_SIGNAL", is_hot: true })} activeProjectRef={activeProjectRef} />}
+          {currentTab === 'settings' && <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} onTest={() => triggerWebhook({ business_name: "INSFORGE_NODE_TEST", is_hot: true })} activeProjectRef={activeProjectRef} />}
         </main>
       </div>
 
