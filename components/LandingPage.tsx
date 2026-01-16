@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 
 interface LandingPageProps {
@@ -29,6 +30,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
     document.getElementById('audit-section')?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const scrollToPricing = () => {
+    document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const scrollToServices = () => {
     document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -45,8 +50,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
         </div>
         <div className="hidden lg:flex items-center gap-12">
           <button onClick={scrollToServices} className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">Services</button>
+          <button onClick={scrollToPricing} className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">Pricing</button>
           <button onClick={scrollToAudit} className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">AI Audit</button>
-          <button onClick={onGoToLogin} className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">Founder Portal</button>
         </div>
         <div className="flex items-center gap-6">
           <button onClick={onGoToLogin} className="text-sm font-bold text-slate-300 hover:text-white transition-colors">Login</button>
@@ -57,97 +62,94 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
       {/* Hero Section */}
       <main className="max-w-7xl mx-auto px-12 pt-24 pb-40">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-          <div className="space-y-12">
-            <h1 className="text-[90px] font-black leading-[0.9] tracking-tighter">
-              Flowgent Does <br/>
-              <span className="text-blue-500 italic">What Agencies <br/> Don't.</span>
+          <div className="space-y-12 text-center lg:text-left">
+            <h1 className="text-[60px] md:text-[90px] font-black leading-[0.9] tracking-tighter">
+              Stop Losing <br/>
+              <span className="text-blue-500 italic">Uncaptured <br/> Inquiries.</span>
             </h1>
-            
-            <div className="space-y-8">
-              <div className="flex gap-6 items-start">
-                <div className="w-12 h-12 bg-blue-600/10 border border-blue-500/20 rounded-full flex items-center justify-center shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div>
-                  <h4 className="text-2xl font-black tracking-tight">Capture Every Inquiry</h4>
-                  <p className="text-slate-400 font-medium mt-1">Unified lead ingestion from Web, WhatsApp, and Google Maps.</p>
-                </div>
-              </div>
-              <div className="flex gap-6 items-start">
-                <div className="w-12 h-12 bg-blue-600/10 border border-blue-500/20 rounded-full flex items-center justify-center shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div>
-                  <h4 className="text-2xl font-black tracking-tight">Automated Nurturing</h4>
-                  <p className="text-slate-400 font-medium mt-1">Instant email and message triggers based on lead score.</p>
-                </div>
-              </div>
+            <p className="text-slate-400 text-xl font-medium max-w-lg">
+              Flowgent™ automates your business infrastructure, from lead discovery to WhatsApp-driven conversion.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <button onClick={scrollToAudit} className="bg-white text-slate-900 px-12 py-6 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-100 transition-all">Initiate AI Audit</button>
+              <button onClick={scrollToPricing} className="bg-slate-800 text-white px-12 py-6 rounded-2xl font-black uppercase tracking-widest text-xs border border-white/5 hover:bg-slate-700 transition-all">View Growth Plans</button>
             </div>
           </div>
 
           <div className="bg-[#1e293b]/40 border border-white/5 p-12 rounded-[56px] shadow-2xl backdrop-blur-xl relative">
-            <h3 className="text-3xl font-black mb-12 tracking-tight">System Architecture</h3>
+            <h3 className="text-3xl font-black mb-12 tracking-tight italic">Platform ROI Module</h3>
             <div className="space-y-6">
               <div className="bg-blue-600 p-8 rounded-3xl flex justify-between items-center shadow-lg shadow-blue-500/20">
-                <span className="font-black text-lg">Scraper & Ingestion</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
+                <span className="font-black text-lg italic">Efficiency Lift</span>
+                <span className="text-2xl font-black tracking-tighter">+240%</span>
               </div>
-              <div className="bg-[#2a374a] p-8 rounded-3xl flex justify-between items-center border border-white/5 opacity-60">
-                <span className="font-black text-lg">AI Audit Engine</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              </div>
-              <div className="bg-[#2a374a] p-8 rounded-3xl flex justify-between items-center border border-white/5 opacity-60">
-                <span className="font-black text-lg">CRM & Automations</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2H2v10c0 5.5 4.5 10 10 10s10-4.5 10-10V2h-10z"/><path d="m9 12 2 2 4-4"/></svg>
+              <div className="bg-[#2a374a] p-8 rounded-3xl flex justify-between items-center border border-white/5">
+                <span className="font-black text-lg italic text-slate-300">Labor Offset</span>
+                <span className="text-2xl font-black tracking-tighter text-blue-400">142h/mo</span>
               </div>
             </div>
             <div className="mt-16 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500">POWERED BY N8N & GEMINI AI</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500">DIGITEX STUDIO INFRASTRUCTURE</p>
             </div>
           </div>
         </div>
 
-        <section id="services" className="mt-60 space-y-32">
+        {/* Pricing Section */}
+        <section id="pricing" className="mt-60 space-y-32">
           <div className="text-center space-y-6">
-            <h2 className="text-7xl font-black tracking-tighter text-white">Our Service Modules</h2>
-            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-xs">END-TO-END BUSINESS AUTOMATION</p>
+            <h2 className="text-7xl font-black tracking-tighter text-white">Revenue Node Tiers</h2>
+            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-xs">INVESTMENT IN AUTOMATION SCALING</p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {[
               {
-                title: "Digital Presence Systems",
-                desc: "Strategic websites and landing pages designed to convert cold traffic into hot leads. Built with high-speed architecture and SEO first.",
-                features: ["Enterprise Architecture", "Mobile First Design", "Inbound Funnel Integration"],
-                icon: "🌐"
+                name: "Starter Care",
+                price: "2,000",
+                desc: "Essential digital node hosting and maintenance.",
+                features: ["Domain Management", "Cloud Backup", "SLA Node Support"],
+                cta: "Secure Presence",
+                color: "bg-slate-800"
               },
               {
-                title: "Lead & CRM Orchestration",
-                desc: "Custom-built CRM pipelines linked to your WhatsApp and Email. Capture leads 24/7 and manage them with SaaS-level efficiency.",
-                features: ["WhatsApp Automation", "Lead Scoring", "Cal.com Integration"],
-                icon: "⚡"
+                name: "Growth Automation",
+                price: "8,000",
+                desc: "Full n8n workflow integration & CRM logic.",
+                features: ["WhatsApp Funnels", "Automated Lead Capture", "Email Orchestration"],
+                cta: "Start Scaling",
+                color: "bg-blue-600",
+                popular: true
               },
               {
-                title: "AI Growth Engine",
-                desc: "AI-driven digital audits that reveal exactly where your business is leaking revenue. Intelligence reports compiled in seconds.",
-                features: ["Gemini AI Analysis", "Competitor Gaps", "ROI Roadmaps"],
-                icon: "🧠"
+                name: "Business Ops Pro",
+                price: "25,000",
+                desc: "Complete enterprise business automation stack.",
+                features: ["Custom Gemini AI Agents", "Full Infrastructure Provisioning", "Strategic ROI Audit"],
+                cta: "Enterprise Access",
+                color: "bg-slate-900"
               }
-            ].map((service, i) => (
-              <div key={i} className="bg-slate-100/5 border border-white/5 p-12 rounded-[56px] space-y-8 backdrop-blur-sm group hover:bg-white/10 transition-all border-b-4 border-b-transparent hover:border-b-blue-600">
-                <div className="text-6xl">{service.icon}</div>
-                <div className="space-y-4">
-                  <h4 className="text-3xl font-black tracking-tight">{service.title}</h4>
-                  <p className="text-slate-400 leading-relaxed font-medium">{service.desc}</p>
+            ].map((plan, i) => (
+              <div key={i} className={`${plan.color} p-16 rounded-[64px] relative overflow-hidden flex flex-col justify-between group hover:scale-[1.02] transition-all shadow-2xl`}>
+                {plan.popular && (
+                  <div className="absolute top-8 right-8 bg-white text-blue-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest italic">Most Efficient</div>
+                )}
+                <div>
+                  <h4 className="text-3xl font-black text-white italic tracking-tighter mb-4">{plan.name}</h4>
+                  <p className="text-white/60 text-sm font-medium mb-12">{plan.desc}</p>
+                  <div className="flex items-baseline gap-2 mb-12">
+                    <span className="text-5xl font-black italic tracking-tighter">₹{plan.price}</span>
+                    <span className="text-sm font-bold opacity-60">/month</span>
+                  </div>
+                  <ul className="space-y-4 mb-12">
+                    {plan.features.map((f, j) => (
+                      <li key={j} className="flex items-center gap-3 text-xs font-black uppercase tracking-widest italic text-white/80">
+                         <div className="w-1.5 h-1.5 bg-white/20 rounded-full"></div>
+                         {f}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <ul className="space-y-3 pt-6">
-                  {service.features.map((f, j) => (
-                    <li key={j} className="flex items-center gap-3 text-sm font-bold text-slate-300">
-                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+                <button onClick={scrollToAudit} className="w-full bg-white text-slate-900 py-6 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-100 transition-all shadow-xl">{plan.cta}</button>
               </div>
             ))}
           </div>
@@ -248,7 +250,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
         <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest">
           <button onClick={() => alert("Privacy Policy coming soon.")} className="hover:text-white transition-colors">Privacy Policy</button>
           <button onClick={() => alert("Terms of Service coming soon.")} className="hover:text-white transition-colors">Terms of Service</button>
-          <a href="https://github.com/digitex-studio/Flowgent2" className="hover:text-white transition-colors underline">GitHub Repo</a>
         </div>
       </footer>
     </div>

@@ -1,18 +1,42 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Subscription } from '../types';
+import { subscriptionOperations, logOperations } from '../lib/supabase';
 
 interface SubscriptionsViewProps {
   subscriptions: Subscription[];
+  onRefresh?: () => void;
+  isAdmin?: boolean;
 }
 
-const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ subscriptions }) => {
+const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ subscriptions, onRefresh, isAdmin = true }) => {
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [paymentRef, setPaymentRef] = useState('');
+
+  const handleVerify = async (id: string) => {
+    if (!paymentRef.trim()) return alert("Enter reference number/screenshot ID");
+    
+    try {
+      await subscriptionOperations.verifyPayment(id, paymentRef);
+      await logOperations.create({ 
+        text: `Revenue Node Verified: AMC Settlement Confirmed for Subscription #${id}`, 
+        type: 'system' 
+      });
+      setVerifyingId(null);
+      setPaymentRef('');
+      if (onRefresh) onRefresh();
+      alert("Revenue Node Synchronized. Account Active.");
+    } catch (e) {
+      alert("Infrastructure rejected signal. Check bank status.");
+    }
+  };
+
   return (
     <div className="space-y-12 animate-in slide-in-from-right-4 duration-500 p-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <h2 className="text-5xl font-black text-white tracking-tighter italic leading-none">Revenue Node</h2>
-          <p className="text-slate-400 mt-4 font-bold text-lg">Monetization Active: Manual Settlement Protocol Layer.</p>
+          <p className="text-slate-400 mt-4 font-bold text-lg">Monetization Active: {isAdmin ? 'Administrative Override Protocol' : 'Settlement Queue'}.</p>
         </div>
         <div className="bg-green-600/10 text-green-500 px-8 py-3 rounded-full border border-green-500/20 flex items-center gap-3">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -24,44 +48,74 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ subscriptions }) 
         <div className="lg:col-span-2 space-y-10">
           <div className="bg-slate-900 rounded-[56px] border border-white/5 p-12 shadow-2xl overflow-hidden group">
              <div className="flex justify-between items-center mb-8">
-               <h3 className="text-2xl font-black text-white italic">Active Retainers</h3>
-               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Syncing with InsForge CRM</span>
+               <h3 className="text-2xl font-black text-white italic">Subscription Lifecycle</h3>
+               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Live Payout Ledger</span>
              </div>
-             <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-white/5">
-                    <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-500">Client Node</th>
-                    <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-500">Tier</th>
-                    <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-500">AMC / Rev</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {subscriptions.map((sub) => (
-                    <tr key={sub.id} className="hover:bg-white/5 transition-colors group/row">
-                      <td className="py-6 font-black text-white">{sub.clientName}</td>
-                      <td className="py-6">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full">{sub.planName}</span>
-                      </td>
-                      <td className="py-6 font-black text-white">₹{sub.amount.toLocaleString('en-IN')}</td>
+             <div className="overflow-x-auto">
+               <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/5">
+                      <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-500">Node Identifier</th>
+                      <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-500">Tier</th>
+                      <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-500">AMC Status</th>
+                      <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Action</th>
                     </tr>
-                  ))}
-                </tbody>
-             </table>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {subscriptions.map((sub) => (
+                      <tr key={sub.id} className="hover:bg-white/5 transition-colors group/row">
+                        <td className="py-6">
+                           <p className="font-black text-white">{sub.clientName}</p>
+                           <p className="text-[8px] text-slate-500 uppercase tracking-widest">Ref: {sub.id}</p>
+                        </td>
+                        <td className="py-6">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full">{sub.planName}</span>
+                        </td>
+                        <td className="py-6">
+                          <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${sub.status === 'active' ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-500'}`}>
+                            {sub.status}
+                          </span>
+                        </td>
+                        <td className="py-6 text-right">
+                           {sub.status === 'paused' && isAdmin ? (
+                             verifyingId === sub.id ? (
+                               <div className="flex items-center gap-2 justify-end animate-in fade-in">
+                                 <input 
+                                   className="bg-slate-800 border border-white/10 rounded-lg px-4 py-2 text-[10px] font-bold text-white outline-none w-32"
+                                   placeholder="TXN-ID"
+                                   value={paymentRef}
+                                   onChange={e => setPaymentRef(e.target.value)}
+                                 />
+                                 <button onClick={() => handleVerify(sub.id)} className="bg-green-600 text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest">Confirm</button>
+                                 <button onClick={() => setVerifyingId(null)} className="text-slate-500 text-[9px] px-2 font-black uppercase">✕</button>
+                               </div>
+                             ) : (
+                               <button onClick={() => setVerifyingId(sub.id)} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all">Verify Payout</button>
+                             )
+                           ) : (
+                             <span className="text-[10px] font-black text-slate-600 uppercase italic">Settled Node</span>
+                           )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+               </table>
+             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="bg-blue-600 p-12 rounded-[56px] text-white shadow-2xl shadow-blue-600/20 group">
-               <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2 italic">Launch Phase MRR</p>
+               <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2 italic">Infrastructure MRR</p>
                <h4 className="text-5xl font-black italic tracking-tighter">₹75,000</h4>
                <div className="mt-8 pt-8 border-t border-white/10 flex justify-between items-center">
-                  <span className="text-[10px] font-black uppercase tracking-widest">Goal Progress</span>
-                  <span className="text-xl font-black italic">32% Complete</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Active Retention</span>
+                  <span className="text-xl font-black italic">8 Nodes</span>
                </div>
             </div>
             <div className="bg-white p-12 rounded-[56px] text-slate-900 shadow-2xl group">
-               <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 italic">Automation ROI</p>
-               <h4 className="text-5xl font-black italic tracking-tighter">1.82x</h4>
-               <p className="text-[10px] text-slate-500 font-bold mt-4 uppercase tracking-widest">System Efficiency Multiplier</p>
+               <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 italic">Revenue Realization</p>
+               <h4 className="text-5xl font-black italic tracking-tighter">100%</h4>
+               <p className="text-[10px] text-slate-500 font-bold mt-4 uppercase tracking-widest italic">No Inquiry Leakage Detected</p>
             </div>
           </div>
         </div>
@@ -92,10 +146,6 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ subscriptions }) 
                  <div className="space-y-1">
                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Bank Protocol</p>
                    <p className="text-md font-black text-slate-800 tracking-tight">ICICI BANK / RAZOR-001</p>
-                 </div>
-                 <div className="space-y-1">
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">IFSC / Routing</p>
-                   <p className="text-md font-black text-slate-800 tracking-tight">ICIC0001234</p>
                  </div>
               </div>
 

@@ -34,6 +34,8 @@ export const insforgeDocsTool: FunctionDeclaration = {
  */
 export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: AuditResult, toolCalls?: any[] }> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  // Model setup for high-quality complex text task
   const prompt = `Perform a high-density Decision Science Audit for "${lead.business_name}" (${lead.category}).
   
   CONTEXT: We are using InsForge as our backend platform (REST API: https://jsk8snxz.ap-southeast.insforge.app). 
@@ -111,7 +113,7 @@ export const searchLocalBusinesses = async (query: string, lat?: number, lng?: n
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-lite-latest",
-    contents: `Locate 5 prime "${query}" businesses for lead acquisition. Use current news and trending data if relevant.`,
+    contents: `Locate 5 prime "${query}" businesses for lead acquisition. Return only standard grounding data.`,
     config: {
       tools: [{ googleMaps: {} }],
       toolConfig: {
@@ -140,7 +142,7 @@ export const generateVideoIntro = async (businessName: string): Promise<string> 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   let operation = await ai.models.generateVideos({
     model: 'veo-3.1-fast-generate-preview',
-    prompt: `A cinematic technical reveal for "${businessName}" showing data flowing through nodes, professional blue lighting, futuristic dashboard atmosphere.`,
+    prompt: `A cinematic technical reveal for "${businessName}" showing data flowing through nodes, futuristic dashboard atmosphere.`,
     config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
   });
   while (!operation.done) {

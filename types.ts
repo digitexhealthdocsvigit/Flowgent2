@@ -109,6 +109,7 @@ export interface Subscription {
   status: 'active' | 'paused' | 'cancelled';
   billingCycle: 'monthly' | 'yearly';
   nextBilling: string;
+  payment_ref?: string;
 }
 
 export interface AutomationWorkflow {
@@ -120,7 +121,6 @@ export interface AutomationWorkflow {
   successRate: number;
 }
 
-// Fixed missing AuditLog interface
 export interface AuditLog {
   id?: string;
   text: string;

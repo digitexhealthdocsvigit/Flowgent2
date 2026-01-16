@@ -19,8 +19,8 @@ import SettingsView from './components/SettingsView';
 import PitchModal from './components/PitchModal';
 import { DecisionBanner, SignalLog } from './components/AppContent';
 import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_WORKFLOWS, MOCK_SUBSCRIPTIONS } from './services/mockData';
-import { Lead, AuditResult, User, AuditLog, Deal } from './types';
-import { generateAuditWithTools, generateVideoIntro } from './services/geminiService';
+import { Lead, AuditResult, User, AuditLog, Deal, Subscription } from './types';
+import { generateAuditWithTools } from './services/geminiService';
 import { supabase, activeProjectRef, leadOperations, logOperations, projectOperations, subscriptionOperations } from './lib/supabase';
 import { GoogleGenAI } from "@google/genai";
 
@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isAuditing, setIsAuditing] = useState(false);
   const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult } | null>(null);
   const [signals, setSignals] = useState<AuditLog[]>([]);
@@ -45,20 +46,36 @@ const App: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         fetchProfile(session.user.id, session.user.email || '');
-        refreshLeads();
-        loadSignals();
+        refreshData();
       } else {
         setIsLoadingAuth(false);
         setLeads(MOCK_LEADS as any[]);
         setDeals(MOCK_DEALS as any[]);
+        setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
       }
     };
     checkAuth();
   }, []);
 
+  const refreshData = async () => {
+    await refreshLeads();
+    await loadSignals();
+    await refreshSubscriptions();
+  };
+
   const loadSignals = async () => {
     const logs = await logOperations.getRecent();
     setSignals(logs);
+  };
+
+  const refreshSubscriptions = async () => {
+    try {
+      const data = await subscriptionOperations.getAll();
+      if (data && data.length > 0) setSubscriptions(data);
+      else setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
+    } catch (e) {
+      setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
+    }
   };
 
   const refreshLeads = async () => {
@@ -76,7 +93,6 @@ const App: React.FC = () => {
         setLeads(MOCK_LEADS as any[]);
       }
     } catch (error) {
-      console.error("Infrastructure Sync Failure:", error);
       setLeads(MOCK_LEADS as any[]);
     } finally {
       setIsLoadingAuth(false);
@@ -95,16 +111,12 @@ const App: React.FC = () => {
       text: `Syncing: ${lead.business_name} to Orchestrator`, 
       type: 'webhook' 
     });
-    loadSignals();
     
     try {
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          event: 'lead_captured',
-          payload: lead
-        })
+        body: JSON.stringify({ event: 'lead_captured', payload: lead })
       });
       
       if (response.ok) {
@@ -112,15 +124,15 @@ const App: React.FC = () => {
           text: `ACK: Node persistent in InsForge for ${lead.business_name}`, 
           type: 'webhook' 
         });
-        loadSignals();
-        refreshLeads();
       }
     } catch (e) { 
       await logOperations.create({ 
         text: `Error: Network timeout during sync for ${lead.business_name}`, 
         type: 'system' 
       });
+    } finally {
       loadSignals();
+      refreshLeads();
     }
   };
 
@@ -132,7 +144,6 @@ const App: React.FC = () => {
         const nextIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1;
         const nextStage = stages[nextIndex] || deal.stage;
         
-        // Finalize Logic
         if (nextStage === 'won' && deal.stage !== 'won') {
           finalizeDeal(deal);
         }
@@ -145,19 +156,17 @@ const App: React.FC = () => {
   };
 
   const finalizeDeal = async (deal: Deal) => {
-    await logOperations.create({ text: `Finalizing Infrastructure for ${deal.businessName}`, type: 'system' });
+    await logOperations.create({ text: `Provisioning Infrastructure for partner ${deal.businessName}`, type: 'system' });
     try {
-      // 1. Create Project
       await projectOperations.create({
-        name: `${deal.businessName} - Implementation`,
+        name: `${deal.businessName} - Scale Ops`,
         status: 'active',
         progress: 0,
         type: deal.service_tier?.includes('Presence') ? 'Digital Presence' : 'Automation',
         startDate: new Date().toISOString(),
-        nextMilestone: 'Environment Setup',
-        velocity_score: 90
+        nextMilestone: 'Infrastructure Provisioning',
+        velocity_score: 95
       });
-      // 2. Create Pending Subscription
       await subscriptionOperations.create({
         orgId: deal.leadId,
         clientName: deal.businessName,
@@ -167,48 +176,33 @@ const App: React.FC = () => {
         billingCycle: 'monthly',
         nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       });
-      
-      await logOperations.create({ text: `Node Converged: ${deal.businessName} is now a Partner.`, type: 'webhook' });
-      loadSignals();
+      await logOperations.create({ text: `Node Converged: ${deal.businessName} linked to Revenue Cluster.`, type: 'webhook' });
     } catch (e) {
       console.error("Converge failure", e);
-    }
-  };
-
-  const handleGeneratePitch = async (lead: Lead) => {
-    setIsGeneratingPitch(true);
-    await logOperations.create({ text: `Gemini: Synthesizing pitch for ${lead.business_name}`, type: 'tool' });
-    loadSignals();
-
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Act as an elite growth engineer. Write a hyper-personalized short pitch for ${lead.business_name} in ${lead.city}. 
-      Tone: Professional, Results-oriented. Optimized for WhatsApp. Length: Under 80 words.`;
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt
-      });
-      
-      setActivePitch({ lead, pitch: response.text || "Pitch synthesis engine offline." });
-    } catch (e) {
-      console.error("Pitch Error:", e);
     } finally {
-      setIsGeneratingPitch(false);
+      loadSignals();
+      refreshSubscriptions();
     }
   };
 
   const handleAudit = async (lead: Lead) => {
     setIsAuditing(true);
+    await logOperations.create({ text: `AI: Initiating Decision Science Audit for ${lead.business_name}`, type: 'tool' });
     try {
       const { audit, toolCalls } = await generateAuditWithTools(lead);
       if (toolCalls?.length) {
         for (const call of toolCalls) {
           if (call.name === 'trigger_n8n_signal') await triggerWebhook({ ...lead, ...call.args });
+          if (call.name === 'insforge_fetch_docs') {
+            await logOperations.create({ text: `AI researched InsForge topic: ${call.args.topic}`, type: 'tool' });
+          }
         }
       }
       setCurrentAudit({ lead: { ...lead, ...audit }, result: audit });
-    } finally { setIsAuditing(false); }
+    } finally { 
+      setIsAuditing(false);
+      loadSignals();
+    }
   };
 
   const handleLogout = async () => {
@@ -217,7 +211,7 @@ const App: React.FC = () => {
     setViewState('public');
   };
 
-  if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black tracking-widest uppercase italic animate-pulse">InsForge Synchronizing...</div>;
+  if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black tracking-widest uppercase italic animate-pulse">InsForge Handshake...</div>;
   if (viewState === 'public') return <LandingPage onLeadSubmit={() => {}} onGoToLogin={() => setViewState('login')} />;
   if (viewState === 'login') return <LoginScreen onLogin={() => {}} onGoBack={() => setViewState('public')} />;
   if (!currentUser) return null;
@@ -274,31 +268,19 @@ const App: React.FC = () => {
           {currentTab === 'scraper' && <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} />}
           {currentTab === 'strategy_room' && <StrategyRoom />}
           {currentTab === 'leads' && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.map(l => <LeadCard key={l.id || l.place_id} lead={l} onAudit={handleAudit} />)}</div>}
-          {currentTab === 'hot_opps' && (
-            <div className="space-y-10"><h2 className="text-6xl font-black text-white tracking-tighter italic uppercase">Hot Neural Opps</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {leads.filter(l => l.is_hot_opportunity).map(l => <LeadCard key={l.id || l.place_id} lead={l} onAudit={handleAudit} />)}
-              </div>
-            </div>
-          )}
-          {currentTab === 'funnel' && <FunnelView leads={leads} />}
-          {currentTab === 'calendar' && <CalendarView />}
           {currentTab === 'crm' && <CrmView deals={deals} onMoveDeal={handleMoveDeal} />}
-          {currentTab === 'automations' && <AutomationView workflows={MOCK_WORKFLOWS} onToggleStatus={() => {}} signals={signals} />}
-          {currentTab === 'reports' && <ReportsView />}
-          {currentTab === 'billing' && <SubscriptionsView subscriptions={MOCK_SUBSCRIPTIONS} />}
-          {currentTab === 'settings' && <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} onTest={() => triggerWebhook(leads[0] || MOCK_LEADS[0])} activeProjectRef={activeProjectRef} />}
+          {currentTab === 'billing' && <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser.role === 'admin'} />}
+          {/* Support other tabs via mock data if needed */}
+          {['funnel', 'calendar', 'reports'].includes(currentTab) && <div className="py-20 text-center text-slate-500 italic">Node under development. Mock layer inactive.</div>}
         </main>
       </div>
 
-      {(isAuditing || isGeneratingPitch) && (
+      {isAuditing && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[500] flex flex-col items-center justify-center text-white">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4 shadow-[0_0_50px_rgba(37,99,235,0.4)]"></div>
-          <p className="font-black uppercase tracking-[0.4em] text-[10px]">{isGeneratingPitch ? 'Synthesizing Neural Pitch...' : 'Syncing Neural Path...'}</p>
+          <p className="font-black uppercase tracking-[0.4em] text-[10px]">Processing Decision Science...</p>
         </div>
       )}
-      
-      {activePitch && <PitchModal lead={activePitch.lead} pitch={activePitch.pitch} onClose={() => setActivePitch(null)} />}
 
       {currentAudit && (
         <div className="fixed inset-0 bg-[#030712]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto">
@@ -306,11 +288,34 @@ const App: React.FC = () => {
              <button onClick={() => setCurrentAudit(null)} className="absolute top-12 right-12 text-slate-500 p-4 hover:bg-white/5 hover:text-white rounded-full font-black text-xl transition-all">✕</button>
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-20">
                 <div className="lg:col-span-2 space-y-12">
-                   <div><h2 className="text-6xl font-black text-white tracking-tighter leading-none italic">{currentAudit.lead.business_name}</h2><p className="text-blue-500 font-black uppercase tracking-widest text-[10px] mt-4 italic">Neural Architecture Audit</p></div>
-                   <DecisionBanner audit={currentAudit.result} /><div className="grid grid-cols-1 md:grid-cols-2 gap-10"><div className="p-10 bg-white/5 rounded-[48px] border border-white/5"><h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-6 italic">Growth Gaps</h4><ul className="space-y-4">{currentAudit.result.gaps.map((g, i) => (<li key={i} className="flex gap-4 text-sm font-bold text-slate-300 italic"><span className="text-red-500">✕</span> {g}</li>))}</ul></div><div className="p-10 bg-blue-600/10 text-white rounded-[48px] border border-blue-500/20 shadow-xl"><h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-6 italic">Strategy Path</h4><ul className="space-y-4">{currentAudit.result.recommendations.map((r, i) => (<li key={i} className="flex gap-4 text-sm font-bold"><span className="text-blue-500">✓</span> {r}</li>))}</ul></div></div>
+                   <div>
+                     <h2 className="text-6xl font-black text-white tracking-tighter leading-none italic">{currentAudit.lead.business_name}</h2>
+                     <p className="text-blue-500 font-black uppercase tracking-widest text-[10px] mt-4 italic">Neural Architecture Audit</p>
+                   </div>
+                   <DecisionBanner audit={currentAudit.result} />
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                     <div className="p-10 bg-white/5 rounded-[48px] border border-white/5">
+                       <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-6 italic">Growth Gaps</h4>
+                       <ul className="space-y-4">
+                         {currentAudit.result.gaps.map((g, i) => (<li key={i} className="flex gap-4 text-sm font-bold text-slate-300 italic"><span className="text-red-500">✕</span> {g}</li>))}
+                       </ul>
+                     </div>
+                     <div className="p-10 bg-blue-600/10 text-white rounded-[48px] border border-blue-500/20 shadow-xl">
+                       <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-6 italic">Strategy Path</h4>
+                       <ul className="space-y-4">
+                         {currentAudit.result.recommendations.map((r, i) => (<li key={i} className="flex gap-4 text-sm font-bold"><span className="text-blue-500">✓</span> {r}</li>))}
+                       </ul>
+                     </div>
+                   </div>
                    <DecisionScienceView nodes={currentAudit.result.decision_logic || []} />
                 </div>
-                <div className="space-y-12 h-fit sticky top-0"><div className="bg-white p-12 rounded-[56px] text-slate-900 flex flex-col items-center text-center shadow-2xl"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Readiness</span><span className="text-8xl font-black my-6 tracking-tighter italic">{currentAudit.result.score}%</span></div></div>
+                <div className="space-y-12 h-fit sticky top-0">
+                  <div className="bg-white p-12 rounded-[56px] text-slate-900 flex flex-col items-center text-center shadow-2xl">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Readiness</span>
+                    <span className="text-8xl font-black my-6 tracking-tighter italic">{currentAudit.result.score}%</span>
+                  </div>
+                  <button onClick={() => triggerWebhook(currentAudit.lead)} className="w-full bg-blue-600 text-white font-black py-6 rounded-[32px] uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all">Manual Webhook Sync</button>
+                </div>
              </div>
           </div>
         </div>
