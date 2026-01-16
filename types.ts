@@ -119,3 +119,11 @@ export interface AutomationWorkflow {
   lastRun: string;
   successRate: number;
 }
+
+// Fixed missing AuditLog interface
+export interface AuditLog {
+  id?: string;
+  text: string;
+  type: 'tool' | 'webhook' | 'system';
+  created_at?: string;
+}

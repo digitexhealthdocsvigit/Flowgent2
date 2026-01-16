@@ -12,15 +12,16 @@ import LoginScreen from './components/LoginScreen';
 import AutomationView from './components/AutomationView';
 import ScraperView from './components/ScraperView';
 import SubscriptionsView from './components/SubscriptionsView';
+import StrategyRoom from './components/StrategyRoom';
 import DecisionScienceView from './components/DecisionScienceView';
 import AdminInfographic from './components/AdminInfographic';
 import SettingsView from './components/SettingsView';
 import PitchModal from './components/PitchModal';
 import { DecisionBanner, SignalLog } from './components/AppContent';
 import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_WORKFLOWS, MOCK_SUBSCRIPTIONS } from './services/mockData';
-import { Lead, AuditResult, User } from './types';
+import { Lead, AuditResult, User, AuditLog, Deal } from './types';
 import { generateAuditWithTools, generateVideoIntro } from './services/geminiService';
-import { supabase, activeProjectRef, leadOperations } from './lib/supabase';
+import { supabase, activeProjectRef, leadOperations, logOperations, projectOperations, subscriptionOperations } from './lib/supabase';
 import { GoogleGenAI } from "@google/genai";
 
 const App: React.FC = () => {
@@ -28,9 +29,10 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [isAuditing, setIsAuditing] = useState(false);
   const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult } | null>(null);
-  const [signals, setSignals] = useState<{id: string, text: string, type: 'tool' | 'webhook', time: string}[]>([]);
+  const [signals, setSignals] = useState<AuditLog[]>([]);
   const [webhookUrl, setWebhookUrl] = useState(() => 
     localStorage.getItem('flowgent_n8n_webhook') || 'https://n8n-production-ecc4.up.railway.app/webhook/flowgent-orchestrator'
   );
@@ -44,13 +46,20 @@ const App: React.FC = () => {
       if (session) {
         fetchProfile(session.user.id, session.user.email || '');
         refreshLeads();
+        loadSignals();
       } else {
         setIsLoadingAuth(false);
         setLeads(MOCK_LEADS as any[]);
+        setDeals(MOCK_DEALS as any[]);
       }
     };
     checkAuth();
   }, []);
+
+  const loadSignals = async () => {
+    const logs = await logOperations.getRecent();
+    setSignals(logs);
+  };
 
   const refreshLeads = async () => {
     try {
@@ -82,13 +91,11 @@ const App: React.FC = () => {
   };
 
   const triggerWebhook = async (lead: Lead) => {
-    const signalId = Math.random().toString();
-    setSignals(prev => [{ 
-      id: signalId, 
-      text: `Syncing: ${lead.business_name}`, 
-      type: 'webhook', 
-      time: new Date().toLocaleTimeString() 
-    }, ...prev].slice(0, 15));
+    await logOperations.create({ 
+      text: `Syncing: ${lead.business_name} to Orchestrator`, 
+      type: 'webhook' 
+    });
+    loadSignals();
     
     try {
       const response = await fetch(webhookUrl, {
@@ -101,40 +108,82 @@ const App: React.FC = () => {
       });
       
       if (response.ok) {
-        setSignals(prev => [{ 
-          id: Math.random().toString(), 
-          text: `n8n ACK: Node persistent in InsForge`, 
-          type: 'webhook', 
-          time: new Date().toLocaleTimeString() 
-        }, ...prev]);
+        await logOperations.create({ 
+          text: `ACK: Node persistent in InsForge for ${lead.business_name}`, 
+          type: 'webhook' 
+        });
+        loadSignals();
         refreshLeads();
       }
     } catch (e) { 
-      setSignals(prev => [{ 
-        id: Math.random().toString(), 
-        text: `Error: Webhook endpoint unreachable`, 
-        type: 'webhook', 
-        time: new Date().toLocaleTimeString() 
-      }, ...prev]);
+      await logOperations.create({ 
+        text: `Error: Network timeout during sync for ${lead.business_name}`, 
+        type: 'system' 
+      });
+      loadSignals();
+    }
+  };
+
+  const handleMoveDeal = async (id: string, direction: 'forward' | 'backward') => {
+    const stages: Deal['stage'][] = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
+    const updatedDeals = deals.map(deal => {
+      if (deal.id === id) {
+        const currentIndex = stages.indexOf(deal.stage);
+        const nextIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1;
+        const nextStage = stages[nextIndex] || deal.stage;
+        
+        // Finalize Logic
+        if (nextStage === 'won' && deal.stage !== 'won') {
+          finalizeDeal(deal);
+        }
+        
+        return { ...deal, stage: nextStage, updatedAt: new Date().toISOString() };
+      }
+      return deal;
+    });
+    setDeals(updatedDeals);
+  };
+
+  const finalizeDeal = async (deal: Deal) => {
+    await logOperations.create({ text: `Finalizing Infrastructure for ${deal.businessName}`, type: 'system' });
+    try {
+      // 1. Create Project
+      await projectOperations.create({
+        name: `${deal.businessName} - Implementation`,
+        status: 'active',
+        progress: 0,
+        type: deal.service_tier?.includes('Presence') ? 'Digital Presence' : 'Automation',
+        startDate: new Date().toISOString(),
+        nextMilestone: 'Environment Setup',
+        velocity_score: 90
+      });
+      // 2. Create Pending Subscription
+      await subscriptionOperations.create({
+        orgId: deal.leadId,
+        clientName: deal.businessName,
+        planName: 'Growth Automation',
+        amount: deal.value > 50000 ? 15000 : 8000,
+        status: 'paused',
+        billingCycle: 'monthly',
+        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      });
+      
+      await logOperations.create({ text: `Node Converged: ${deal.businessName} is now a Partner.`, type: 'webhook' });
+      loadSignals();
+    } catch (e) {
+      console.error("Converge failure", e);
     }
   };
 
   const handleGeneratePitch = async (lead: Lead) => {
     setIsGeneratingPitch(true);
-    setSignals(prev => [{ 
-      id: Math.random().toString(), 
-      text: `Gemini: Synthesizing pitch node`, 
-      type: 'tool', 
-      time: new Date().toLocaleTimeString() 
-    }, ...prev]);
+    await logOperations.create({ text: `Gemini: Synthesizing pitch for ${lead.business_name}`, type: 'tool' });
+    loadSignals();
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Act as an elite growth engineer. Write a hyper-personalized short pitch for ${lead.business_name} in ${lead.city}. 
-      Status: ${lead.has_website ? 'Has website but lacks conversion automation' : 'NO digital presence identified'}.
-      Tone: Professional, Results-oriented, Technical but clear.
-      Format: Optimized for WhatsApp (+91).
-      Length: Under 80 words.`;
+      Tone: Professional, Results-oriented. Optimized for WhatsApp. Length: Under 80 words.`;
       
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -174,7 +223,7 @@ const App: React.FC = () => {
   if (!currentUser) return null;
 
   return (
-    <div className="flex min-h-screen bg-[#030712] font-sans selection:bg-blue-600/30 overflow-hidden">
+    <div className="flex min-h-screen bg-[#030712] font-sans selection:bg-blue-600/30 overflow-hidden text-white">
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} userRole={currentUser.role} />
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 bg-[#0f172a]/50 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-12 sticky top-0 z-40">
@@ -214,12 +263,16 @@ const App: React.FC = () => {
                     ))}
                   </div>
                 </div>
-                <div className="bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl"><h3 className="font-black text-2xl text-white mb-10 italic">Signal Log</h3><SignalLog signals={signals} /></div>
+                <div className="bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
+                  <h3 className="font-black text-2xl text-white mb-10 italic">Signal Log</h3>
+                  <SignalLog signals={signals} />
+                </div>
               </div>
             </div>
           )}
 
-          {currentTab === 'scraper' && <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} onGeneratePitch={handleGeneratePitch} onGenerateVideo={async (l) => await generateVideoIntro(l.business_name)} />}
+          {currentTab === 'scraper' && <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} />}
+          {currentTab === 'strategy_room' && <StrategyRoom />}
           {currentTab === 'leads' && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.map(l => <LeadCard key={l.id || l.place_id} lead={l} onAudit={handleAudit} />)}</div>}
           {currentTab === 'hot_opps' && (
             <div className="space-y-10"><h2 className="text-6xl font-black text-white tracking-tighter italic uppercase">Hot Neural Opps</h2>
@@ -230,7 +283,7 @@ const App: React.FC = () => {
           )}
           {currentTab === 'funnel' && <FunnelView leads={leads} />}
           {currentTab === 'calendar' && <CalendarView />}
-          {currentTab === 'crm' && <CrmView deals={MOCK_DEALS} />}
+          {currentTab === 'crm' && <CrmView deals={deals} onMoveDeal={handleMoveDeal} />}
           {currentTab === 'automations' && <AutomationView workflows={MOCK_WORKFLOWS} onToggleStatus={() => {}} signals={signals} />}
           {currentTab === 'reports' && <ReportsView />}
           {currentTab === 'billing' && <SubscriptionsView subscriptions={MOCK_SUBSCRIPTIONS} />}

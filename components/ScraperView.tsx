@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
+import { Search, MapPin, Phone, Globe, Star, Zap, AlertCircle, ExternalLink } from 'lucide-react';
 import { searchLocalBusinesses } from '../services/geminiService';
 import { calculateLeadScore } from '../utils/scoring';
-import { Lead, leadOperations } from '../lib/supabase';
+import { Lead, leadOperations, logOperations } from '../lib/supabase';
 
 interface ScraperViewProps {
   onLeadsCaptured: () => void;
@@ -46,11 +47,16 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onLeadsCaptured, onPushToN8N 
           est_contract_value: scored.est_contract_value,
           status: 'discovered',
           source: 'google_maps',
+          google_maps_url: r.mapsUrl, // Ensure this is mapped correctly
           created_at: new Date().toISOString()
         };
       });
 
       setBusinesses(scoredBusinesses);
+      await logOperations.create({ 
+        text: `Discovery Scan: Found ${results.length} nodes for "${searchQuery}"`, 
+        type: 'tool' 
+      });
     } catch (error) {
       console.error('Discovery failed:', error);
       alert('Terminal Link Error: Maps Node Inaccessible.');
@@ -73,14 +79,15 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onLeadsCaptured, onPushToN8N 
     setCapturing(true);
     try {
       for (const lead of targets) {
-        // 1. Persist to InsForge
         await leadOperations.upsert(lead);
-        // 2. Dispatch to n8n
         await onPushToN8N(lead);
       }
+      await logOperations.create({ 
+        text: `Lead Capture: ${targets.length} nodes synchronized to InsForge`, 
+        type: 'webhook' 
+      });
       setSelectedIds(new Set());
       onLeadsCaptured();
-      alert(`Neural Sync Complete: ${targets.length} nodes captured.`);
     } catch (error) {
       console.error('Capture failed:', error);
       alert('Sync Failure: Infrastructure rejected capture signal.');
@@ -110,7 +117,7 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onLeadsCaptured, onPushToN8N 
               onKeyPress={e => e.key === 'Enter' && searchBusinesses()}
             />
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
-               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+               <Search size={20} />
             </div>
           </div>
           <button 
@@ -153,19 +160,27 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onLeadsCaptured, onPushToN8N 
                 </div>
                 <div className="flex flex-wrap gap-6 text-slate-400">
                   <div className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <MapPin size={14} className="text-blue-500" />
                     <span className="text-xs font-bold">{lead.city}</span>
                   </div>
                   {!lead.has_website && (
                     <div className="flex items-center gap-2 text-red-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      <AlertCircle size={14} />
                       <span className="text-xs font-black uppercase italic tracking-widest">No Website</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 text-blue-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                    <span className="text-xs font-bold">{lead.phone}</span>
-                  </div>
+                  {lead.google_maps_url && (
+                    <a 
+                      href={lead.google_maps_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors"
+                    >
+                      <ExternalLink size={14} />
+                      <span className="text-xs font-black uppercase italic tracking-widest">Source Link</span>
+                    </a>
+                  )}
                 </div>
               </div>
               <div className="text-right space-y-2">

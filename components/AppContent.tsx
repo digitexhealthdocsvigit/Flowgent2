@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Lead, AuditResult } from '../types';
+import { Lead, AuditResult, AuditLog } from '../types';
 
 export const DecisionBanner: React.FC<{ audit: AuditResult }> = ({ audit }) => (
   <div className="bg-blue-600 text-white p-6 rounded-[32px] flex items-center justify-between shadow-xl shadow-blue-600/20 animate-in slide-in-from-top-4 duration-500">
@@ -18,20 +18,27 @@ export const DecisionBanner: React.FC<{ audit: AuditResult }> = ({ audit }) => (
   </div>
 );
 
-export const SignalLog: React.FC<{ signals: any[] }> = ({ signals }) => (
+export const SignalLog: React.FC<{ signals: AuditLog[] }> = ({ signals }) => (
   <div className="space-y-4 font-mono text-[10px]">
-    {signals.map((s, i) => (
-      <div key={i} className="flex gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl animate-in fade-in duration-300">
-        <span className="text-blue-600 font-black shrink-0">[{s.time}]</span>
-        <div className="space-y-1">
-          <p className="text-slate-900 font-bold uppercase tracking-tight">{s.text}</p>
-          <p className="text-slate-400">Node Dispatch: {s.type === 'tool' ? 'Autonomous API' : 'Webhook Proxy'}</p>
+    {signals.map((s, i) => {
+      const date = s.created_at ? new Date(s.created_at) : new Date();
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      
+      return (
+        <div key={i} className="flex gap-4 p-4 bg-white/5 border border-white/5 rounded-2xl animate-in fade-in duration-300">
+          <span className="text-blue-500 font-black shrink-0">[{timeStr}]</span>
+          <div className="space-y-1">
+            <p className="text-white font-bold uppercase tracking-tight">{s.text}</p>
+            <p className="text-slate-500">
+              Node: {s.type === 'tool' ? 'Autonomous AI Agent' : s.type === 'webhook' ? 'n8n Cloud Node' : 'Infrastructure Stack'}
+            </p>
+          </div>
         </div>
-      </div>
-    ))}
+      );
+    })}
     {signals.length === 0 && (
       <div className="py-20 text-center opacity-30 italic">
-        Monitoring neural pathways...
+        Monitoring neural pathways for activity...
       </div>
     )}
   </div>
