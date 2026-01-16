@@ -16,12 +16,14 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onPushToN8N, onGeneratePitch,
   const [searchQuery, setSearchQuery] = useState('');
   const [locationName, setLocationName] = useState('My Current Location');
   const [scrapedLeads, setScrapedLeads] = useState<Lead[]>([]);
+  const [capturedIds, setCapturedIds] = useState<Set<string>>(new Set());
 
   const handleStartScrape = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery) return;
     
     setIsScraping(true);
+    setCapturedIds(new Set()); // Reset for new scan
     
     try {
       let lat, lng;
@@ -76,6 +78,11 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onPushToN8N, onGeneratePitch,
     } finally {
       setIsScraping(false);
     }
+  };
+
+  const handleCapture = (lead: Lead) => {
+    onPushToN8N(lead);
+    setCapturedIds(prev => new Set(prev).add(lead.id));
   };
 
   const renderStars = (rating: number) => {
@@ -183,10 +190,15 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onPushToN8N, onGeneratePitch,
                 </div>
                 <div className="flex gap-4">
                   <button 
-                    onClick={() => onPushToN8N(lead)}
-                    className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl active:scale-95"
+                    onClick={() => handleCapture(lead)}
+                    disabled={capturedIds.has(lead.id)}
+                    className={`px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl active:scale-95 ${
+                      capturedIds.has(lead.id) 
+                      ? 'bg-green-100 text-green-600 border border-green-200' 
+                      : 'bg-slate-900 text-white hover:bg-blue-600'
+                    }`}
                   >
-                    Capture Node
+                    {capturedIds.has(lead.id) ? 'Captured' : 'Capture Node'}
                   </button>
                   <button 
                     onClick={() => onGeneratePitch(lead)}

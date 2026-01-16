@@ -17,6 +17,18 @@ export const n8nToolDeclaration: FunctionDeclaration = {
   },
 };
 
+export const insforgeDocsTool: FunctionDeclaration = {
+  name: 'insforge_fetch_docs',
+  parameters: {
+    type: Type.OBJECT,
+    description: 'Fetches documentation and platform instructions from the InsForge backend to ensure compatible tool calls.',
+    properties: {
+      topic: { type: Type.STRING, description: 'The specific documentation topic or node type to research.' }
+    },
+    required: ['topic']
+  },
+};
+
 /**
  * Generates a Fractal-style Decision Science Audit using Gemini 3.
  */
@@ -24,7 +36,8 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Perform a high-density Decision Science Audit for "${lead.business_name}" (${lead.category}).
   
-  CONTEXT: We are using InsForge as our backend platform. 
+  CONTEXT: We are using InsForge as our backend platform (REST API: https://jsk8snxz.ap-southeast.insforge.app). 
+  If you need specific technical instructions on how to structure tools or n8n signals for this specific environment, call 'insforge_fetch_docs' first.
   
   You must calculate:
   1. Business Readiness Score (0-100)
@@ -39,7 +52,7 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
       model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
-        tools: [{ functionDeclarations: [n8nToolDeclaration] }],
+        tools: [{ functionDeclarations: [n8nToolDeclaration, insforgeDocsTool] }],
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -97,7 +110,6 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
 export const searchLocalBusinesses = async (query: string, lat?: number, lng?: number) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
-    // Rule: Google Maps grounding is only supported in Gemini 2.5 series models.
     model: "gemini-2.5-flash-lite-latest",
     contents: `Locate 5 prime "${query}" businesses for lead acquisition.`,
     config: {
