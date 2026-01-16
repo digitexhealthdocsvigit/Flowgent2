@@ -37,7 +37,7 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
   const prompt = `Perform a high-density Decision Science Audit for "${lead.business_name}" (${lead.category}).
   
   CONTEXT: We are using InsForge as our backend platform (REST API: https://jsk8snxz.ap-southeast.insforge.app). 
-  If you need specific technical instructions on how to structure tools or n8n signals for this specific environment, call 'insforge_fetch_docs' first.
+  If you need specific technical instructions on how to structure tools or n8n signals for this environment, call 'insforge_fetch_docs' first.
   
   You must calculate:
   1. Business Readiness Score (0-100)
@@ -111,7 +111,7 @@ export const searchLocalBusinesses = async (query: string, lat?: number, lng?: n
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-lite-latest",
-    contents: `Locate 5 prime "${query}" businesses for lead acquisition.`,
+    contents: `Locate 5 prime "${query}" businesses for lead acquisition. Use current news and trending data if relevant.`,
     config: {
       tools: [{ googleMaps: {} }],
       toolConfig: {
@@ -140,7 +140,7 @@ export const generateVideoIntro = async (businessName: string): Promise<string> 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   let operation = await ai.models.generateVideos({
     model: 'veo-3.1-fast-generate-preview',
-    prompt: `A cinematic technical reveal for "${businessName}" showing data flowing through nodes.`,
+    prompt: `A cinematic technical reveal for "${businessName}" showing data flowing through nodes, professional blue lighting, futuristic dashboard atmosphere.`,
     config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
   });
   while (!operation.done) {

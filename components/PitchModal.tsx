@@ -10,10 +10,12 @@ interface PitchModalProps {
 
 const PitchModal: React.FC<PitchModalProps> = ({ lead, pitch, onClose }) => {
   const [editedPitch, setEditedPitch] = useState(pitch);
+  const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(editedPitch);
-    alert("Pitch copied to neural buffer.");
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
   };
 
   const handleWhatsApp = () => {
@@ -31,13 +33,13 @@ const PitchModal: React.FC<PitchModalProps> = ({ lead, pitch, onClose }) => {
   const handleEmail = () => {
     const subject = encodeURIComponent(`Growth Strategy & Digital Audit for ${lead.business_name}`);
     const body = encodeURIComponent(editedPitch);
-    const email = lead.email || 'hello@flowgent.io';
+    const email = lead.email || '';
     window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
   };
 
   return (
-    <div className="fixed inset-0 bg-[#030712]/95 backdrop-blur-xl z-[400] flex items-center justify-center p-6">
-      <div className="bg-white rounded-[48px] max-w-2xl w-full p-12 shadow-2xl animate-in zoom-in-95 duration-300 relative">
+    <div className="fixed inset-0 bg-[#030712]/95 backdrop-blur-xl z-[500] flex items-center justify-center p-6">
+      <div className="bg-white rounded-[48px] max-w-2xl w-full p-12 shadow-2xl animate-in zoom-in-95 duration-300 relative border border-white/20">
         <button onClick={onClose} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 transition-colors p-2">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
         </button>
@@ -46,7 +48,7 @@ const PitchModal: React.FC<PitchModalProps> = ({ lead, pitch, onClose }) => {
           <div>
             <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] italic">Communication Bridge</span>
             <h3 className="text-3xl font-black text-slate-900 tracking-tighter mt-2 italic">Neural Outreach Node</h3>
-            <p className="text-slate-500 font-bold mt-1">Targeting: {lead.business_name}</p>
+            <p className="text-slate-500 font-bold mt-1">Targeting: <span className="text-slate-900">{lead.business_name}</span></p>
           </div>
 
           <div className="space-y-2">
@@ -78,15 +80,15 @@ const PitchModal: React.FC<PitchModalProps> = ({ lead, pitch, onClose }) => {
             </button>
             <button 
               onClick={handleCopy}
-              className="bg-slate-900 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all"
+              className={`${isCopied ? 'bg-green-600' : 'bg-slate-900'} text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all`}
             >
-              <span>Copy Text</span>
+              <span>{isCopied ? 'Copied' : 'Copy Text'}</span>
             </button>
           </div>
           
           <div className="flex justify-between items-center px-4">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Signal Point: {lead.phone || lead.email || 'N/A'}</p>
-            <span className="text-[9px] font-black text-green-500 uppercase tracking-widest italic">Neural Ready</span>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Target Node: {lead.phone || lead.email || 'Manual Dispatch'}</p>
+            <span className="text-[9px] font-black text-green-500 uppercase tracking-widest italic animate-pulse">Neural Path Verified</span>
           </div>
         </div>
       </div>
