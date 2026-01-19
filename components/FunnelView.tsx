@@ -7,6 +7,7 @@ interface FunnelViewProps {
 }
 
 const FunnelView: React.FC<FunnelViewProps> = ({ leads }) => {
+  // Dynamic Calculation Engine
   const totalLeads = leads.length;
   const discoveredLeads = leads.filter(l => l.source === 'google_maps' || l.status === 'discovered').length;
   const validatedLeads = leads.filter(l => (l.readiness_score || 0) > 0 || l.status === 'scored').length;
@@ -71,22 +72,22 @@ const FunnelView: React.FC<FunnelViewProps> = ({ leads }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-         <section aria-labelledby="gov-logic-title" className="bg-[#0f172a] p-16 rounded-[64px] text-white shadow-2xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full -mr-16 -mt-16 group-scale-125 transition-transform"></div>
-            <h3 id="gov-logic-title" className="text-3xl font-black italic mb-10 tracking-tighter">Governance Logic</h3>
+         <div className="bg-[#0f172a] p-16 rounded-[64px] text-white shadow-2xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full -mr-16 -mt-16 group-hover:scale-125 transition-transform"></div>
+            <h3 className="text-3xl font-black italic mb-10 tracking-tighter">Governance Logic</h3>
             <div className="space-y-8 font-mono text-[11px] text-slate-300">
                <p className="flex gap-4 items-center"><span className="text-blue-500 font-black">NODE_01:</span> Pathfinding optimized for sectors in focus.</p>
                <p className="flex gap-4 items-center"><span className="text-blue-500 font-black">SIG_DISP:</span> {syncedLeads} Agentic Handshake(s) active [LIVE]</p>
                <p className="flex gap-4 items-center"><span className="text-blue-500 font-black">VAL_GATE:</span> {validatedLeads} Readiness audits completed.</p>
             </div>
-         </section>
-         <section aria-labelledby="neural-scaling-title" className="lg:col-span-2 bg-blue-600 p-16 rounded-[64px] text-white flex flex-col justify-between shadow-2xl shadow-blue-600/30 relative overflow-hidden">
+         </div>
+         <div className="lg:col-span-2 bg-blue-600 p-16 rounded-[64px] text-white flex flex-col justify-between shadow-2xl shadow-blue-600/30 relative overflow-hidden">
             <div className="absolute bottom-0 right-0 opacity-10">
-               <svg width="400" height="400" viewBox="0 0 100 100" aria-hidden="true"><circle cx="100" cy="100" r="80" fill="none" stroke="white" strokeWidth="2" strokeDasharray="10 10"/></svg>
+               <svg width="400" height="400" viewBox="0 0 100 100"><circle cx="100" cy="100" r="80" fill="none" stroke="white" strokeWidth="2" strokeDasharray="10 10"/></svg>
             </div>
             <div>
                <p className="text-[10px] font-black uppercase tracking-[0.5em] opacity-60 mb-4 italic">Neural Scaling</p>
-               <h3 id="neural-scaling-title" className="text-6xl font-black tracking-tighter italic leading-none">Automate your <br/> Intelligence.</h3>
+               <h3 className="text-6xl font-black tracking-tighter italic leading-none">Automate your <br/> Intelligence.</h3>
             </div>
             <div className="mt-12 flex gap-6">
                {[...Array(6)].map((_, i) => (
@@ -95,7 +96,7 @@ const FunnelView: React.FC<FunnelViewProps> = ({ leads }) => {
                  </div>
                ))}
             </div>
-         </section>
+         </div>
       </div>
     </div>
   );

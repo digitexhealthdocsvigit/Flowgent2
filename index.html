@@ -24,7 +24,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- Structured Data (JSON-LD) -->
+    <!-- Structured Data (JSON-LD) for SEO -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -35,7 +35,8 @@
       "description": "AI-powered business intelligence platform that automates lead discovery, scoring, and CRM management.",
       "author": {
         "@type": "Organization",
-        "name": "Digitex Studio"
+        "name": "Digitex Studio",
+        "url": "https://digitex.studio"
       },
       "offers": {
         "@type": "Offer",
@@ -56,19 +57,36 @@
             animation: progress-indefinite 2s infinite linear;
         }
 
-        /* Accessibility: High Contrast Overrides */
-        /* On dark background, slate-400 needs to be lighter */
+        /* Accessibility: High Contrast Overrides (WCAG AA) */
+        /* On dark background (#030712 / #0f172a), text needs better luminosity */
         .bg-\[\#0f172a\] .text-slate-400, .bg-\[\#030712\] .text-slate-400 {
-            color: #cbd5e1 !important; /* Lighter for dark background */
+            color: #cbd5e1 !important; /* Lighter text for dark backgrounds */
         }
-        /* On white background, slate-500 needs to be darker */
-        .bg-white .text-slate-500 {
-            color: #4b5563 !important; /* Darker for light background (AA compliant) */
-        }
-        .bg-white .text-slate-400 {
-            color: #4b5563 !important; /* Ensure secondary text is visible on cards */
+        .bg-\[\#0f172a\] .text-slate-500, .bg-\[\#030712\] .text-slate-500 {
+            color: #94a3b8 !important; /* Visible secondary text */
         }
         
+        /* On white background, slate-500/400 are often too light */
+        .bg-white .text-slate-400 {
+            color: #4b5563 !important; /* Darker for accessibility on light BG */
+        }
+        .bg-white .text-slate-500 {
+            color: #374151 !important; /* Darker for high contrast */
+        }
+        
+        /* Screen Reader Only utility */
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border-width: 0;
+        }
+
         /* Skip link for keyboard accessibility */
         .skip-link {
           position: absolute;
@@ -76,18 +94,26 @@
           left: 0;
           background: #2563eb;
           color: white;
-          padding: 8px;
-          z-index: 100;
+          padding: 8px 16px;
+          z-index: 1000;
           transition: top 0.3s;
+          font-weight: bold;
+          border-radius: 0 0 8px 0;
         }
         .skip-link:focus {
           top: 0;
         }
 
-        /* Scrollbar styling */
+        /* Custom Scrollbar */
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        
+        /* Focus styles for keyboard navigation */
+        :focus-visible {
+          outline: 3px solid #2563eb;
+          outline-offset: 2px;
+        }
     </style>
 <script type="importmap">
 {
