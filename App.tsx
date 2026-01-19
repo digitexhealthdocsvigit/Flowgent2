@@ -69,14 +69,21 @@ const App: React.FC = () => {
 
   const loadSignals = async () => {
     const logs = await logOperations.getRecent();
-    setSignals(logs as any[]);
+    if (logs) {
+      setSignals(logs as any[]);
+    } else {
+      setSignals([]);
+    }
   };
 
   const refreshSubscriptions = async () => {
     try {
       const data = await subscriptionOperations.getAll();
-      if (data && data.length > 0) setSubscriptions(data);
-      else setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
+      if (data && data.length > 0) {
+        setSubscriptions(data);
+      } else {
+        setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
+      }
     } catch (e) {
       setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
     }
@@ -94,6 +101,7 @@ const App: React.FC = () => {
           is_hot_opportunity: l.is_hot_opportunity || (l.readiness_score > 75)
         })));
       } else {
+        // Explicitly set mocks if server returned null or empty
         setLeads(MOCK_LEADS as any[]);
       }
     } catch (error) {
@@ -211,6 +219,89 @@ const App: React.FC = () => {
     setViewState('public');
   };
 
+  const renderTabContent = () => {
+    switch(currentTab) {
+      case 'dashboard':
+        return (
+          <div className="space-y-10 animate-in fade-in">
+            <h2 className="text-6xl font-black text-white tracking-tighter italic">Founder Portal</h2>
+            <AdminInfographic />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+              <div className="lg:col-span-2 bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
+                <div className="flex justify-between items-center mb-10">
+                  <h3 className="font-black text-2xl text-white italic">Intelligence Feed</h3>
+                  <button onClick={refreshLeads} className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-400 transition-colors">Neural Sync</button>
+                </div>
+                <div className="space-y-4">
+                  {leads.slice(0, 5).map(l => (
+                    <div key={l.id || (l as any).place_id} className="p-5 bg-white/5 border border-white/5 rounded-3xl flex items-center justify-between hover:border-blue-500/30 cursor-pointer group" onClick={() => handleAudit(l)}>
+                       <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center font-black border border-white/10 group-hover:bg-blue-600 transition-all">
+                            {l.business_name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-black text-white">{l.business_name}</p>
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">{l.city}</p>
+                          </div>
+                       </div>
+                       <p className="text-xl font-black text-blue-500 italic">{l.readiness_score || 0}%</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
+                <h3 className="font-black text-2xl text-white mb-10 italic">Signal Log</h3>
+                <SignalLog signals={signals} />
+              </div>
+            </div>
+          </div>
+        );
+      case 'discovery':
+        return <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} />;
+      case 'strategy_room':
+        return <StrategyRoom />;
+      case 'hot_opps':
+        const hotLeads = leads.filter(l => l.is_hot_opportunity || l.readiness_score! >= 75);
+        return (
+          <div className="space-y-10 animate-in fade-in">
+            <h2 className="text-4xl font-black text-white italic tracking-tighter">Hot Opportunities</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+              {hotLeads.length > 0 ? hotLeads.map(l => (
+                <LeadCard key={l.id || (l as any).place_id} lead={l} onAudit={handleAudit} />
+              )) : (
+                <div className="col-span-full py-32 text-center text-slate-500 italic">No Hot Opportunities detected. Refresh Discovery Node.</div>
+              )}
+            </div>
+          </div>
+        );
+      case 'lead_engine':
+        return <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.map(l => <LeadCard key={l.id || (l as any).place_id} lead={l} onAudit={handleAudit} />)}</div>;
+      case 'funnel_view':
+        return <FunnelView leads={leads} />;
+      case 'meetings':
+        return <CalendarView />;
+      case 'deal_pipeline':
+        return <CrmView deals={deals} onMoveDeal={handleMoveDeal} />;
+      case 'workflows':
+        return <AutomationView workflows={MOCK_WORKFLOWS} onToggleStatus={() => {}} signals={signals as any[]} />;
+      case 'revenue_amc':
+        return <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser?.role === 'admin'} />;
+      case 'settings':
+        return (
+          <SettingsView 
+            webhookUrl={webhookUrl} 
+            onUpdate={setWebhookUrl} 
+            onTest={() => logAuditEvent('Manual Signal Test Dispatched', 'webhook')} 
+            activeProjectRef={activeProjectRef} 
+          />
+        );
+      case 'client_dashboard':
+        return <ClientDashboard projects={MOCK_PROJECTS} leadStats={{score: 88, rank: 'Top 5%'}} activityLogs={signals.map(s => ({msg: s.text, time: s.created_at || 'Just now'}))} />;
+      default:
+        return <div className="py-20 text-center text-slate-500 italic">Node under development. Infrastructure pending sync.</div>;
+    }
+  };
+
   if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black tracking-widest uppercase italic animate-pulse">InsForge Handshake...</div>;
   if (viewState === 'public') return <LandingPage onLeadSubmit={() => {}} onGoToLogin={() => setViewState('login')} />;
   if (viewState === 'login') return <LoginScreen onLogin={handleLogin} onGoBack={() => setViewState('public')} />;
@@ -232,53 +323,7 @@ const App: React.FC = () => {
         </header>
 
         <main className="flex-1 p-12 overflow-y-auto custom-scrollbar bg-slate-950/20">
-          {currentTab === 'dashboard' && (
-            <div className="space-y-10 animate-in fade-in">
-              <h2 className="text-6xl font-black text-white tracking-tighter italic">Founder Portal</h2>
-              <AdminInfographic />
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                <div className="lg:col-span-2 bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
-                  <div className="flex justify-between items-center mb-10">
-                    <h3 className="font-black text-2xl text-white italic">Intelligence Feed</h3>
-                    <button onClick={refreshLeads} className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-400 transition-colors">Neural Sync</button>
-                  </div>
-                  <div className="space-y-4">
-                    {leads.slice(0, 5).map(l => (
-                      <div key={l.id || (l as any).place_id} className="p-5 bg-white/5 border border-white/5 rounded-3xl flex items-center justify-between hover:border-blue-500/30 cursor-pointer group" onClick={() => handleAudit(l)}>
-                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center font-black border border-white/10 group-hover:bg-blue-600 transition-all">{l.business_name.charAt(0)}</div>
-                            <div>
-                              <p className="font-black text-white">{l.business_name}</p>
-                              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">{l.city}</p>
-                            </div>
-                         </div>
-                         <p className="text-xl font-black text-blue-500 italic">{l.readiness_score || 0}%</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
-                  <h3 className="font-black text-2xl text-white mb-10 italic">Signal Log</h3>
-                  <SignalLog signals={signals} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {currentTab === 'scraper' && <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} />}
-          {currentTab === 'discovery' && <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} />}
-          {currentTab === 'strategy_room' && <StrategyRoom />}
-          {currentTab === 'leads' && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.map(l => <LeadCard key={l.id || (l as any).place_id} lead={l} onAudit={handleAudit} />)}</div>}
-          {currentTab === 'lead_engine' && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.map(l => <LeadCard key={l.id || (l as any).place_id} lead={l} onAudit={handleAudit} />)}</div>}
-          {currentTab === 'hot_opps' && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.filter(l => l.is_hot_opportunity).map(l => <LeadCard key={l.id || (l as any).place_id} lead={l} onAudit={handleAudit} />)}</div>}
-          {currentTab === 'crm' && <CrmView deals={deals} onMoveDeal={handleMoveDeal} />}
-          {currentTab === 'deal_pipeline' && <CrmView deals={deals} onMoveDeal={handleMoveDeal} />}
-          {currentTab === 'billing' && <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser.role === 'admin'} />}
-          {currentTab === 'revenue_amc' && <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser.role === 'admin'} />}
-          {currentTab === 'automations' && <AutomationView workflows={MOCK_WORKFLOWS} onToggleStatus={() => {}} signals={signals as any[]} />}
-          {currentTab === 'workflows' && <AutomationView workflows={MOCK_WORKFLOWS} onToggleStatus={() => {}} signals={signals as any[]} />}
-          {currentTab === 'funnel_view' && <FunnelView leads={leads} />}
-          {['funnel', 'calendar', 'reports', 'meetings', 'funnel_view'].includes(currentTab) && (currentTab === 'funnel_view' ? <FunnelView leads={leads} /> : <div className="py-20 text-center text-slate-500 italic">Node under development. Infrastructure pending sync.</div>)}
+          {renderTabContent()}
         </main>
       </div>
 

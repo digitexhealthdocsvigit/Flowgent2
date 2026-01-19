@@ -47,66 +47,72 @@ const StrategyRoom: React.FC = () => {
     setIsActive(true);
     setStatus('Initializing Neural Link...');
     
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-    outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    try {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    const sessionPromise = ai.live.connect({
-      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-      callbacks: {
-        onopen: () => {
-          setStatus('Live: Strategic Consultant Ready');
-          const source = audioContextRef.current!.createMediaStreamSource(stream);
-          const processor = audioContextRef.current!.createScriptProcessor(4096, 1, 1);
-          
-          processor.onaudioprocess = (e) => {
-            const inputData = e.inputBuffer.getChannelData(0);
-            const int16 = new Int16Array(inputData.length);
-            for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
+      const sessionPromise = ai.live.connect({
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+        callbacks: {
+          onopen: () => {
+            setStatus('Live: Strategic Consultant Ready');
+            const source = audioContextRef.current!.createMediaStreamSource(stream);
+            const processor = audioContextRef.current!.createScriptProcessor(4096, 1, 1);
             
-            sessionPromise.then(session => {
-              session.sendRealtimeInput({
-                media: {
-                  data: encode(new Uint8Array(int16.buffer)),
-                  mimeType: 'audio/pcm;rate=16000'
-                }
+            processor.onaudioprocess = (e) => {
+              const inputData = e.inputBuffer.getChannelData(0);
+              const int16 = new Int16Array(inputData.length);
+              for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
+              
+              sessionPromise.then(session => {
+                session.sendRealtimeInput({
+                  media: {
+                    data: encode(new Uint8Array(int16.buffer)),
+                    mimeType: 'audio/pcm;rate=16000'
+                  }
+                });
               });
-            });
-          };
-          source.connect(processor);
-          processor.connect(audioContextRef.current!.destination);
+            };
+            source.connect(processor);
+            processor.connect(audioContextRef.current!.destination);
+          },
+          onmessage: async (message: LiveServerMessage) => {
+            const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+            if (base64Audio) {
+              const ctx = outputAudioContextRef.current!;
+              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
+              const audioBuffer = await decodeAudioData(decode(base64Audio), ctx, 24000, 1);
+              const source = ctx.createBufferSource();
+              source.buffer = audioBuffer;
+              source.connect(ctx.destination);
+              source.start(nextStartTimeRef.current);
+              nextStartTimeRef.current += audioBuffer.duration;
+              sourcesRef.current.add(source);
+            }
+            
+            if (message.serverContent?.outputTranscription) {
+              setTranscription(prev => [...prev.slice(-4), message.serverContent!.outputTranscription!.text]);
+            }
+          },
+          onerror: (e) => setStatus('Neural Link Error'),
+          onclose: () => setStatus('Offline')
         },
-        onmessage: async (message: LiveServerMessage) => {
-          const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-          if (base64Audio) {
-            const ctx = outputAudioContextRef.current!;
-            nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-            const audioBuffer = await decodeAudioData(decode(base64Audio), ctx, 24000, 1);
-            const source = ctx.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(ctx.destination);
-            source.start(nextStartTimeRef.current);
-            nextStartTimeRef.current += audioBuffer.duration;
-            sourcesRef.current.add(source);
-          }
-          
-          if (message.serverContent?.outputTranscription) {
-            setTranscription(prev => [...prev.slice(-4), message.serverContent!.outputTranscription!.text]);
-          }
-        },
-        onerror: (e) => setStatus('Neural Link Error'),
-        onclose: () => setStatus('Offline')
-      },
-      config: {
-        responseModalities: [Modality.AUDIO],
-        systemInstruction: "You are the Flowgent Strategic AI. Founders call you to discuss high-ticket lead conversion, n8n workflow optimization, and digital infrastructure ROI. Be concise, technical, and elite.",
-        outputAudioTranscription: {}
-      }
-    });
+        config: {
+          responseModalities: [Modality.AUDIO],
+          systemInstruction: "You are the Flowgent Strategic AI. Founders call you to discuss high-ticket lead conversion, n8n workflow optimization, and digital infrastructure ROI. Be concise, technical, and elite.",
+          outputAudioTranscription: {}
+        }
+      });
 
-    sessionPromiseRef.current = sessionPromise;
+      sessionPromiseRef.current = sessionPromise;
+    } catch (e) {
+      console.error("AI Session Initialization Failed:", e);
+      setStatus('Access Denied: Microphone Restricted');
+      setIsActive(false);
+    }
   };
 
   const stopSession = () => {
@@ -139,9 +145,11 @@ const StrategyRoom: React.FC = () => {
             </div>
             <div className="w-full space-y-3 bg-white/5 p-8 rounded-[32px] border border-white/5 min-h-[120px]">
               <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-2 italic">Neural Transcription</p>
-              {transcription.map((t, i) => (
+              {transcription.length > 0 ? transcription.map((t, i) => (
                 <p key={i} className="text-sm font-medium text-slate-300 italic">"{t}"</p>
-              ))}
+              )) : (
+                <p className="text-sm font-medium text-slate-600 italic">Monitoring neural throughput...</p>
+              )}
             </div>
             <button onClick={stopSession} className="bg-red-600 text-white font-black px-12 py-5 rounded-2xl text-xs uppercase tracking-widest hover:bg-red-500 transition-all shadow-xl shadow-red-600/20">End Session</button>
           </div>

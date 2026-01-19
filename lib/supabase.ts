@@ -68,10 +68,10 @@ export const leadOperations = {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return data;
     } catch (e) {
       console.warn("Supabase Fetch Failed: Returning Neural Continuity mocks.", handleSupabaseError(e));
-      return null;
+      return null; // Return null to signal App.tsx to use MOCKS
     }
   }
 };
@@ -105,16 +105,9 @@ export const logOperations = {
         .order('created_at', { ascending: false })
         .limit(30);
       if (error) throw error;
-      return (data || []).map(d => ({
-        id: d.id,
-        text: d.payload?.text || `Event: ${d.event_type}`,
-        type: d.event_type,
-        payload: d.payload,
-        created_at: d.created_at,
-        lead_id: d.lead_id
-      }));
+      return data;
     } catch (e) {
-      return [];
+      return null;
     }
   }
 };
@@ -131,8 +124,8 @@ export const projectOperations = {
     try {
       const { data, error } = await supabase.from('projects').select('*');
       if (error) throw error;
-      return data || [];
-    } catch (e) { return []; }
+      return data;
+    } catch (e) { return null; }
   }
 };
 
@@ -148,8 +141,8 @@ export const subscriptionOperations = {
     try {
       const { data, error } = await supabase.from('subscriptions').select('*');
       if (error) throw error;
-      return data || [];
-    } catch (e) { return []; }
+      return data;
+    } catch (e) { return null; }
   },
   async verifyPayment(id: string, ref: string) {
     try {
