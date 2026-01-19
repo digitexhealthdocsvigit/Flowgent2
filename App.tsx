@@ -101,7 +101,6 @@ const App: React.FC = () => {
           is_hot_opportunity: l.is_hot_opportunity || (l.readiness_score > 75)
         })));
       } else {
-        // Explicitly set mocks if server returned null or empty
         setLeads(MOCK_LEADS as any[]);
       }
     } catch (error) {
@@ -141,11 +140,11 @@ const App: React.FC = () => {
       });
       if (response.ok) {
         await logAuditEvent(`ACK: Node persistent in InsForge for ${lead.business_name}`, 'webhook', lead.id);
+        // Mark as synced in local state
+        setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, is_synced_to_n8n: true, sync_timestamp: new Date().toISOString() } : l));
       }
     } catch (e) { 
       await logAuditEvent(`Sync Failed: Connectivity timeout for ${lead.business_name}`, 'system', lead.id);
-    } finally {
-      refreshLeads();
     }
   };
 
@@ -200,7 +199,6 @@ const App: React.FC = () => {
           if (call.name === 'trigger_n8n_signal') await triggerWebhook({ ...lead, ...call.args });
           if (call.name === 'insforge_fetch_docs') {
             await logAuditEvent(`AI researched InsForge Schema: ${call.args.topic}`, 'tool', lead.id);
-            await logAuditEvent(`MCP Documentation Fetch: Node context retrieved for ${call.args.topic}`, 'system', lead.id);
           }
         }
       }
@@ -261,7 +259,7 @@ const App: React.FC = () => {
       case 'strategy_room':
         return <StrategyRoom />;
       case 'hot_opps':
-        const hotLeads = leads.filter(l => l.is_hot_opportunity || l.readiness_score! >= 75);
+        const hotLeads = leads.filter(l => l && (l.is_hot_opportunity || (l.readiness_score || 0) >= 75));
         return (
           <div className="space-y-10 animate-in fade-in">
             <h2 className="text-4xl font-black text-white italic tracking-tighter">Hot Opportunities</h2>
@@ -269,7 +267,7 @@ const App: React.FC = () => {
               {hotLeads.length > 0 ? hotLeads.map(l => (
                 <LeadCard key={l.id || (l as any).place_id} lead={l} onAudit={handleAudit} />
               )) : (
-                <div className="col-span-full py-32 text-center text-slate-500 italic">No Hot Opportunities detected. Refresh Discovery Node.</div>
+                <div className="col-span-full py-32 text-center text-slate-500 italic border border-dashed border-white/5 rounded-[48px]">No Hot Opportunities detected. Refresh Discovery Node.</div>
               )}
             </div>
           </div>
@@ -287,14 +285,7 @@ const App: React.FC = () => {
       case 'revenue_amc':
         return <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser?.role === 'admin'} />;
       case 'settings':
-        return (
-          <SettingsView 
-            webhookUrl={webhookUrl} 
-            onUpdate={setWebhookUrl} 
-            onTest={() => logAuditEvent('Manual Signal Test Dispatched', 'webhook')} 
-            activeProjectRef={activeProjectRef} 
-          />
-        );
+        return <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} onTest={() => logAuditEvent('Manual Signal Test Dispatched', 'webhook')} activeProjectRef={activeProjectRef} />;
       case 'client_dashboard':
         return <ClientDashboard projects={MOCK_PROJECTS} leadStats={{score: 88, rank: 'Top 5%'}} activityLogs={signals.map(s => ({msg: s.text, time: s.created_at || 'Just now'}))} />;
       default:

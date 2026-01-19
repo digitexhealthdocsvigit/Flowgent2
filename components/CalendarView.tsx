@@ -3,12 +3,27 @@ import React, { useState } from 'react';
 
 const CalendarView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(24);
-  const meetings = [
+  const [meetings, setMeetings] = useState([
     { id: 1, time: '10:00 AM', company: 'TechNova Solutions', type: 'Discovery Call', status: 'confirmed', score: 85 },
     { id: 2, time: '11:30 AM', company: 'GreenLeaf Realty', type: 'Demo Session', status: 'confirmed', score: 72 },
     { id: 3, time: '02:00 PM', company: 'Elite Motors', type: 'Proposal Review', status: 'pending', score: 92 },
     { id: 4, time: '04:30 PM', company: 'Royal Spices', type: 'Technical Audit', status: 'confirmed', score: 45 },
-  ];
+  ]);
+
+  const addMeeting = () => {
+    const time = prompt("Enter Meeting Time (e.g. 03:00 PM)", "09:00 AM");
+    const company = prompt("Enter Company Name", "New Strategic Partner");
+    if (!time || !company) return;
+    
+    setMeetings(prev => [...prev, {
+      id: Date.now(),
+      time,
+      company,
+      type: 'Neural Strategy Consult',
+      status: 'pending',
+      score: Math.floor(Math.random() * 40) + 60
+    }]);
+  };
 
   return (
     <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
@@ -18,8 +33,7 @@ const CalendarView: React.FC = () => {
           <p className="text-slate-500 mt-1 font-medium italic">Synced with Cal.com | Showing automated strategy slots.</p>
         </div>
         <div className="flex gap-3">
-          <button className="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-colors">Calendar Settings</button>
-          <button className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-slate-900/20">Sync External Calendar</button>
+          <button onClick={addMeeting} className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-slate-900/20">Provision Strategic Slot</button>
         </div>
       </div>
 
@@ -85,13 +99,6 @@ const CalendarView: React.FC = () => {
             <div className="relative z-10">
               <h4 className="text-xl font-bold leading-tight">Lead Qualification <br/>Gate Active</h4>
               <p className="text-slate-400 text-xs mt-3 leading-relaxed font-medium">System is prioritizing slots for Leads with Digital Health &gt; 75%.</p>
-              <div className="mt-6 flex gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Syncing Live Slots</span>
-              </div>
-            </div>
-            <div className="absolute top-0 right-0 p-6 opacity-10">
-              <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             </div>
           </div>
 
@@ -109,20 +116,10 @@ const CalendarView: React.FC = () => {
                     <span className={`w-2 h-2 rounded-full mt-1 ${meet.status === 'confirmed' ? 'bg-green-500' : 'bg-orange-500 animate-pulse'}`}></span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">{meet.type}</p>
-                  <div className="flex items-center gap-2 mt-3">
-                    <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="bg-blue-500 h-full" style={{ width: `${meet.score}%` }}></div>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Score: {meet.score}</span>
-                  </div>
                 </div>
               </div>
             ))}
           </div>
-
-          <button className="w-full py-5 bg-slate-50 text-slate-400 border border-slate-100 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-100 transition-colors">
-            View All Pending Requests
-          </button>
         </div>
       </div>
     </div>

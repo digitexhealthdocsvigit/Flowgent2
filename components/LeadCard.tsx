@@ -28,12 +28,6 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
 
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 hover:shadow-lg transition-all group relative overflow-hidden">
-      {lead.is_hot_opportunity && (
-        <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 px-3 py-1 text-[8px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm z-10">
-          Hot Opportunity
-        </div>
-      )}
-
       <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors leading-tight">{businessName}</h3>
@@ -43,6 +37,18 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onAudit }) => {
               {status.replace('_', ' ')}
             </span>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+           {lead.is_synced_to_n8n && (
+             <div className="w-6 h-6 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center animate-pulse border border-blue-100" title="Integrated with n8n Orchestrator">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 19c.7 0 1.2-.6 1.2-1.2V6.2c0-.7-.5-1.2-1.2-1.2h-11c-.7 0-1.2.5-1.2 1.2v11.6c0 .6.5 1.2 1.2 1.2h11z"/><path d="M15 9h-6"/><path d="M15 13h-6"/><path d="M15 17h-6"/></svg>
+             </div>
+           )}
+           {lead.is_hot_opportunity && (
+             <div className="bg-yellow-400 text-yellow-900 px-2 py-1 text-[7px] font-black uppercase tracking-widest rounded shadow-sm">
+                Hot
+             </div>
+           )}
         </div>
       </div>
 

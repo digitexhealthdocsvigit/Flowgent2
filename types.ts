@@ -49,6 +49,9 @@ export interface Lead {
   projected_roi_lift?: string;
   readiness_score?: number;
   last_audit_at?: string;
+  place_id?: string;
+  is_synced_to_n8n?: boolean;
+  sync_timestamp?: string;
 }
 
 export interface AuditResult {
