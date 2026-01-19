@@ -4,11 +4,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flowgent™ | Business Automation Platform</title>
+    <title>Flowgent™ - AI Business Intelligence & Lead Generation Platform</title>
+    
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="Flowgent™ - AI Business Intelligence Platform">
+    <meta name="description" content="Transform business discovery with AI-powered audits, automated lead scoring, and intelligent CRM. Flowgent™ identifies high-value opportunities and automates outreach using advanced neural networks.">
+    <meta name="keywords" content="business intelligence, lead generation, AI audit, CRM automation, business scoring, AI platform, Digitex Studio">
+    <meta name="author" content="Digitex Studio">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://flowgent2.vercel.app/" />
+    
+    <!-- Preconnect & Preload -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Flowgent™",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "description": "AI-powered business intelligence platform that automates lead discovery, scoring, and CRM management.",
+      "author": {
+        "@type": "Organization",
+        "name": "Digitex Studio"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "description": "Free AI business audit"
+      }
+    }
+    </script>
+
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
         @keyframes progress-indefinite {
             0% { transform: translateX(-100%); }
             100% { transform: translateX(100%); }
@@ -16,6 +55,39 @@
         .animate-progress-indefinite {
             animation: progress-indefinite 2s infinite linear;
         }
+
+        /* Accessibility: High Contrast Overrides */
+        /* On dark background, slate-400 needs to be lighter */
+        .bg-\[\#0f172a\] .text-slate-400, .bg-\[\#030712\] .text-slate-400 {
+            color: #cbd5e1 !important; /* Lighter for dark background */
+        }
+        /* On white background, slate-500 needs to be darker */
+        .bg-white .text-slate-500 {
+            color: #4b5563 !important; /* Darker for light background (AA compliant) */
+        }
+        .bg-white .text-slate-400 {
+            color: #4b5563 !important; /* Ensure secondary text is visible on cards */
+        }
+        
+        /* Skip link for keyboard accessibility */
+        .skip-link {
+          position: absolute;
+          top: -40px;
+          left: 0;
+          background: #2563eb;
+          color: white;
+          padding: 8px;
+          z-index: 100;
+          transition: top 0.3s;
+        }
+        .skip-link:focus {
+          top: 0;
+        }
+
+        /* Scrollbar styling */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
 <script type="importmap">
 {
@@ -33,6 +105,7 @@
 </script>
 </head>
 <body class="bg-[#0f172a] text-white">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
 </body>
