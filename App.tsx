@@ -35,7 +35,7 @@ const App: React.FC = () => {
   const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult } | null>(null);
   const [signals, setSignals] = useState<AuditLog[]>([]);
   const [webhookUrl, setWebhookUrl] = useState(() => 
-    localStorage.getItem('flowgent_n8n_webhook') || 'https://n8n-production-ecc4.up.railway.app/webhook/flowgent-orchestrator'
+    localStorage.getItem('flowgent_n8n_webhook') || 'https://n8n-production-ecc4.up.railway.app/webhook-test/flowgent-orchestrator'
   );
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [activePitch, setActivePitch] = useState<{ lead: Lead; pitch: string } | null>(null);
@@ -106,11 +106,13 @@ const App: React.FC = () => {
     setCurrentTab(isAdmin ? 'dashboard' : 'client_dashboard');
   };
 
+  const logAuditEvent = async (text: string, type: AuditLog['type'], leadId?: string, payload?: any) => {
+    await logOperations.create({ text, type, lead_id: leadId, payload });
+    loadSignals();
+  };
+
   const triggerWebhook = async (lead: Lead) => {
-    await logOperations.create({ 
-      text: `Syncing: ${lead.business_name} to Orchestrator`, 
-      type: 'webhook' 
-    });
+    await logAuditEvent(`Syncing: ${lead.business_name} to Orchestrator`, 'webhook', lead.id);
     
     try {
       const response = await fetch(webhookUrl, {
@@ -120,18 +122,11 @@ const App: React.FC = () => {
       });
       
       if (response.ok) {
-        await logOperations.create({ 
-          text: `ACK: Node persistent in InsForge for ${lead.business_name}`, 
-          type: 'webhook' 
-        });
+        await logAuditEvent(`ACK: Node persistent in InsForge for ${lead.business_name}`, 'n8n_triggered', lead.id);
       }
     } catch (e) { 
-      await logOperations.create({ 
-        text: `Error: Network timeout during sync for ${lead.business_name}`, 
-        type: 'system' 
-      });
+      await logAuditEvent(`Error: Network timeout during sync for ${lead.business_name}`, 'system', lead.id);
     } finally {
-      loadSignals();
       refreshLeads();
     }
   };
@@ -156,10 +151,11 @@ const App: React.FC = () => {
   };
 
   const finalizeDeal = async (deal: Deal) => {
-    await logOperations.create({ text: `Provisioning Infrastructure for partner ${deal.businessName}`, type: 'system' });
+    await logAuditEvent(`Provisioning Infrastructure for partner ${deal.businessName}`, 'system', deal.lead_id || deal.leadId);
     try {
       await projectOperations.create({
-        name: `${deal.businessName} - Scale Ops`,
+        client_name: deal.businessName,
+        lead_id: deal.lead_id || deal.leadId,
         status: 'active',
         progress: 0,
         type: deal.service_tier?.includes('Presence') ? 'Digital Presence' : 'Automation',
@@ -172,36 +168,35 @@ const App: React.FC = () => {
         clientName: deal.businessName,
         planName: 'Growth Automation',
         amount: deal.value > 50000 ? 15000 : 8000,
-        status: 'paused',
+        status: 'pending_payment',
         billingCycle: 'monthly',
         nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       });
-      await logOperations.create({ text: `Node Converged: ${deal.businessName} linked to Revenue Cluster.`, type: 'webhook' });
+      await logAuditEvent(`Node Converged: ${deal.businessName} linked to Revenue Cluster.`, 'deal_won_automation', deal.lead_id || deal.leadId, { value: deal.value });
     } catch (e) {
       console.error("Converge failure", e);
     } finally {
-      loadSignals();
       refreshSubscriptions();
     }
   };
 
   const handleAudit = async (lead: Lead) => {
     setIsAuditing(true);
-    await logOperations.create({ text: `AI: Initiating Decision Science Audit for ${lead.business_name}`, type: 'tool' });
+    await logAuditEvent(`AI: Initiating Decision Science Audit for ${lead.business_name}`, 'tool', lead.id);
     try {
       const { audit, toolCalls } = await generateAuditWithTools(lead);
       if (toolCalls?.length) {
         for (const call of toolCalls) {
           if (call.name === 'trigger_n8n_signal') await triggerWebhook({ ...lead, ...call.args });
           if (call.name === 'insforge_fetch_docs') {
-            await logOperations.create({ text: `AI researched InsForge topic: ${call.args.topic}`, type: 'tool' });
+            await logAuditEvent(`AI researched InsForge topic: ${call.args.topic}`, 'tool', lead.id);
           }
         }
       }
+      await logAuditEvent(`Audit Resolved: ${lead.business_name} score: ${audit.score}%`, 'ai_audit_completed', lead.id, audit);
       setCurrentAudit({ lead: { ...lead, ...audit }, result: audit });
     } finally { 
       setIsAuditing(false);
-      loadSignals();
     }
   };
 
@@ -270,7 +265,7 @@ const App: React.FC = () => {
           {currentTab === 'leads' && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.map(l => <LeadCard key={l.id || l.place_id} lead={l} onAudit={handleAudit} />)}</div>}
           {currentTab === 'crm' && <CrmView deals={deals} onMoveDeal={handleMoveDeal} />}
           {currentTab === 'billing' && <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser.role === 'admin'} />}
-          {/* Support other tabs via mock data if needed */}
+          {currentTab === 'automations' && <AutomationView workflows={MOCK_WORKFLOWS} onToggleStatus={() => {}} signals={signals} />}
           {['funnel', 'calendar', 'reports'].includes(currentTab) && <div className="py-20 text-center text-slate-500 italic">Node under development. Mock layer inactive.</div>}
         </main>
       </div>

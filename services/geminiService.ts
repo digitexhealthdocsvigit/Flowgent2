@@ -112,7 +112,8 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
 export const searchLocalBusinesses = async (query: string, lat?: number, lng?: number) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-lite-latest",
+    // Fixed: Updated model name for flash lite per standard GenAI naming
+    model: "gemini-flash-lite-latest",
     contents: `Locate 5 prime "${query}" businesses for lead acquisition. Return only standard grounding data.`,
     config: {
       tools: [{ googleMaps: {} }],

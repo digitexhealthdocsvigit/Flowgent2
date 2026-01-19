@@ -70,6 +70,7 @@ export interface Deal {
   updatedAt: string;
   service_tier?: ServiceTier;
   pitch_type?: PitchType;
+  lead_id?: string; // Standardize for Supabase compatibility
 }
 
 export interface Project {
@@ -81,6 +82,8 @@ export interface Project {
   startDate: string;
   nextMilestone: string;
   velocity_score?: number;
+  client_name?: string;
+  lead_id?: string;
 }
 
 export interface Notification {
@@ -104,9 +107,9 @@ export interface Subscription {
   id: string;
   orgId: string;
   clientName: string;
-  planName: 'Starter Care' | 'Growth Automation' | 'Business Ops Pro';
+  planName: string;
   amount: number;
-  status: 'active' | 'paused' | 'cancelled';
+  status: 'active' | 'paused' | 'cancelled' | 'pending_payment';
   billingCycle: 'monthly' | 'yearly';
   nextBilling: string;
   payment_ref?: string;
@@ -124,6 +127,8 @@ export interface AutomationWorkflow {
 export interface AuditLog {
   id?: string;
   text: string;
-  type: 'tool' | 'webhook' | 'system';
+  type: 'tool' | 'webhook' | 'system' | 'ai_audit_completed' | 'deal_won_automation' | 'n8n_triggered';
+  payload?: any;
   created_at?: string;
+  lead_id?: string;
 }

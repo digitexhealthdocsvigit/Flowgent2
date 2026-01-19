@@ -1,9 +1,11 @@
 
 import React, { useState } from 'react';
-import { Search, MapPin, Phone, Globe, Star, Zap, AlertCircle, ExternalLink } from 'lucide-react';
+import { Search, MapPin, AlertCircle, ExternalLink } from 'lucide-react';
 import { searchLocalBusinesses } from '../services/geminiService';
 import { calculateLeadScore } from '../utils/scoring';
-import { Lead, leadOperations, logOperations } from '../lib/supabase';
+// Fixed: Lead is now correctly imported from the centralized types.ts file
+import { Lead } from '../types';
+import { leadOperations, logOperations } from '../lib/supabase';
 
 interface ScraperViewProps {
   onLeadsCaptured: () => void;
@@ -47,7 +49,7 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onLeadsCaptured, onPushToN8N 
           est_contract_value: scored.est_contract_value,
           status: 'discovered',
           source: 'google_maps',
-          google_maps_url: r.mapsUrl, // Ensure this is mapped correctly
+          google_maps_url: r.mapsUrl,
           created_at: new Date().toISOString()
         };
       });
@@ -55,7 +57,8 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onLeadsCaptured, onPushToN8N 
       setBusinesses(scoredBusinesses);
       await logOperations.create({ 
         text: `Discovery Scan: Found ${results.length} nodes for "${searchQuery}"`, 
-        type: 'tool' 
+        type: 'tool',
+        payload: { query: searchQuery, count: results.length }
       });
     } catch (error) {
       console.error('Discovery failed:', error);
@@ -84,7 +87,8 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onLeadsCaptured, onPushToN8N 
       }
       await logOperations.create({ 
         text: `Lead Capture: ${targets.length} nodes synchronized to InsForge`, 
-        type: 'webhook' 
+        type: 'webhook',
+        payload: { targets: targets.map(t => t.business_name) }
       });
       setSelectedIds(new Set());
       onLeadsCaptured();
@@ -175,10 +179,10 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onLeadsCaptured, onPushToN8N 
                       target="_blank" 
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors"
+                      className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors group/link"
                     >
                       <ExternalLink size={14} />
-                      <span className="text-xs font-black uppercase italic tracking-widest">Source Link</span>
+                      <span className="text-xs font-black uppercase italic tracking-widest group-hover/link:underline">Source: Google Maps</span>
                     </a>
                   )}
                 </div>
