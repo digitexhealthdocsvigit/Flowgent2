@@ -17,6 +17,7 @@ import DecisionScienceView from './components/DecisionScienceView';
 import AdminInfographic from './components/AdminInfographic';
 import SettingsView from './components/SettingsView';
 import PitchModal from './components/PitchModal';
+import ServicesCatalog from './components/ServicesCatalog';
 import { DecisionBanner, SignalLog } from './components/AppContent';
 import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_WORKFLOWS, MOCK_SUBSCRIPTIONS } from './services/mockData';
 import { Lead, AuditResult, User, AuditLog, Deal, Subscription } from './types';
@@ -254,6 +255,8 @@ const App: React.FC = () => {
             </div>
           </div>
         );
+      case 'service_catalog':
+        return <ServicesCatalog />;
       case 'discovery':
         return <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} />;
       case 'strategy_room':

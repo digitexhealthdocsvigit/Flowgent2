@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import ServicesCatalog from './ServicesCatalog';
 
 interface LandingPageProps {
   onLeadSubmit: (data: any) => void;
@@ -71,8 +72,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
               Flowgent™ automates your business infrastructure, from lead discovery to WhatsApp-driven conversion.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <button onClick={scrollToAudit} className="bg-white text-slate-900 px-12 py-6 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-100 transition-all">Initiate AI Audit</button>
-              <button onClick={scrollToPricing} className="bg-slate-800 text-white px-12 py-6 rounded-2xl font-black uppercase tracking-widest text-xs border border-white/5 hover:bg-slate-700 transition-all">View Growth Plans</button>
+              <button onClick={scrollToAudit} className="bg-white text-slate-900 px-12 py-6 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-100 transition-all shadow-2xl">Initiate AI Audit</button>
+              <button onClick={scrollToServices} className="bg-slate-800 text-white px-12 py-6 rounded-2xl font-black uppercase tracking-widest text-xs border border-white/5 hover:bg-slate-700 transition-all">Explore Possibilities</button>
             </div>
           </div>
 
@@ -94,8 +95,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
           </div>
         </div>
 
+        {/* Services Section */}
+        <section id="services" className="mt-60 space-y-24 scroll-mt-32">
+          <div className="text-center space-y-6">
+            <h2 className="text-7xl font-black tracking-tighter text-white">Engineering Possibilities</h2>
+            <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-xs">A Full-Stack Developer & Growth Agency Stack</p>
+          </div>
+          <ServicesCatalog isPublic={true} />
+        </section>
+
         {/* Pricing Section */}
-        <section id="pricing" className="mt-60 space-y-32">
+        <section id="pricing" className="mt-60 space-y-32 scroll-mt-32">
           <div className="text-center space-y-6">
             <h2 className="text-7xl font-black tracking-tighter text-white">Revenue Node Tiers</h2>
             <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-xs">INVESTMENT IN AUTOMATION SCALING</p>
@@ -155,7 +165,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
           </div>
         </section>
 
-        <section id="audit-section" className="mt-60 pb-40">
+        <section id="audit-section" className="mt-60 pb-40 scroll-mt-32">
           <div className="bg-blue-600 rounded-[64px] p-24 relative overflow-hidden shadow-2xl shadow-blue-500/20">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white opacity-5 rounded-full -mr-[300px] -mt-[300px]"></div>
             <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
