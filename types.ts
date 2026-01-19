@@ -70,7 +70,7 @@ export interface Deal {
   updatedAt: string;
   service_tier?: ServiceTier;
   pitch_type?: PitchType;
-  lead_id?: string; // Standardize for Supabase compatibility
+  lead_id?: string;
 }
 
 export interface Project {
@@ -127,8 +127,9 @@ export interface AutomationWorkflow {
 export interface AuditLog {
   id?: string;
   text: string;
-  type: 'tool' | 'webhook' | 'system' | 'ai_audit_completed' | 'deal_won_automation' | 'n8n_triggered';
+  type: string;
   payload?: any;
   created_at?: string;
   lead_id?: string;
+  source?: string;
 }
