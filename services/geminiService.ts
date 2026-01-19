@@ -2,6 +2,15 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { AuditResult, Lead } from "../types";
 
+const getAI = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    console.warn("AI System: No API Key detected. Using simulated logic.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
 export const n8nToolDeclaration: FunctionDeclaration = {
   name: 'trigger_n8n_signal',
   parameters: {
@@ -30,23 +39,14 @@ export const insforgeDocsTool: FunctionDeclaration = {
 };
 
 /**
- * Generates a Fractal-style Decision Science Audit using Gemini 3.
+ * Generates a Fractal-style Decision Science Audit.
  */
 export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: AuditResult, toolCalls?: any[] }> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAI();
+  if (!ai) return { audit: getSimulatedAudit() };
   
-  // Model setup for high-quality complex text task
   const prompt = `Perform a high-density Decision Science Audit for "${lead.business_name}" (${lead.category}).
-  
-  CONTEXT: We are using InsForge as our backend platform (REST API: https://jsk8snxz.ap-southeast.insforge.app). 
-  If you need specific technical instructions on how to structure tools or n8n signals for this environment, call 'insforge_fetch_docs' first.
-  
-  You must calculate:
-  1. Business Readiness Score (0-100)
-  2. Radar Metrics (Presence, Automation, SEO, Capture - 0 to 100 each)
-  3. Decision Logic Chain (3-4 nodes)
-  4. Projected Annual ROI Lift
-  
+  CONTEXT: Using InsForge platform node JSK8SNXZ. Calculate Readiness, Radar Metrics, and ROI.
   Return strictly in JSON format. If score > 80, call 'trigger_n8n_signal'.`;
 
   try {
@@ -96,54 +96,59 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
     return { audit, toolCalls: response.functionCalls };
   } catch (error) {
     console.error("Decision Science Error:", error);
-    return { 
-      audit: {
-        summary: "Standard Audit Fallback Node engaged.",
-        gaps: ["Infrastructure handshake timeout"],
-        recommendations: ["Manually verify InsForge Project Node"],
-        score: 65,
-        radar_metrics: { presence: 40, automation: 20, seo: 30, capture: 10 },
-        decision_logic: [{ factor: "System Error", impact: "high", reasoning: "AI Engine could not verify InsForge documentation in real-time." }]
-      }
-    };
+    return { audit: getSimulatedAudit() };
   }
 };
 
-export const searchLocalBusinesses = async (query: string, lat?: number, lng?: number) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const response = await ai.models.generateContent({
-    // Fixed: Updated model name for flash lite per standard GenAI naming
-    model: "gemini-flash-lite-latest",
-    contents: `Locate 5 prime "${query}" businesses for lead acquisition. Return only standard grounding data.`,
-    config: {
-      tools: [{ googleMaps: {} }],
-      toolConfig: {
-        retrievalConfig: {
-          latLng: lat && lng ? { latitude: lat, longitude: lng } : undefined
-        }
-      }
-    },
-  });
+const getSimulatedAudit = (): AuditResult => ({
+  summary: "Continuity Mode: Standard Audit Fallback.",
+  gaps: ["Infrastructure handshake timeout", "API Key verification required"],
+  recommendations: ["Manually verify InsForge Project Node"],
+  score: 65,
+  radar_metrics: { presence: 40, automation: 20, seo: 30, capture: 10 },
+  decision_logic: [{ factor: "API Check", impact: "high", reasoning: "AI Engine is running in simulation due to key latency." }]
+});
 
-  const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-  return chunks.filter((c: any) => c.maps).map((c: any) => ({
-    business_name: c.maps.title,
-    city: c.maps.address,
-    rating: c.maps.rating,
-    reviews: c.maps.reviewCount,
-    has_website: !!c.maps.websiteUri,
-    website: c.maps.websiteUri || '',
-    phone: c.maps.phoneNumber,
-    type: c.maps.type || query,
-    mapsUrl: c.maps.uri
-  }));
+export const searchLocalBusinesses = async (query: string, lat?: number, lng?: number) => {
+  const ai = getAI();
+  if (!ai) return [];
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-flash-lite-latest",
+      contents: `Locate 5 prime "${query}" businesses for lead acquisition. Return standard grounding data.`,
+      config: {
+        tools: [{ googleMaps: {} }],
+        toolConfig: {
+          retrievalConfig: {
+            latLng: lat && lng ? { latitude: lat, longitude: lng } : undefined
+          }
+        }
+      },
+    });
+
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    return chunks.filter((c: any) => c.maps).map((c: any) => ({
+      business_name: c.maps.title,
+      city: c.maps.address,
+      rating: c.maps.rating,
+      reviews: c.maps.reviewCount,
+      has_website: !!c.maps.websiteUri,
+      website: c.maps.websiteUri || '',
+      phone: c.maps.phoneNumber,
+      type: c.maps.type || query,
+      mapsUrl: c.maps.uri
+    }));
+  } catch (e) {
+    return [];
+  }
 };
 
 export const generateVideoIntro = async (businessName: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAI();
+  if (!ai) return "";
   let operation = await ai.models.generateVideos({
     model: 'veo-3.1-fast-generate-preview',
-    prompt: `A cinematic technical reveal for "${businessName}" showing data flowing through nodes, futuristic dashboard atmosphere.`,
+    prompt: `Cinematic reveal for "${businessName}" with high-tech dashboard atmosphere.`,
     config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
   });
   while (!operation.done) {

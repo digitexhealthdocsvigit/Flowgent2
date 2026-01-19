@@ -12,7 +12,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, userRole }) => {
   const adminItems = [
     { id: 'dashboard', label: 'Dashboard', icon: ICONS.Dashboard },
-    { id: 'scraper', label: 'Discovery', icon: () => (
+    { id: 'discovery', label: 'Discovery', icon: () => (
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
     )},
     { id: 'strategy_room', label: 'Strategy Room', icon: () => (
@@ -21,14 +21,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, userRole }) 
     { id: 'hot_opps', label: 'Hot Opps', icon: () => (
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
     )},
-    { id: 'leads', label: 'Lead Engine', icon: ICONS.Leads },
-    { id: 'funnel', label: 'Funnel View', icon: ICONS.Audit },
-    { id: 'calendar', label: 'Meetings', icon: ICONS.Calendar },
-    { id: 'crm', label: 'Deal Pipeline', icon: ICONS.CRM },
-    { id: 'automations', label: 'Workflows', icon: () => (
+    { id: 'lead_engine', label: 'Lead Engine', icon: ICONS.Leads },
+    { id: 'funnel_view', label: 'Funnel View', icon: ICONS.Audit },
+    { id: 'meetings', label: 'Meetings', icon: ICONS.Calendar },
+    { id: 'deal_pipeline', label: 'Deal Pipeline', icon: ICONS.CRM },
+    { id: 'workflows', label: 'Workflows', icon: () => (
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect width="18" height="12" x="3" y="11" rx="2"/><circle cx="12" cy="16" r="1"/></svg>
     )},
-    { id: 'billing', label: 'Revenue/AMC', icon: () => (
+    { id: 'revenue_amc', label: 'Revenue/AMC', icon: () => (
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
     )},
     { id: 'settings', label: 'Settings', icon: ICONS.Settings },

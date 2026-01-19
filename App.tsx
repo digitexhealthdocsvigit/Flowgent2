@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import LeadCard from './components/LeadCard';
@@ -46,7 +47,6 @@ const App: React.FC = () => {
           refreshData();
         } else {
           setIsLoadingAuth(false);
-          // Pre-hydrate with mocks for demo/override readiness
           setLeads(MOCK_LEADS as any[]);
           setDeals(MOCK_DEALS as any[]);
           setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
@@ -266,12 +266,19 @@ const App: React.FC = () => {
           )}
 
           {currentTab === 'scraper' && <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} />}
+          {currentTab === 'discovery' && <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} />}
           {currentTab === 'strategy_room' && <StrategyRoom />}
           {currentTab === 'leads' && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.map(l => <LeadCard key={l.id || (l as any).place_id} lead={l} onAudit={handleAudit} />)}</div>}
+          {currentTab === 'lead_engine' && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.map(l => <LeadCard key={l.id || (l as any).place_id} lead={l} onAudit={handleAudit} />)}</div>}
+          {currentTab === 'hot_opps' && <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.filter(l => l.is_hot_opportunity).map(l => <LeadCard key={l.id || (l as any).place_id} lead={l} onAudit={handleAudit} />)}</div>}
           {currentTab === 'crm' && <CrmView deals={deals} onMoveDeal={handleMoveDeal} />}
+          {currentTab === 'deal_pipeline' && <CrmView deals={deals} onMoveDeal={handleMoveDeal} />}
           {currentTab === 'billing' && <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser.role === 'admin'} />}
+          {currentTab === 'revenue_amc' && <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser.role === 'admin'} />}
           {currentTab === 'automations' && <AutomationView workflows={MOCK_WORKFLOWS} onToggleStatus={() => {}} signals={signals as any[]} />}
-          {['funnel', 'calendar', 'reports'].includes(currentTab) && <div className="py-20 text-center text-slate-500 italic">Node under development. Infrastructure pending sync.</div>}
+          {currentTab === 'workflows' && <AutomationView workflows={MOCK_WORKFLOWS} onToggleStatus={() => {}} signals={signals as any[]} />}
+          {currentTab === 'funnel_view' && <FunnelView leads={leads} />}
+          {['funnel', 'calendar', 'reports', 'meetings', 'funnel_view'].includes(currentTab) && (currentTab === 'funnel_view' ? <FunnelView leads={leads} /> : <div className="py-20 text-center text-slate-500 italic">Node under development. Infrastructure pending sync.</div>)}
         </main>
       </div>
 

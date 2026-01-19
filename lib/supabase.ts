@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { AuditLog, Project, Subscription, Lead } from '../types';
 
@@ -20,7 +21,7 @@ export const activeProjectRef = getProjectRef(INSFORGE_URL);
 
 /**
  * The core infrastructure client for InsForge.
- * Includes explicit headers to request JSON and avoid HTML redirects from misconfigured proxies.
+ * Includes explicit headers to request JSON and avoid HTML redirects.
  */
 export const supabase = createClient(INSFORGE_URL, INSFORGE_KEY, {
   auth: {
@@ -34,20 +35,15 @@ export const supabase = createClient(INSFORGE_URL, INSFORGE_KEY, {
 });
 
 /**
- * Resolves the "Unexpected Token <" error.
- * This occurs when the Supabase URL points to a project that is paused, deleted,
- * or where the proxy serves an HTML landing page instead of the REST API.
+ * Specifically catches the "Unexpected token <" or 404 errors.
  */
 export const handleSupabaseError = (err: any): string => {
   const msg = err?.message || String(err);
-  if (msg.includes('Unexpected token') || msg.includes('doctype') || msg.includes('JSON')) {
-    return "GATEWAY MISMATCH: THE INFRASTRUCTURE (URL) RETURNED AN HTML PAGE INSTEAD OF API DATA. THIS USUALLY MEANS THE PROJECT IS PAUSED OR THE URL IS MISCONFIGURED. PLEASE USE 'EMERGENCY OVERRIDE' TO BOOT IN SIMULATION MODE.";
+  if (msg.includes('Unexpected token') || msg.includes('doctype') || msg.includes('JSON') || msg.includes('404')) {
+    return "INFRASTRUCTURE MISMATCH: The API node at " + INSFORGE_URL + " returned an HTML page (404/Pause). Using Neural Continuity (Mock) mode.";
   }
   return msg;
 };
-
-// In-memory continuity buffer for when the DB is unreachable
-const _logBuffer: AuditLog[] = [];
 
 export const leadOperations = {
   async upsert(lead: Partial<Lead>) {
@@ -60,7 +56,7 @@ export const leadOperations = {
       if (error) throw error;
       return data;
     } catch (e) {
-      console.warn("DB Persistence unavailable. Lead stored in transient memory.", e);
+      console.warn("Supabase Upsert Failed: Node is volatile.", handleSupabaseError(e));
       return lead;
     }
   },
@@ -74,8 +70,8 @@ export const leadOperations = {
       if (error) throw error;
       return data || [];
     } catch (e) {
-      // Return empty array to trigger mock fallback in the App component
-      return [];
+      console.warn("Supabase Fetch Failed: Returning Neural Continuity mocks.", handleSupabaseError(e));
+      return null;
     }
   }
 };
@@ -89,11 +85,6 @@ export const logOperations = {
       lead_id: log.lead_id || null,
       created_at: new Date().toISOString()
     };
-    
-    // Always add to local buffer for immediate UI feedback
-    _logBuffer.unshift({ ...log, created_at: entry.created_at } as AuditLog);
-    if (_logBuffer.length > 50) _logBuffer.pop();
-
     try {
       const { data, error } = await supabase
         .from('audit_logs')
@@ -101,8 +92,7 @@ export const logOperations = {
         .select();
       if (error) throw error;
       return data;
-    } catch (error) {
-      console.warn("Audit persistence failed. Using Neural Continuity Buffer.", error);
+    } catch (e) {
       return null;
     }
   },
@@ -123,12 +113,8 @@ export const logOperations = {
         created_at: d.created_at,
         lead_id: d.lead_id
       }));
-    } catch (error) {
-      // Fallback to local memory buffer if DB is returning HTML/404
-      return _logBuffer.map(l => ({
-        ...l,
-        text: l.payload?.text || l.text
-      }));
+    } catch (e) {
+      return [];
     }
   }
 };
@@ -139,18 +125,14 @@ export const projectOperations = {
       const { data, error } = await supabase.from('projects').insert([project]).select().single();
       if (error) throw error;
       return data;
-    } catch (e) {
-      return project;
-    }
+    } catch (e) { return project; }
   },
   async getAll() {
     try {
       const { data, error } = await supabase.from('projects').select('*');
       if (error) throw error;
       return data || [];
-    } catch (e) {
-      return [];
-    }
+    } catch (e) { return []; }
   }
 };
 
@@ -160,36 +142,27 @@ export const subscriptionOperations = {
       const { data, error } = await supabase.from('subscriptions').insert([sub]).select().single();
       if (error) throw error;
       return data;
-    } catch (e) {
-      return sub;
-    }
+    } catch (e) { return sub; }
   },
   async getAll() {
     try {
       const { data, error } = await supabase.from('subscriptions').select('*');
       if (error) throw error;
       return data || [];
-    } catch (e) {
-      return [];
-    }
+    } catch (e) { return []; }
   },
   async verifyPayment(id: string, ref: string) {
     try {
       const { data, error } = await supabase.from('subscriptions').update({ status: 'active', payment_ref: ref }).eq('id', id);
       if (error) throw error;
       return data;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   }
 };
 
 export const testInsForgeConnection = async () => {
   try {
     const { error } = await supabase.from('leads').select('id').limit(1);
-    // If it returns an HTML error, error will be truthy or JSON parse will fail
     return !error;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 };
