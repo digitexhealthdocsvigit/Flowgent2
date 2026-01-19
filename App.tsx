@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import LeadCard from './components/LeadCard';
@@ -10,10 +9,9 @@ import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_WORKFLOWS, MOCK_SUBSCRIPTIO
 import { Lead, AuditResult, User, AuditLog, Deal, Subscription } from './types';
 import { generateAuditWithTools } from './services/geminiService';
 import { supabase, activeProjectRef, leadOperations, logOperations, projectOperations, subscriptionOperations } from './lib/supabase';
-// Fix: Import missing DecisionScienceView component
 import DecisionScienceView from './components/DecisionScienceView';
 
-// Lazy load heavy views to improve FCP and reduce initial bundle size
+// Priority 3: Performance Optimization - Code Splitting for heavy views
 const ClientDashboard = lazy(() => import('./components/ClientDashboard'));
 const FunnelView = lazy(() => import('./components/FunnelView'));
 const CalendarView = lazy(() => import('./components/CalendarView'));
@@ -26,7 +24,7 @@ const ServicesCatalog = lazy(() => import('./components/ServicesCatalog'));
 
 const ViewLoader = () => (
   <div className="flex items-center justify-center min-h-[400px] text-slate-400 font-black uppercase tracking-widest animate-pulse">
-    Provisioning Neural Node...
+    Syncing Neural Node...
   </div>
 );
 

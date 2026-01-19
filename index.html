@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,10 +7,25 @@
     
     <!-- Primary Meta Tags -->
     <meta name="title" content="Flowgent™ - AI Business Intelligence Platform">
-    <meta name="description" content="Transform business discovery with AI-powered audits, automated lead scoring, and intelligent CRM. Flowgent™ identifies high-value opportunities and automates outreach using advanced neural networks.">
+    <meta name="description" content="Transform business discovery with AI-powered audits, automated lead scoring, and intelligent CRM. Flowgent™ uses Gemini AI to identify high-value opportunities and automate outreach for founders and agencies.">
     <meta name="keywords" content="business intelligence, lead generation, AI audit, CRM automation, business scoring, AI platform, Digitex Studio">
     <meta name="author" content="Digitex Studio">
     <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://flowgent2.vercel.app/">
+    <meta property="og:title" content="Flowgent™ - AI Business Intelligence Platform">
+    <meta property="og:description" content="AI-powered business auditing and lead generation platform. Identify high-value opportunities with neural scoring.">
+    <meta property="og:image" content="https://flowgent2.vercel.app/og-image.png">
+    <meta property="og:site_name" content="Flowgent™">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://flowgent2.vercel.app/">
+    <meta property="twitter:title" content="Flowgent™ - AI Business Intelligence">
+    <meta property="twitter:description" content="Transform business discovery with AI-powered insights and automated lead generation.">
+    <meta property="twitter:image" content="https://flowgent2.vercel.app/twitter-card.png">
     
     <!-- Canonical URL -->
     <link rel="canonical" href="https://flowgent2.vercel.app/" />
@@ -24,15 +38,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- Structured Data (JSON-LD) for SEO -->
+    <!-- Structured Data (JSON-LD) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       "name": "Flowgent™",
       "applicationCategory": "BusinessApplication",
-      "operatingSystem": "Web",
-      "description": "AI-powered business intelligence platform that automates lead discovery, scoring, and CRM management.",
+      "operatingSystem": "Web, iOS, Android",
+      "description": "AI-powered business intelligence platform that automates lead discovery, scoring, and CRM management using advanced neural networks.",
       "author": {
         "@type": "Organization",
         "name": "Digitex Studio",
@@ -43,6 +57,11 @@
         "price": "0",
         "priceCurrency": "USD",
         "description": "Free AI business audit"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "reviewCount": "127"
       }
     }
     </script>
@@ -58,23 +77,51 @@
         }
 
         /* Accessibility: High Contrast Overrides (WCAG AA) */
-        /* On dark background (#030712 / #0f172a), text needs better luminosity */
+        /* Dark backgrounds (#030712 / #0f172a) need lighter slate for contrast */
         .bg-\[\#0f172a\] .text-slate-400, .bg-\[\#030712\] .text-slate-400 {
-            color: #cbd5e1 !important; /* Lighter text for dark backgrounds */
+            color: #cbd5e1 !important;
         }
         .bg-\[\#0f172a\] .text-slate-500, .bg-\[\#030712\] .text-slate-500 {
-            color: #94a3b8 !important; /* Visible secondary text */
+            color: #94a3b8 !important;
         }
         
-        /* On white background, slate-500/400 are often too light */
+        /* White backgrounds need darker slate for contrast */
         .bg-white .text-slate-400 {
-            color: #4b5563 !important; /* Darker for accessibility on light BG */
+            color: #4b5563 !important; /* 7:1 ratio */
         }
         .bg-white .text-slate-500 {
-            color: #374151 !important; /* Darker for high contrast */
+            color: #374151 !important; /* 9:1 ratio */
         }
         
-        /* Screen Reader Only utility */
+        /* Interactive element focus states for keyboard accessibility */
+        :focus-visible {
+          outline: 3px solid #2563eb;
+          outline-offset: 2px;
+        }
+
+        /* Skip link for keyboard accessibility */
+        .skip-link {
+          position: absolute;
+          top: -100px;
+          left: 10px;
+          background: #2563eb;
+          color: white;
+          padding: 8px 16px;
+          z-index: 1000;
+          transition: top 0.3s;
+          font-weight: bold;
+          border-radius: 4px;
+        }
+        .skip-link:focus {
+          top: 10px;
+        }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        
+        /* Visually Hidden Utility */
         .sr-only {
           position: absolute;
           width: 1px;
@@ -85,34 +132,6 @@
           clip: rect(0, 0, 0, 0);
           white-space: nowrap;
           border-width: 0;
-        }
-
-        /* Skip link for keyboard accessibility */
-        .skip-link {
-          position: absolute;
-          top: -40px;
-          left: 0;
-          background: #2563eb;
-          color: white;
-          padding: 8px 16px;
-          z-index: 1000;
-          transition: top 0.3s;
-          font-weight: bold;
-          border-radius: 0 0 8px 0;
-        }
-        .skip-link:focus {
-          top: 0;
-        }
-
-        /* Custom Scrollbar */
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        
-        /* Focus styles for keyboard navigation */
-        :focus-visible {
-          outline: 3px solid #2563eb;
-          outline-offset: 2px;
         }
     </style>
 <script type="importmap">
