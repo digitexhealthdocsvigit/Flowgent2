@@ -192,6 +192,19 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onLeadsCaptured, onPushToN8N 
                       <MapPin size={14} className="text-blue-500" />
                       <span className="text-[10px] font-bold uppercase tracking-tight">{lead.city}</span>
                     </div>
+                    {/* Added link for Google Maps grounding compliance */}
+                    {lead.google_maps_url && (
+                      <a 
+                        href={lead.google_maps_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 hover:text-blue-600 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink size={14} />
+                        <span className="text-[10px] font-bold uppercase tracking-tight">View Maps</span>
+                      </a>
+                    )}
                     {!lead.has_website && (
                       <div className="flex items-center gap-2 text-red-500 bg-red-50 px-4 py-1.5 rounded-full border border-red-100">
                         <AlertCircle size={14} />

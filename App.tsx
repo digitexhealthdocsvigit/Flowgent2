@@ -6,8 +6,8 @@ import LandingPage from './components/LandingPage';
 import LoginScreen from './components/LoginScreen';
 import AdminInfographic from './components/AdminInfographic';
 import { DecisionBanner, SignalLog } from './components/AppContent';
-import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_WORKFLOWS, MOCK_SUBSCRIPTIONS } from './services/mockData';
-import { Lead, AuditResult, User, AuditLog, Deal, Subscription, AutomationWorkflow } from './types';
+import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_SUBSCRIPTIONS } from './services/mockData';
+import { Lead, AuditResult, User, AuditLog, Deal, Subscription } from './types';
 import { generateAuditWithTools } from './services/geminiService';
 import { supabase, activeProjectRef, leadOperations, logOperations, projectOperations, subscriptionOperations, dealOperations, testInsForgeConnection } from './lib/supabase';
 
@@ -68,17 +68,35 @@ const App: React.FC = () => {
     // Verify Backend Connectivity
     testInsForgeConnection().then(setIsNodeOnline);
 
-    // Realtime PostgreSQL Channel
+    // Active Handshake: Realtime PostgreSQL Channels
     const dealChannel = supabase
       .channel('deals_sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, (payload) => {
-        console.log('Realtime Node Pulse:', payload);
+        console.log('Realtime Handshake Pulse: Deal Update', payload);
         refreshDeals();
+      })
+      .subscribe();
+
+    const leadChannel = supabase
+      .channel('leads_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, (payload) => {
+        console.log('Realtime Handshake Pulse: Lead Update', payload);
+        refreshLeads();
+      })
+      .subscribe();
+
+    const logChannel = supabase
+      .channel('logs_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, (payload) => {
+        console.log('Realtime Handshake Pulse: Signal Update', payload);
+        loadSignals();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(dealChannel);
+      supabase.removeChannel(leadChannel);
+      supabase.removeChannel(logChannel);
     };
   }, []);
 
@@ -89,10 +107,12 @@ const App: React.FC = () => {
   };
 
   const refreshData = async () => {
-    await refreshLeads();
-    await refreshDeals();
-    await loadSignals();
-    await refreshSubscriptions();
+    await Promise.all([
+      refreshLeads(),
+      refreshDeals(),
+      loadSignals(),
+      refreshSubscriptions()
+    ]);
   };
 
   const loadSignals = async () => {
@@ -141,7 +161,7 @@ const App: React.FC = () => {
 
   const logAuditEvent = async (text: string, type: string, leadId?: string, payload?: any) => {
     await logOperations.create({ text, type, lead_id: leadId, payload });
-    loadSignals();
+    // loadSignals is now handled by real-time listener
   };
 
   const triggerWebhook = async (lead: Lead) => {
@@ -150,10 +170,14 @@ const App: React.FC = () => {
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: 'lead_captured', payload: lead })
+        body: JSON.stringify({ 
+          event: 'lead_captured', 
+          project_node: activeProjectRef,
+          payload: lead 
+        })
       });
       if (response.ok) {
-        await logAuditEvent(`ACK: Node persistent in InsForge for ${lead.business_name}`, 'webhook', lead.id);
+        await logAuditEvent(`ACK: Node persistent for ${lead.business_name}`, 'webhook', lead.id);
         setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, is_synced_to_n8n: true, sync_timestamp: new Date().toISOString() } : l));
       }
     } catch (e) { 
@@ -173,8 +197,7 @@ const App: React.FC = () => {
     const success = await dealOperations.updateStage(id, nextStage);
     if (success) {
       if (nextStage === 'Converted') await finalizeDeal(dealToUpdate);
-      setDeals(prev => prev.map(d => d.id === id ? { ...d, stage: nextStage, updatedAt: new Date().toISOString() } : d));
-      await logAuditEvent(`Stage Update: ${dealToUpdate.businessName} → ${nextStage}`, 'system', dealToUpdate.lead_id);
+      await logAuditEvent(`Stage Shift: ${dealToUpdate.businessName} → ${nextStage}`, 'system', dealToUpdate.lead_id);
     }
   };
 
@@ -219,9 +242,9 @@ const App: React.FC = () => {
       await logAuditEvent(`Audit Resolved: ${lead.business_name} score: ${audit.score}%`, 'tool', lead.id, audit);
       setCurrentAudit({ lead: { ...lead, ...audit }, result: audit });
       
-      // Persist audited lead to InsForge
+      // Persist to InsForge (handled by leadOperations)
       await leadOperations.upsert({ ...lead, ...audit });
-      refreshLeads();
+      // refreshLeads is now handled by real-time listener
     } catch (e) {
       await logAuditEvent(`Audit Failure: Neural path unstable.`, 'system', lead.id);
     } finally { 
@@ -251,7 +274,7 @@ const App: React.FC = () => {
                       <button onClick={refreshLeads} className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-400">Neural Sync</button>
                     </div>
                     <div className="space-y-4">
-                      {leads.slice(0, 5).map(l => (
+                      {leads.length > 0 ? leads.slice(0, 5).map(l => (
                         <div key={l.id} className="p-5 bg-white/5 border border-white/5 rounded-3xl flex items-center justify-between hover:border-blue-500/30 cursor-pointer group" onClick={() => handleAudit(l)}>
                            <div className="flex items-center gap-4">
                               <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center font-black border border-white/10 group-hover:bg-blue-600">
@@ -264,7 +287,9 @@ const App: React.FC = () => {
                            </div>
                            <p className="text-xl font-black text-blue-500 italic">{l.readiness_score || 0}%</p>
                         </div>
-                      ))}
+                      )) : (
+                        <div className="py-20 text-center text-slate-500 italic uppercase font-black text-[10px] tracking-[0.3em]">No Nodes Detected in JSK8SNXZ</div>
+                      )}
                     </div>
                   </section>
                   <section className="bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
@@ -279,6 +304,10 @@ const App: React.FC = () => {
           case 'revenue_amc': return <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser?.role === 'admin'} />;
           case 'settings': return <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} onTest={() => logAuditEvent('Manual Signal Test', 'webhook')} activeProjectRef={activeProjectRef} />;
           case 'client_dashboard': return <ClientDashboard projects={MOCK_PROJECTS} leadStats={{score: 88, rank: 'Top 5%'}} activityLogs={signals.map(s => ({msg: s.text, time: s.created_at || 'Just now'}))} />;
+          case 'strategy_room': return <StrategyRoom />;
+          case 'reports': return <ReportsView />;
+          case 'projects': return <ProjectsListView projects={MOCK_PROJECTS} />;
+          case 'service_catalog': return <ServicesCatalog />;
           default: return <div className="py-20 text-center text-slate-500 italic">Node Hydrating...</div>;
         }
       })()}
