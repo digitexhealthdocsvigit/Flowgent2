@@ -9,10 +9,9 @@ import { DecisionBanner, SignalLog } from './components/AppContent';
 import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_WORKFLOWS, MOCK_SUBSCRIPTIONS } from './services/mockData';
 import { Lead, AuditResult, User, AuditLog, Deal, Subscription, AutomationWorkflow } from './types';
 import { generateAuditWithTools } from './services/geminiService';
-import { supabase, activeProjectRef, leadOperations, logOperations, projectOperations, subscriptionOperations, dealOperations } from './lib/supabase';
-import DecisionScienceView from './components/DecisionScienceView';
+import { supabase, activeProjectRef, leadOperations, logOperations, projectOperations, subscriptionOperations, dealOperations, testInsForgeConnection } from './lib/supabase';
 
-// Priority 3: Performance Optimization - Code Splitting for heavy views
+// Performance Optimization - Code Splitting
 const ClientDashboard = lazy(() => import('./components/ClientDashboard'));
 const FunnelView = lazy(() => import('./components/FunnelView'));
 const CalendarView = lazy(() => import('./components/CalendarView'));
@@ -42,6 +41,7 @@ const App: React.FC = () => {
   const [isAuditing, setIsAuditing] = useState(false);
   const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult } | null>(null);
   const [signals, setSignals] = useState<AuditLog[]>([]);
+  const [isNodeOnline, setIsNodeOnline] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState(() => 
     localStorage.getItem('flowgent_n8n_webhook') || 'https://n8n-production-ecc4.up.railway.app/webhook-test/flowgent-orchestrator'
   );
@@ -56,23 +56,23 @@ const App: React.FC = () => {
           refreshData();
         } else {
           setIsLoadingAuth(false);
-          setLeads(MOCK_LEADS as any[]);
-          setDeals(MOCK_DEALS as any[]);
-          setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
+          loadMocks();
         }
       } catch (e) {
         setIsLoadingAuth(false);
-        setLeads(MOCK_LEADS as any[]);
-        setDeals(MOCK_DEALS as any[]);
-        setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
+        loadMocks();
       }
     };
     checkAuth();
 
-    // Enable Realtime Subscriptions for Deals
+    // Verify Backend Connectivity
+    testInsForgeConnection().then(setIsNodeOnline);
+
+    // Realtime PostgreSQL Channel
     const dealChannel = supabase
       .channel('deals_sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, (payload) => {
+        console.log('Realtime Node Pulse:', payload);
         refreshDeals();
       })
       .subscribe();
@@ -81,6 +81,12 @@ const App: React.FC = () => {
       supabase.removeChannel(dealChannel);
     };
   }, []);
+
+  const loadMocks = () => {
+    setLeads(MOCK_LEADS as any[]);
+    setDeals(MOCK_DEALS as any[]);
+    setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
+  };
 
   const refreshData = async () => {
     await refreshLeads();
@@ -91,62 +97,35 @@ const App: React.FC = () => {
 
   const loadSignals = async () => {
     const logs = await logOperations.getRecent();
-    if (logs) {
-      setSignals(logs as any[]);
-    } else {
-      setSignals([]);
-    }
+    if (logs) setSignals(logs as any[]);
   };
 
   const refreshSubscriptions = async () => {
-    try {
-      const data = await subscriptionOperations.getAll();
-      if (data && data.length > 0) {
-        setSubscriptions(data);
-      } else {
-        setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
-      }
-    } catch (e) {
-      setSubscriptions(MOCK_SUBSCRIPTIONS as any[]);
-    }
+    const data = await subscriptionOperations.getAll();
+    if (data && data.length > 0) setSubscriptions(data);
   };
 
   const refreshDeals = async () => {
-    try {
-      const data = await dealOperations.getAll();
-      if (data && data.length > 0) {
-        setDeals(data as Deal[]);
-      } else {
-        setDeals(MOCK_DEALS as any[]);
-      }
-    } catch (e) {
-      setDeals(MOCK_DEALS as any[]);
-    }
+    const data = await dealOperations.getAll();
+    if (data && data.length > 0) setDeals(data as Deal[]);
   };
 
   const refreshLeads = async () => {
-    try {
-      const data = await leadOperations.getAll();
-      if (data && data.length > 0) {
-        setLeads(data.map((l: any) => ({
-          ...l,
-          business_name: l.business_name || l.businessName || 'Unknown Business',
-          lead_status: l.lead_status || l.status || 'Discovered',
-          readiness_score: l.readiness_score || l.score || 0,
-          is_hot_opportunity: l.is_hot_opportunity || (l.readiness_score > 75)
-        })));
-      } else {
-        setLeads(MOCK_LEADS as any[]);
-      }
-    } catch (error) {
-      setLeads(MOCK_LEADS as any[]);
-    } finally {
-      setIsLoadingAuth(false);
+    const data = await leadOperations.getAll();
+    if (data && data.length > 0) {
+      setLeads(data.map((l: any) => ({
+        ...l,
+        business_name: l.business_name || l.businessName || 'Unknown Business',
+        lead_status: l.lead_status || l.status || 'Discovered',
+        readiness_score: l.readiness_score || l.score || 0,
+        is_hot_opportunity: l.is_hot_opportunity || (l.readiness_score > 75)
+      })));
     }
+    setIsLoadingAuth(false);
   };
 
   const hydrateUser = (userId: string, email: string) => {
-    const isAdmin = email.toLowerCase().includes('digitex') || email.toLowerCase().includes('founder') || email.toLowerCase().includes('vishaal') || email.toLowerCase().includes('healthdocs');
+    const isAdmin = email.toLowerCase().includes('digitex') || email.toLowerCase().includes('founder');
     const user: User = { id: userId, name: email.split('@')[0], email, role: isAdmin ? 'admin' : 'client', orgId: 'org-1' };
     setCurrentUser(user);
     setViewState('dashboard');
@@ -191,12 +170,11 @@ const App: React.FC = () => {
     const nextStage = stages[nextIndex];
     if (!nextStage) return;
     
-    // Update InsForge Backend
-    const updated = await dealOperations.updateStage(id, nextStage);
-    if (updated) {
+    const success = await dealOperations.updateStage(id, nextStage);
+    if (success) {
       if (nextStage === 'Converted') await finalizeDeal(dealToUpdate);
-      setDeals(deals.map(d => d.id === id ? { ...d, stage: nextStage, updatedAt: new Date().toISOString() } : d));
-      await logAuditEvent(`Stage Update: ${dealToUpdate.businessName} moved to ${nextStage}`, 'system', dealToUpdate.lead_id);
+      setDeals(prev => prev.map(d => d.id === id ? { ...d, stage: nextStage, updatedAt: new Date().toISOString() } : d));
+      await logAuditEvent(`Stage Update: ${dealToUpdate.businessName} → ${nextStage}`, 'system', dealToUpdate.lead_id);
     }
   };
 
@@ -221,7 +199,6 @@ const App: React.FC = () => {
         billingCycle: 'monthly',
         nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       });
-      await logAuditEvent(`Node Converged: ${deal.businessName} linked to Revenue Cluster.`, 'system', deal.lead_id || deal.leadId);
     } catch (e) {
       console.error("Converge failure", e);
     } finally {
@@ -241,8 +218,12 @@ const App: React.FC = () => {
       }
       await logAuditEvent(`Audit Resolved: ${lead.business_name} score: ${audit.score}%`, 'tool', lead.id, audit);
       setCurrentAudit({ lead: { ...lead, ...audit }, result: audit });
+      
+      // Persist audited lead to InsForge
+      await leadOperations.upsert({ ...lead, ...audit });
+      refreshLeads();
     } catch (e) {
-      await logAuditEvent(`Audit Failure: Infrastructure node unreachable.`, 'system', lead.id);
+      await logAuditEvent(`Audit Failure: Neural path unstable.`, 'system', lead.id);
     } finally { 
       setIsAuditing(false);
     }
@@ -254,94 +235,57 @@ const App: React.FC = () => {
     setViewState('public');
   };
 
-  const renderTabContent = () => {
-    return (
-      <Suspense fallback={<ViewLoader />}>
-        {(() => {
-          switch(currentTab) {
-            case 'dashboard':
-              return (
-                <div className="space-y-10 animate-in fade-in">
-                  <h2 className="text-6xl font-black text-white tracking-tighter italic">Founder Portal</h2>
-                  <AdminInfographic />
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                    <section aria-labelledby="intel-feed-title" className="lg:col-span-2 bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
-                      <div className="flex justify-between items-center mb-10">
-                        <h3 id="intel-feed-title" className="font-black text-2xl text-white italic">Intelligence Feed</h3>
-                        <button onClick={refreshLeads} className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-400 transition-colors">Neural Sync</button>
-                      </div>
-                      <div className="space-y-4">
-                        {leads.slice(0, 5).map(l => (
-                          <div key={l.id || (l as any).place_id} className="p-5 bg-white/5 border border-white/5 rounded-3xl flex items-center justify-between hover:border-blue-500/30 cursor-pointer group" onClick={() => handleAudit(l)}>
-                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center font-black border border-white/10 group-hover:bg-blue-600 transition-all">
-                                  {l.business_name.charAt(0)}
-                                </div>
-                                <div>
-                                  <p className="font-black text-white">{l.business_name}</p>
-                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">{l.city}</p>
-                                </div>
-                             </div>
-                             <p className="text-xl font-black text-blue-500 italic">{l.readiness_score || 0}%</p>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                    <section aria-labelledby="signal-log-title" className="bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
-                      <h3 id="signal-log-title" className="font-black text-2xl text-white mb-10 italic">Signal Log</h3>
-                      <SignalLog signals={signals} />
-                    </section>
-                  </div>
+  const renderTabContent = () => (
+    <Suspense fallback={<ViewLoader />}>
+      {(() => {
+        switch(currentTab) {
+          case 'dashboard':
+            return (
+              <div className="space-y-10 animate-in fade-in">
+                <h2 className="text-6xl font-black text-white tracking-tighter italic">Founder Portal</h2>
+                <AdminInfographic />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                  <section className="lg:col-span-2 bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
+                    <div className="flex justify-between items-center mb-10">
+                      <h3 className="font-black text-2xl text-white italic">Intelligence Feed</h3>
+                      <button onClick={refreshLeads} className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-400">Neural Sync</button>
+                    </div>
+                    <div className="space-y-4">
+                      {leads.slice(0, 5).map(l => (
+                        <div key={l.id} className="p-5 bg-white/5 border border-white/5 rounded-3xl flex items-center justify-between hover:border-blue-500/30 cursor-pointer group" onClick={() => handleAudit(l)}>
+                           <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center font-black border border-white/10 group-hover:bg-blue-600">
+                                {l.business_name.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="font-black text-white">{l.business_name}</p>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{l.city}</p>
+                              </div>
+                           </div>
+                           <p className="text-xl font-black text-blue-500 italic">{l.readiness_score || 0}%</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                  <section className="bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
+                    <h3 className="font-black text-2xl text-white mb-10 italic">Signal Log</h3>
+                    <SignalLog signals={signals} />
+                  </section>
                 </div>
-              );
-            case 'service_catalog': return <ServicesCatalog />;
-            case 'discovery': return <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} />;
-            case 'strategy_room': return <StrategyRoom />;
-            case 'reports': return <ReportsView />;
-            case 'projects': return <ProjectsListView projects={MOCK_PROJECTS} />;
-            case 'hot_opps':
-              const hotLeads = leads.filter(l => l && (l.is_hot_opportunity || (l.readiness_score || 0) >= 75));
-              return (
-                <div className="space-y-10 animate-in fade-in">
-                  <h2 className="text-4xl font-black text-white italic tracking-tighter">Hot Opportunities</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
-                    {hotLeads.length > 0 ? hotLeads.map(l => (
-                      <LeadCard key={l.id || (l as any).place_id} lead={l} onAudit={handleAudit} />
-                    )) : (
-                      <div className="col-span-full py-32 text-center text-slate-500 italic border border-dashed border-white/5 rounded-[48px]">No Hot Opportunities detected. Refresh Discovery Node.</div>
-                    )}
-                  </div>
-                </div>
-              );
-            case 'lead_engine':
-              return <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">{leads.map(l => <LeadCard key={l.id || (l as any).place_id} lead={l} onAudit={handleAudit} />)}</div>;
-            case 'funnel_view': return <FunnelView leads={leads} />;
-            case 'meetings': return <CalendarView />;
-            case 'deal_pipeline': return <CrmView deals={deals} onMoveDeal={handleMoveDeal} />;
-            case 'workflows': 
-              return (
-                <AutomationView 
-                  workflows={MOCK_WORKFLOWS} 
-                  onToggleStatus={id => {}} 
-                  signals={signals.map(s => ({ 
-                    id: s.id || '', 
-                    text: s.text, 
-                    type: s.type as 'tool' | 'webhook', 
-                    time: s.created_at || 'Just now' 
-                  }))} 
-                />
-              );
-            case 'revenue_amc': return <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser?.role === 'admin'} />;
-            case 'settings': return <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} onTest={() => logAuditEvent('Manual Signal Test Dispatched', 'webhook')} activeProjectRef={activeProjectRef} />;
-            case 'client_dashboard': return <ClientDashboard projects={MOCK_PROJECTS} leadStats={{score: 88, rank: 'Top 5%'}} activityLogs={signals.map(s => ({msg: s.text, time: s.created_at || 'Just now'}))} />;
-            default: return <div className="py-20 text-center text-slate-500 italic">Node under development. Infrastructure pending sync.</div>;
-          }
-        })()}
-      </Suspense>
-    );
-  };
+              </div>
+            );
+          case 'discovery': return <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} />;
+          case 'deal_pipeline': return <CrmView deals={deals} onMoveDeal={handleMoveDeal} />;
+          case 'revenue_amc': return <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser?.role === 'admin'} />;
+          case 'settings': return <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} onTest={() => logAuditEvent('Manual Signal Test', 'webhook')} activeProjectRef={activeProjectRef} />;
+          case 'client_dashboard': return <ClientDashboard projects={MOCK_PROJECTS} leadStats={{score: 88, rank: 'Top 5%'}} activityLogs={signals.map(s => ({msg: s.text, time: s.created_at || 'Just now'}))} />;
+          default: return <div className="py-20 text-center text-slate-500 italic">Node Hydrating...</div>;
+        }
+      })()}
+    </Suspense>
+  );
 
-  if (isLoadingAuth) return <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-500 font-black uppercase tracking-widest italic animate-pulse">InsForge Handshake...</div>;
+  if (isLoadingAuth) return <ViewLoader />;
   if (viewState === 'public') return <LandingPage onLeadSubmit={() => {}} onGoToLogin={() => setViewState('login')} />;
   if (viewState === 'login') return <LoginScreen onLogin={handleLogin} onGoBack={() => setViewState('public')} />;
   if (!currentUser) return null;
@@ -352,37 +296,38 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 bg-[#0f172a]/50 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-12 sticky top-0 z-40">
            <div className="flex items-center gap-4">
-              <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.4)]"></div>
-              <p className="font-black text-white uppercase tracking-tighter text-[10px] bg-white/5 px-4 py-2 rounded-xl border border-white/5 italic">Node: {activeProjectRef}</p>
+              <div className={`w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.4)] ${isNodeOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <p className="font-black text-white uppercase tracking-tighter text-[10px] bg-white/5 px-4 py-2 rounded-xl border border-white/5 italic">
+                {isNodeOnline ? `Node: ${activeProjectRef.split('-')[0]}` : 'Handshake Pending'}
+              </p>
            </div>
            <div className="flex items-center gap-6">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{currentUser.email}</span>
-              <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3 bg-white text-slate-900 rounded-2xl shadow-xl hover:bg-slate-200 transition-all">Logout</button>
+              <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3 bg-white text-slate-900 rounded-2xl shadow-xl hover:bg-slate-200">Logout</button>
            </div>
         </header>
 
-        <main id="main-content" className="flex-1 p-12 overflow-y-auto custom-scrollbar bg-slate-950/20">
-          <h1 className="sr-only">Flowgent Control Center</h1>
+        <main className="flex-1 p-12 overflow-y-auto custom-scrollbar bg-slate-950/20">
           {renderTabContent()}
         </main>
       </div>
 
       {isAuditing && (
-        <div role="status" className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[500] flex flex-col items-center justify-center text-white">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4 shadow-[0_0_50px_rgba(37,99,235,0.4)]"></div>
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[500] flex flex-col items-center justify-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
           <p className="font-black uppercase tracking-[0.4em] text-[10px]">Processing Decision Science...</p>
         </div>
       )}
 
       {currentAudit && (
-        <div role="dialog" aria-labelledby="audit-modal-title" className="fixed inset-0 bg-[#030712]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto">
+        <div className="fixed inset-0 bg-[#030712]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto">
           <div className="bg-slate-900 rounded-[64px] max-w-6xl w-full p-20 relative animate-in zoom-in-95 duration-500 shadow-2xl border border-white/5">
-             <button onClick={() => setCurrentAudit(null)} aria-label="Close Modal" className="absolute top-12 right-12 text-slate-500 p-4 hover:bg-white/5 hover:text-white rounded-full font-black text-xl transition-all">✕</button>
+             <button onClick={() => setCurrentAudit(null)} className="absolute top-12 right-12 text-slate-500 p-4 hover:bg-white/5 hover:text-white rounded-full font-black text-xl">✕</button>
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-20">
                 <div className="lg:col-span-2 space-y-12">
                    <div>
-                     <h2 id="audit-modal-title" className="text-6xl font-black text-white tracking-tighter leading-none italic">{currentAudit.lead.business_name}</h2>
-                     <p className="text-blue-500 font-black uppercase tracking-widest text-[10px] mt-4 italic">Neural Architecture Audit</p>
+                     <h2 className="text-6xl font-black text-white tracking-tighter leading-none italic">{currentAudit.lead.business_name}</h2>
+                     <p className="text-blue-500 font-black uppercase tracking-widest text-[10px] mt-4 italic">Infrastructure Node Ready</p>
                    </div>
                    <DecisionBanner audit={currentAudit.result} />
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -399,7 +344,6 @@ const App: React.FC = () => {
                        </ul>
                      </div>
                    </div>
-                   <DecisionScienceView nodes={currentAudit.result.decision_logic || []} />
                 </div>
                 <aside className="space-y-12 h-fit sticky top-0">
                   <div className="bg-white p-12 rounded-[56px] text-slate-900 flex flex-col items-center text-center shadow-2xl">
