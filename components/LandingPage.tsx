@@ -82,7 +82,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-emerald-600 rounded-[56px] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
             <div className="relative bg-[#1e293b]/40 border border-white/5 rounded-[56px] shadow-2xl backdrop-blur-xl overflow-hidden min-h-[550px] flex flex-col">
               <AIImage 
-                prompt="A hyper-realistic cinematic masterpiece showing a futuristic digital marketing command center, glowing blue holographic charts, clean glass surfaces, deep navy aesthetic, professional corporate environment, sharp focus, 8k render" 
+                prompt="Cinematic 3D glass-morphism business dashboard showing glowing neural networks, hyper-realistic office of the future with holographic data displays, deep blue and emerald teal accents, high-end professional aesthetic, 8k resolution" 
                 aspectRatio="4:3"
                 quality="high"
                 className="w-full h-full min-h-[450px]"
