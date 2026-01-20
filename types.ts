@@ -30,7 +30,6 @@ export interface Lead {
   temperature: LeadTemperature;
   created_at: string;
   org_id?: string;
-  video_pitch_url?: string;
   lead_status: LeadStatus;
   pitch_type?: PitchType;
   is_hot_opportunity: boolean;

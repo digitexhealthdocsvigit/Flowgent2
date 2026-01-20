@@ -21,17 +21,17 @@ const AIImage: React.FC<AIImageProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [needsKeySelection, setNeedsKeySelection] = useState(false);
+  const [currentQuality, setCurrentQuality] = useState(quality);
 
   const generateImage = async (forceModel?: string) => {
     setIsLoading(true);
     setError(null);
     setNeedsKeySelection(false);
 
-    // Check for developer environment requirements
     const aistudio = (window as any).aistudio;
     
-    // For high quality, we MUST check if a key has been selected as per guidelines
-    if (quality === 'high' && aistudio) {
+    // For high quality Pro model, we must use a selected key
+    if (currentQuality === 'high' && aistudio) {
       const hasKey = await aistudio.hasSelectedApiKey();
       if (!hasKey) {
         setNeedsKeySelection(true);
@@ -42,20 +42,16 @@ const AIImage: React.FC<AIImageProps> = ({
 
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
-      setError("API Key Missing");
+      setError("Infrastructure Signal Offline");
       setIsLoading(false);
       return;
     }
 
     try {
-      // Create fresh instance to ensure we pick up the latest key from selection dialog
       const ai = new GoogleGenAI({ apiKey });
+      const modelName = forceModel || (currentQuality === 'high' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image');
       
-      // Determine model: use preview for high quality, flash for standard
-      const modelName = forceModel || (quality === 'high' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image');
-      
-      // Enhanced prompt engineering for "Better Relevant" images
-      const enhancedPrompt = `${prompt}. High-end commercial aesthetic, ultra-sharp 8k resolution, volumetric lighting, photorealistic textures, masterfully composed, professional color grading, tech-forward atmosphere.`;
+      const enhancedPrompt = `${prompt}. High-end commercial studio photography, cinematic lighting, ultra-sharp focus, 8k resolution, elegant tech-focused composition, vibrant and professional color palette.`;
 
       const response = await ai.models.generateContent({
         model: modelName,
@@ -65,7 +61,6 @@ const AIImage: React.FC<AIImageProps> = ({
         config: {
           imageConfig: {
             aspectRatio: aspectRatio,
-            // imageSize is only for gemini-3-pro-image-preview
             ...(modelName === 'gemini-3-pro-image-preview' ? { imageSize: '1K' } : {})
           }
         }
@@ -77,22 +72,19 @@ const AIImage: React.FC<AIImageProps> = ({
         setImageUrl(`data:image/png;base64,${part.inlineData.data}`);
         setIsLoading(false);
       } else {
-        throw new Error("Empty Payload");
+        throw new Error("Payload Empty");
       }
     } catch (err: any) {
       console.error("AI Image Gen Error:", err);
       
-      // Handle Permission Denied (403)
-      if (err.message?.includes('403') || err.status === 403) {
-        if (quality === 'high' && !forceModel) {
-          // If high-quality failed with 403, try falling back to standard flash-image
-          console.warn("High-quality model permission denied. Falling back to Flash...");
-          generateImage('gemini-2.5-flash-image');
-          return;
+      if (err.message?.includes('403') || err.status === 403 || err.message?.includes('permission')) {
+        if (currentQuality === 'high' && !forceModel) {
+          setNeedsKeySelection(true);
+        } else {
+          setError("Neural Access Restricted (403)");
         }
-        setError("Permission Denied. Paid API Key Required.");
       } else {
-        setError("Generation Stalled");
+        setError("Synthesis Interrupted");
       }
       setIsLoading(false);
     }
@@ -100,13 +92,12 @@ const AIImage: React.FC<AIImageProps> = ({
 
   useEffect(() => {
     generateImage();
-  }, [prompt, aspectRatio, quality]);
+  }, [prompt, aspectRatio, currentQuality]);
 
   const handleOpenKeyPicker = async () => {
     const aistudio = (window as any).aistudio;
     if (aistudio) {
       await aistudio.openSelectKey();
-      // Assume success and retry
       generateImage();
     }
   };
@@ -118,7 +109,7 @@ const AIImage: React.FC<AIImageProps> = ({
           <div className="absolute inset-0 border-2 border-blue-600/20 rounded-full"></div>
           <div className="absolute inset-0 border-2 border-t-blue-600 rounded-full animate-spin"></div>
         </div>
-        <span className="animate-pulse">Neural Rendering...</span>
+        <span className="animate-pulse">Rendering {currentQuality === 'high' ? 'Pro' : 'Flash'} Node...</span>
       </div>
     );
   }
@@ -126,22 +117,24 @@ const AIImage: React.FC<AIImageProps> = ({
   if (needsKeySelection) {
     return (
       <div className={`bg-slate-950 flex flex-col items-center justify-center p-8 text-center border border-blue-500/20 ${className}`}>
-        <div className="text-xl mb-4">🔑</div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-6 italic leading-relaxed">
-          High-Quality rendering requires <br/> a paid project API key.
+        <div className="text-2xl mb-4">💎</div>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-6 italic leading-relaxed">
+          High-Fidelity imagery requires <br/> a paid project API key.
         </p>
-        <button 
-          onClick={handleOpenKeyPicker}
-          className="bg-blue-600 text-white px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg"
-        >
-          Select Paid API Key
-        </button>
-        <button 
-          onClick={() => { quality = 'standard' as any; generateImage('gemini-2.5-flash-image'); }}
-          className="mt-4 text-[8px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors"
-        >
-          Use Standard Quality (Free)
-        </button>
+        <div className="flex flex-col gap-3 w-full max-w-[200px]">
+          <button 
+            onClick={handleOpenKeyPicker}
+            className="bg-blue-600 text-white px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20"
+          >
+            Select Paid Key
+          </button>
+          <button 
+            onClick={() => { setCurrentQuality('standard'); generateImage('gemini-2.5-flash-image'); }}
+            className="text-[8px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors"
+          >
+            Fallback to Standard
+          </button>
+        </div>
       </div>
     );
   }
@@ -149,7 +142,7 @@ const AIImage: React.FC<AIImageProps> = ({
   if (error) {
     return (
       <div className={`bg-slate-950 flex flex-col items-center justify-center p-6 text-center ${className} border border-white/5`}>
-        <div className="text-2xl mb-2 opacity-20 italic">0xERR</div>
+        <div className="text-2xl mb-2 opacity-20 italic">BUFFER_ERR</div>
         <p className="text-[9px] font-black uppercase tracking-widest text-slate-600 italic mb-4">
           {error}
         </p>
@@ -157,7 +150,7 @@ const AIImage: React.FC<AIImageProps> = ({
           onClick={() => generateImage()}
           className="text-[8px] font-black text-blue-500 uppercase tracking-widest hover:underline"
         >
-          Retry Neural Link
+          Re-Initialize
         </button>
       </div>
     );
@@ -168,10 +161,10 @@ const AIImage: React.FC<AIImageProps> = ({
       <img 
         src={imageUrl!} 
         alt={alt} 
-        className="object-cover w-full h-full animate-in fade-in duration-1000 group-hover:scale-105 transition-transform duration-1000" 
+        className="object-cover w-full h-full animate-in fade-in duration-1000 group-hover:scale-110 transition-transform duration-[2000ms]" 
         loading="lazy"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 to-transparent pointer-events-none"></div>
     </div>
   );
 };
