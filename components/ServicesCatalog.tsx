@@ -1,5 +1,6 @@
 
 import React from 'react';
+import AIImage from './AIImage';
 
 const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false }) => {
   const categories = [
@@ -7,6 +8,7 @@ const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false })
       title: "Automation & AI Systems",
       icon: "🤖",
       color: "blue",
+      prompt: "A minimalist 3D robotic hand interacting with a glowing hologram of a business dashboard, clean studio lighting, futuristic blue theme",
       items: [
         { name: "WhatsApp Lead Capture", desc: "Automated site leads → WhatsApp follow-ups → CRM sync." },
         { name: "Gemini AI Agents", desc: "Custom chatbots and knowledge assistants tailored to your brand." },
@@ -18,6 +20,7 @@ const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false })
       title: "Developer Infrastructure",
       icon: "⚙️",
       color: "indigo",
+      prompt: "A sophisticated crystal-clear glass server rack with internal glowing circuits, representing high-speed cloud infrastructure, macro photography",
       items: [
         { name: "Next.js Development", desc: "High-performance corporate websites and progressive web apps." },
         { name: "Supabase Backend", desc: "Enterprise-grade database design and serverless infrastructure." },
@@ -29,6 +32,7 @@ const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false })
       title: "Growth & Marketing",
       icon: "📈",
       color: "purple",
+      prompt: "An elegant 3D upward trending arrow made of light particles, shattering through dark glass layers, representing high-velocity business growth",
       items: [
         { name: "Performance Marketing", desc: "Google and Meta Ads end-to-end management with AI tracking." },
         { name: "SEO Intelligence", desc: "Content strategy driven by real-time neural search trends." },
@@ -40,6 +44,7 @@ const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false })
       title: "Client Systems Integration",
       icon: "📡",
       color: "slate",
+      prompt: "Stylized 3D speech bubbles morphing into golden digital tokens, vibrant messaging app colors, professional digital marketing concept",
       items: [
         { name: "Communication Layers", desc: "WhatsApp, Email, SMS, and Push notification orchestration." },
         { name: "Appointment Nodes", desc: "Cal.com and Google Calendar automated scheduling systems." },
@@ -52,7 +57,7 @@ const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false })
   return (
     <div className={`space-y-24 ${isPublic ? '' : 'animate-in fade-in duration-500'}`}>
       {!isPublic && (
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center px-12">
           <div>
             <h2 className="text-5xl font-black text-white tracking-tighter italic leading-none">Service Catalog</h2>
             <p className="text-slate-500 mt-4 font-bold text-lg">Infrastructure Capabilities: Deployable Agency Modules.</p>
@@ -60,11 +65,19 @@ const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false })
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 px-12">
         {categories.map((cat, i) => (
-          <div key={i} className={`bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl relative overflow-hidden group`}>
-            <div className={`absolute top-0 right-0 w-32 h-32 bg-${cat.color}-600/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-${cat.color}-600/10 transition-all`}></div>
-            <div className="relative z-10">
+          <div key={i} className={`bg-slate-900/50 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl relative overflow-hidden group flex flex-col`}>
+            <div className="h-64 relative overflow-hidden">
+               <AIImage 
+                 prompt={cat.prompt} 
+                 aspectRatio="16:9" 
+                 className="w-full h-full group-hover:scale-110 transition-transform duration-1000"
+               />
+               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 to-transparent"></div>
+            </div>
+            
+            <div className="p-12 relative z-10 flex-1">
               <div className="flex items-center gap-4 mb-10">
                 <span className="text-4xl">{cat.icon}</span>
                 <h3 className="text-3xl font-black text-white italic tracking-tighter">{cat.title}</h3>
@@ -86,7 +99,7 @@ const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false })
         ))}
       </div>
 
-      <div className="bg-blue-600 p-16 rounded-[64px] text-white flex flex-col md:flex-row justify-between items-center shadow-2xl shadow-blue-600/20 relative overflow-hidden">
+      <div className="mx-12 bg-blue-600 p-16 rounded-[64px] text-white flex flex-col md:flex-row justify-between items-center shadow-2xl shadow-blue-600/30 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_white_1px,_transparent_1px)] bg-[size:24px_24px]"></div>
         <div className="relative z-10 max-w-lg">
            <h4 className="text-4xl font-black italic tracking-tighter mb-4">Request Custom Module</h4>

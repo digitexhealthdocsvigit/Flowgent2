@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import ServicesCatalog from './ServicesCatalog';
+import AIImage from './AIImage';
 
 interface LandingPageProps {
   onLeadSubmit: (data: any) => void;
@@ -77,20 +78,20 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
             </div>
           </div>
 
-          <div className="bg-[#1e293b]/40 border border-white/5 p-12 rounded-[56px] shadow-2xl backdrop-blur-xl relative">
-            <h3 className="text-3xl font-black mb-12 tracking-tight italic">Platform ROI Module</h3>
-            <div className="space-y-6">
-              <div className="bg-blue-600 p-8 rounded-3xl flex justify-between items-center shadow-lg shadow-blue-500/20">
-                <span className="font-black text-lg italic">Efficiency Lift</span>
-                <span className="text-2xl font-black tracking-tighter">+240%</span>
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-emerald-600 rounded-[56px] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+            <div className="relative bg-[#1e293b]/40 border border-white/5 rounded-[56px] shadow-2xl backdrop-blur-xl overflow-hidden min-h-[500px] flex flex-col">
+              <AIImage 
+                prompt="A cinematic 3D abstract visualization of flowing digital data nodes, interconnected neural pathways, professional tech aesthetic, deep blue and emerald green palette" 
+                aspectRatio="4:3"
+                className="w-full h-full min-h-[400px]"
+              />
+              <div className="p-12 space-y-6 bg-slate-900/80 backdrop-blur-md mt-auto">
+                <div className="flex justify-between items-center">
+                  <span className="font-black text-lg italic">Infrastructure Velocity</span>
+                  <span className="text-2xl font-black tracking-tighter text-blue-500">+240%</span>
+                </div>
               </div>
-              <div className="bg-[#2a374a] p-8 rounded-3xl flex justify-between items-center border border-white/5">
-                <span className="font-black text-lg italic text-slate-300">Labor Offset</span>
-                <span className="text-2xl font-black tracking-tighter text-blue-400">142h/mo</span>
-              </div>
-            </div>
-            <div className="mt-16 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500">DIGITEX STUDIO INFRASTRUCTURE</p>
             </div>
           </div>
         </div>
