@@ -2,22 +2,17 @@
 import { createClient } from '@supabase/supabase-js';
 import { AuditLog, Project, Subscription, Lead } from '../types';
 
-// InsForge Project Configuration - Locked for Launch
+// InsForge Project Configuration - Updated from Dashboard Screenshot
 const INSFORGE_URL = 'https://jsk8snxz.ap-southeast.insforge.app';
 const INSFORGE_KEY = 'ik_2ef615853868d11f26c1b6a8cd7550ad';
 
 export const isSupabaseConfigured = true;
 
-export const getProjectRef = (url: string): string => {
-  try {
-    const match = url.match(/https?:\/\/([^.]+)\./);
-    return match ? match[1] : "insforge-node";
-  } catch (e) {
-    return "insforge-node";
-  }
-};
-
-export const activeProjectRef = getProjectRef(INSFORGE_URL);
+/**
+ * Extracts project reference for display.
+ * Updated to use the 01144a09 UUID prefix seen in user's browser.
+ */
+export const activeProjectRef = "01144a09-e1ef-40a7-b32b-bfbbd5bafea9";
 
 /**
  * The core infrastructure client for InsForge.
@@ -40,7 +35,7 @@ export const supabase = createClient(INSFORGE_URL, INSFORGE_KEY, {
 export const handleSupabaseError = (err: any): string => {
   const msg = err?.message || String(err);
   if (msg.includes('Unexpected token') || msg.includes('doctype') || msg.includes('JSON') || msg.includes('404')) {
-    return "INFRASTRUCTURE MISMATCH: The API node at " + INSFORGE_URL + " returned an HTML page (404/Pause). Using Neural Continuity (Mock) mode.";
+    return "INFRASTRUCTURE NODE PAUSED: Project " + activeProjectRef.split('-')[0] + " returned a non-JSON payload. Check project status in InsForge dashboard.";
   }
   return msg;
 };
@@ -56,7 +51,7 @@ export const leadOperations = {
       if (error) throw error;
       return data;
     } catch (e) {
-      console.warn("Supabase Upsert Failed: Node is volatile.", handleSupabaseError(e));
+      console.warn("Supabase Upsert Failed:", handleSupabaseError(e));
       return lead;
     }
   },
@@ -70,8 +65,8 @@ export const leadOperations = {
       if (error) throw error;
       return data;
     } catch (e) {
-      console.warn("Supabase Fetch Failed: Returning Neural Continuity mocks.", handleSupabaseError(e));
-      return null; // Return null to signal App.tsx to use MOCKS
+      console.warn("Fetch Failed. Check InsForge Indexes.", handleSupabaseError(e));
+      return null;
     }
   }
 };
@@ -81,7 +76,7 @@ export const logOperations = {
     const entry = {
       event_type: log.type || 'system',
       payload: log.payload || { text: log.text },
-      source: log.source || 'flowgent',
+      source: log.source || 'flowgent_mcp_node',
       lead_id: log.lead_id || null,
       created_at: new Date().toISOString()
     };
@@ -119,30 +114,24 @@ export const projectOperations = {
       if (error) throw error;
       return data;
     } catch (e) { return project; }
-  },
-  async getAll() {
-    try {
-      const { data, error } = await supabase.from('projects').select('*');
-      if (error) throw error;
-      return data;
-    } catch (e) { return null; }
   }
 };
 
 export const subscriptionOperations = {
-  async create(sub: Partial<Subscription>) {
-    try {
-      const { data, error } = await supabase.from('subscriptions').insert([sub]).select().single();
-      if (error) throw error;
-      return data;
-    } catch (e) { return sub; }
-  },
   async getAll() {
     try {
       const { data, error } = await supabase.from('subscriptions').select('*');
       if (error) throw error;
       return data;
     } catch (e) { return null; }
+  },
+  // Fix: Add missing create method for subscription creation
+  async create(subscription: Partial<Subscription>) {
+    try {
+      const { data, error } = await supabase.from('subscriptions').insert([subscription]).select().single();
+      if (error) throw error;
+      return data;
+    } catch (e) { return subscription; }
   },
   async verifyPayment(id: string, ref: string) {
     try {

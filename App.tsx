@@ -6,7 +6,7 @@ import LoginScreen from './components/LoginScreen';
 import AdminInfographic from './components/AdminInfographic';
 import { DecisionBanner, SignalLog } from './components/AppContent';
 import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_WORKFLOWS, MOCK_SUBSCRIPTIONS } from './services/mockData';
-import { Lead, AuditResult, User, AuditLog, Deal, Subscription } from './types';
+import { Lead, AuditResult, User, AuditLog, Deal, Subscription, AutomationWorkflow } from './types';
 import { generateAuditWithTools } from './services/geminiService';
 import { supabase, activeProjectRef, leadOperations, logOperations, projectOperations, subscriptionOperations } from './lib/supabase';
 import DecisionScienceView from './components/DecisionScienceView';
@@ -21,6 +21,9 @@ const SubscriptionsView = lazy(() => import('./components/SubscriptionsView'));
 const StrategyRoom = lazy(() => import('./components/StrategyRoom'));
 const SettingsView = lazy(() => import('./components/SettingsView'));
 const ServicesCatalog = lazy(() => import('./components/ServicesCatalog'));
+const AutomationView = lazy(() => import('./components/AutomationView'));
+const ReportsView = lazy(() => import('./components/ReportsView'));
+const ProjectsListView = lazy(() => import('./components/ProjectsListView'));
 
 const ViewLoader = () => (
   <div className="flex items-center justify-center min-h-[400px] text-slate-400 font-black uppercase tracking-widest animate-pulse">
@@ -261,6 +264,8 @@ const App: React.FC = () => {
             case 'service_catalog': return <ServicesCatalog />;
             case 'discovery': return <ScraperView onPushToN8N={triggerWebhook} onLeadsCaptured={refreshLeads} />;
             case 'strategy_room': return <StrategyRoom />;
+            case 'reports': return <ReportsView />;
+            case 'projects': return <ProjectsListView projects={MOCK_PROJECTS} />;
             case 'hot_opps':
               const hotLeads = leads.filter(l => l && (l.is_hot_opportunity || (l.readiness_score || 0) >= 75));
               return (
@@ -280,6 +285,19 @@ const App: React.FC = () => {
             case 'funnel_view': return <FunnelView leads={leads} />;
             case 'meetings': return <CalendarView />;
             case 'deal_pipeline': return <CrmView deals={deals} onMoveDeal={handleMoveDeal} />;
+            case 'workflows': 
+              return (
+                <AutomationView 
+                  workflows={MOCK_WORKFLOWS} 
+                  onToggleStatus={id => {}} 
+                  signals={signals.map(s => ({ 
+                    id: s.id || '', 
+                    text: s.text, 
+                    type: s.type as 'tool' | 'webhook', 
+                    time: s.created_at || 'Just now' 
+                  }))} 
+                />
+              );
             case 'revenue_amc': return <SubscriptionsView subscriptions={subscriptions} onRefresh={refreshSubscriptions} isAdmin={currentUser?.role === 'admin'} />;
             case 'settings': return <SettingsView webhookUrl={webhookUrl} onUpdate={setWebhookUrl} onTest={() => logAuditEvent('Manual Signal Test Dispatched', 'webhook')} activeProjectRef={activeProjectRef} />;
             case 'client_dashboard': return <ClientDashboard projects={MOCK_PROJECTS} leadStats={{score: 88, rank: 'Top 5%'}} activityLogs={signals.map(s => ({msg: s.text, time: s.created_at || 'Just now'}))} />;

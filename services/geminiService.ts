@@ -19,13 +19,13 @@ export const n8nToolDeclaration: FunctionDeclaration = {
   name: 'trigger_n8n_signal',
   parameters: {
     type: Type.OBJECT,
-    description: 'Dispatches high-priority signals to the n8n orchestrator for infrastructure provisioning and lead hydration.',
+    description: 'Dispatches high-priority signals to the n8n orchestrator for infrastructure provisioning.',
     properties: {
       business_name: { type: Type.STRING },
-      est_contract_value: { type: Type.NUMBER, description: 'Projected value based on infrastructure gaps.' },
+      est_contract_value: { type: Type.NUMBER },
       pitch_type: { type: Type.STRING, enum: ['website_development', 'seo', 'automation', 'crm_setup'] },
       is_hot: { type: Type.BOOLEAN },
-      node_id: { type: Type.STRING, description: 'The unique InsForge node reference (e.g., JSK8SNXZ).' }
+      node_id: { type: Type.STRING, description: 'The InsForge project ID (e.g., 01144a09).' }
     },
     required: ['business_name', 'est_contract_value', 'pitch_type', 'is_hot', 'node_id']
   },
@@ -39,9 +39,9 @@ export const insforgeDocsTool: FunctionDeclaration = {
   name: 'insforge_fetch_docs',
   parameters: {
     type: Type.OBJECT,
-    description: 'Fetches technical documentation from the InsForge backend to ensure compatible tool calls and database schema alignment.',
+    description: 'Fetches technical documentation from the InsForge backend to ensure compatible tool calls.',
     properties: {
-      topic: { type: Type.STRING, description: 'Specific documentation node to research (e.g., "auth", "realtime", "mcp").' }
+      topic: { type: Type.STRING, description: 'Documentation node (e.g., "auth", "mcp", "logs").' }
     },
     required: ['topic']
   },
@@ -49,24 +49,23 @@ export const insforgeDocsTool: FunctionDeclaration = {
 
 /**
  * Generates an Enterprise-Grade Decision Science Audit.
- * Uses Gemini 3 Pro for advanced reasoning and function calling.
+ * Uses Gemini 3 Pro for advanced reasoning.
  */
 export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: AuditResult, toolCalls?: any[] }> => {
   const ai = getAI();
   if (!ai) return { audit: getSimulatedAudit() };
   
-  const prompt = `Act as the Flowgent Technical Architect. 
-  Perform a High-Density Decision Science Audit for "${lead.business_name}" (${lead.category}).
+  const prompt = `Act as the Flowgent Platform Founder Architect. 
+  Perform a Strategic Audit for "${lead.business_name}" (${lead.category}).
   
-  PLATFORM CONTEXT:
-  - Project Node: JSK8SNXZ (InsForge AP-Southeast)
-  - Target Tables: leads, audit_logs, subscriptions
-  - Schema Policy: Enforce readiness_score > 80 for automated n8n dispatch.
+  INFRASTRUCTURE CONTEXT:
+  - Project Node: 01144a09-e1ef-40a7-b32b-bfbbd5bafea9
+  - Region: AP-Southeast
+  - Status: Monitoring MCP Logs for active handshakes.
   
   TASK:
-  1. Call 'insforge_fetch_docs' to verify infrastructure protocols if unclear.
-  2. Calculate ROI, Radar Metrics, and Decision Logic.
-  3. If score > 80, call 'trigger_n8n_signal' to provision the node.
+  1. Call 'insforge_fetch_docs' to research existing automation protocols.
+  2. If readiness_score > 80, call 'trigger_n8n_signal' to provision node 01144a09.
   
   Return strictly in JSON format.`;
 
@@ -75,7 +74,7 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
       model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
-        systemInstruction: "You are the Flowgent AI Intelligence Layer. Your goal is to maximize ROI for founders by identifying digital infrastructure gaps and automating outreach through InsForge and n8n.",
+        systemInstruction: "You are the Flowgent AI Intelligence Layer. Your goal is to maximize platform ROI by identifying infrastructure gaps and automating outreach through InsForge and n8n orchestration.",
         tools: [{ functionDeclarations: [n8nToolDeclaration, insforgeDocsTool] }],
         responseMimeType: "application/json",
         responseSchema: {
@@ -117,27 +116,28 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
     const audit = JSON.parse(response.text || "{}");
     return { audit, toolCalls: response.functionCalls };
   } catch (error) {
-    console.error("Audit Engine Critical Failure:", error);
+    console.error("Audit Engine Failure:", error);
     return { audit: getSimulatedAudit() };
   }
 };
 
 const getSimulatedAudit = (): AuditResult => ({
-  summary: "Continuity Mode: Neural link established, using localized intelligence cache.",
-  gaps: ["External API latency", "Infrastructure handshake pending"],
-  recommendations: ["Manually sync InsForge project secrets"],
+  summary: "Continuity Mode Active: Handshaking with InsForge node 01144a09.",
+  gaps: ["MCP Log Sink Inactive", "Database Index idx_audit_logs pending sync"],
+  recommendations: ["Manually trigger InsForge MCP fetch-docs"],
   score: 72,
   radar_metrics: { presence: 50, automation: 30, seo: 40, capture: 20 },
-  decision_logic: [{ factor: "Continuity Check", impact: "high", reasoning: "AI is running in standalone mode due to project node status." }]
+  decision_logic: [{ factor: "System Handshake", impact: "high", reasoning: "Infrastructure is awaiting first MCP call to hydrate logs." }]
 });
 
 export const searchLocalBusinesses = async (query: string, lat?: number, lng?: number) => {
   const ai = getAI();
   if (!ai) return [];
   try {
+    // Fix: Use Gemini 2.5 series model as Maps grounding is only supported in Gemini 2.5 series.
     const response = await ai.models.generateContent({
-      model: "gemini-flash-lite-latest",
-      contents: `Find 5 prime leads for "${query}" in India. Focus on high-intent businesses with digital gaps.`,
+      model: "gemini-2.5-flash",
+      contents: `Find 5 business leads for "${query}" in India.`,
       config: {
         tools: [{ googleMaps: {} }],
         toolConfig: {
