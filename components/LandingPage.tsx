@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ServicesCatalog from './ServicesCatalog';
 import AIImage from './AIImage';
 
@@ -10,6 +10,7 @@ interface LandingPageProps {
 
 const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) => {
   const [step, setStep] = useState(1);
+  const [hudIndex, setHudIndex] = useState(0);
   const [formData, setFormData] = useState({
     businessName: '',
     websiteUrl: '',
@@ -18,6 +19,21 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
     inquiries: '',
     email: ''
   });
+
+  const hudPhrases = [
+    "Scanning local directories...",
+    "Detecting website gaps...",
+    "Analyzing SEO throughput...",
+    "Neural scoring active...",
+    "ROI boost potential: +240%"
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHudIndex(prev => (prev + 1) % hudPhrases.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,18 +96,20 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
 
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-emerald-600 rounded-[56px] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-            <div className="relative bg-[#1e293b]/40 border border-white/5 rounded-[56px] shadow-2xl backdrop-blur-xl overflow-hidden min-h-[550px] flex flex-col">
+            <div className="relative bg-[#020617] border border-white/5 rounded-[56px] shadow-2xl backdrop-blur-xl overflow-hidden min-h-[550px] flex flex-col">
               <AIImage 
-                prompt="Cinematic 3D glass-morphism business dashboard showing glowing neural networks, hyper-realistic office of the future with holographic data displays, deep blue and emerald teal accents, high-end professional aesthetic, 8k resolution" 
+                prompt="Cinematic wide shot of a futuristic data center with translucent glass walls, interior showing complex holographic business projections, teal and navy blue aesthetic, hyper-realistic, high-end commercial style" 
                 aspectRatio="4:3"
                 quality="high"
                 className="w-full h-full min-h-[450px]"
               />
-              <div className="p-12 space-y-6 bg-slate-900/80 backdrop-blur-md mt-auto border-t border-white/5">
+              <div className="p-12 space-y-6 bg-slate-950/80 backdrop-blur-md mt-auto border-t border-white/5">
                 <div className="flex justify-between items-center">
                   <div className="space-y-1">
                     <span className="font-black text-lg italic text-white uppercase tracking-tighter">AI Node Discovery</span>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Neural Pathway: Active</p>
+                    <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest min-h-[14px] animate-pulse">
+                      Neural Pathway: {hudPhrases[hudIndex]}
+                    </p>
                   </div>
                   <div className="text-right">
                     <span className="text-2xl font-black tracking-tighter text-blue-500">+240%</span>
