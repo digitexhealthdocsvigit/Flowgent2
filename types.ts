@@ -1,5 +1,5 @@
 
-export type LeadStatus = 'discovered' | 'no_website' | 'has_website' | 'scored' | 'converted' | 'audit_viewed' | 'form_submitted' | 'calendar_booked' | 'proposal_sent' | 'new' | 'qualified' | 'contacted';
+export type LeadStatus = 'Discovered' | 'Contacted' | 'Engaged' | 'Qualified' | 'Converted' | 'no_website' | 'has_website' | 'scored' | 'audit_viewed' | 'form_submitted' | 'calendar_booked' | 'proposal_sent' | 'new' | 'lost';
 export type LeadTemperature = 'hot' | 'warm' | 'cold';
 export type UserRole = 'super_admin' | 'admin' | 'sales' | 'client' | 'agent';
 export type PitchType = 'website_development' | 'seo_audit' | 'lead_gen' | 'crm_setup' | 'seo' | 'automation';
@@ -67,7 +67,7 @@ export interface Deal {
   id: string;
   leadId: string;
   businessName: string;
-  stage: 'new' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost';
+  stage: 'Discovered' | 'Contacted' | 'Engaged' | 'Qualified' | 'Converted' | 'new' | 'proposal' | 'negotiation' | 'won' | 'lost';
   value: number;
   updatedAt: string;
   service_tier?: ServiceTier;

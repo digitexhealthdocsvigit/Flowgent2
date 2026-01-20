@@ -1,23 +1,14 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { AuditLog, Project, Subscription, Lead } from '../types';
+import { AuditLog, Project, Subscription, Lead, Deal } from '../types';
 
-// InsForge Project Configuration - Updated from Dashboard Screenshot
+// Live InsForge Project Configuration
 const INSFORGE_URL = 'https://jsk8snxz.ap-southeast.insforge.app';
 const INSFORGE_KEY = 'ik_2ef615853868d11f26c1b6a8cd7550ad';
 
 export const isSupabaseConfigured = true;
-
-/**
- * Extracts project reference for display.
- * Updated to use the 01144a09 UUID prefix seen in user's browser.
- */
 export const activeProjectRef = "01144a09-e1ef-40a7-b32b-bfbbd5bafea9";
 
-/**
- * The core infrastructure client for InsForge.
- * Includes explicit headers to request JSON and avoid HTML redirects.
- */
 export const supabase = createClient(INSFORGE_URL, INSFORGE_KEY, {
   auth: {
     persistSession: true,
@@ -29,9 +20,6 @@ export const supabase = createClient(INSFORGE_URL, INSFORGE_KEY, {
   }
 });
 
-/**
- * Specifically catches the "Unexpected token <" or 404 errors.
- */
 export const handleSupabaseError = (err: any): string => {
   const msg = err?.message || String(err);
   if (msg.includes('Unexpected token') || msg.includes('doctype') || msg.includes('JSON') || msg.includes('404')) {
@@ -43,9 +31,12 @@ export const handleSupabaseError = (err: any): string => {
 export const leadOperations = {
   async upsert(lead: Partial<Lead>) {
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+      
       const { data, error } = await supabase
         .from('leads')
-        .upsert(lead, { onConflict: 'place_id' })
+        .upsert({ ...lead, user_id: userId }, { onConflict: 'place_id' })
         .select()
         .single();
       if (error) throw error;
@@ -68,6 +59,28 @@ export const leadOperations = {
       console.warn("Fetch Failed. Check InsForge Indexes.", handleSupabaseError(e));
       return null;
     }
+  }
+};
+
+export const dealOperations = {
+  async getAll() {
+    try {
+      const { data, error } = await supabase.from('deals').select('*').order('updated_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    } catch (e) { return null; }
+  },
+  async updateStage(dealId: string, stage: string) {
+    try {
+      const { data, error } = await supabase
+        .from('deals')
+        .update({ stage, updated_at: new Date().toISOString() })
+        .eq('id', dealId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (e) { return null; }
   }
 };
 
@@ -125,7 +138,6 @@ export const subscriptionOperations = {
       return data;
     } catch (e) { return null; }
   },
-  // Fix: Add missing create method for subscription creation
   async create(subscription: Partial<Subscription>) {
     try {
       const { data, error } = await supabase.from('subscriptions').insert([subscription]).select().single();

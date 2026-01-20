@@ -109,7 +109,8 @@ export const MOCK_DEALS: Deal[] = [
     id: 'd1', 
     leadId: '2', 
     businessName: 'GreenLeaf Realty', 
-    stage: 'qualified', 
+    // Fix: Corrected 'qualified' to 'Qualified' to match Deal stage type definition.
+    stage: 'Qualified', 
     value: 150000, 
     updatedAt: '2023-11-25',
     service_tier: 'Tier 3 - Business Automation',

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import LeadCard from './components/LeadCard';
@@ -8,7 +9,7 @@ import { DecisionBanner, SignalLog } from './components/AppContent';
 import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_WORKFLOWS, MOCK_SUBSCRIPTIONS } from './services/mockData';
 import { Lead, AuditResult, User, AuditLog, Deal, Subscription, AutomationWorkflow } from './types';
 import { generateAuditWithTools } from './services/geminiService';
-import { supabase, activeProjectRef, leadOperations, logOperations, projectOperations, subscriptionOperations } from './lib/supabase';
+import { supabase, activeProjectRef, leadOperations, logOperations, projectOperations, subscriptionOperations, dealOperations } from './lib/supabase';
 import DecisionScienceView from './components/DecisionScienceView';
 
 // Priority 3: Performance Optimization - Code Splitting for heavy views
@@ -67,10 +68,23 @@ const App: React.FC = () => {
       }
     };
     checkAuth();
+
+    // Enable Realtime Subscriptions for Deals
+    const dealChannel = supabase
+      .channel('deals_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, (payload) => {
+        refreshDeals();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(dealChannel);
+    };
   }, []);
 
   const refreshData = async () => {
     await refreshLeads();
+    await refreshDeals();
     await loadSignals();
     await refreshSubscriptions();
   };
@@ -97,6 +111,19 @@ const App: React.FC = () => {
     }
   };
 
+  const refreshDeals = async () => {
+    try {
+      const data = await dealOperations.getAll();
+      if (data && data.length > 0) {
+        setDeals(data as Deal[]);
+      } else {
+        setDeals(MOCK_DEALS as any[]);
+      }
+    } catch (e) {
+      setDeals(MOCK_DEALS as any[]);
+    }
+  };
+
   const refreshLeads = async () => {
     try {
       const data = await leadOperations.getAll();
@@ -104,7 +131,7 @@ const App: React.FC = () => {
         setLeads(data.map((l: any) => ({
           ...l,
           business_name: l.business_name || l.businessName || 'Unknown Business',
-          lead_status: l.lead_status || l.status || 'discovered',
+          lead_status: l.lead_status || l.status || 'Discovered',
           readiness_score: l.readiness_score || l.score || 0,
           is_hot_opportunity: l.is_hot_opportunity || (l.readiness_score > 75)
         })));
@@ -156,15 +183,21 @@ const App: React.FC = () => {
   };
 
   const handleMoveDeal = async (id: string, direction: 'forward' | 'backward') => {
-    const stages: Deal['stage'][] = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
+    const stages: Deal['stage'][] = ['Discovered', 'Contacted', 'Engaged', 'Qualified', 'Converted'];
     const dealToUpdate = deals.find(d => d.id === id);
     if (!dealToUpdate) return;
     const currentIndex = stages.indexOf(dealToUpdate.stage);
     const nextIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1;
     const nextStage = stages[nextIndex];
     if (!nextStage) return;
-    if (nextStage === 'won') await finalizeDeal(dealToUpdate);
-    setDeals(deals.map(d => d.id === id ? { ...d, stage: nextStage, updatedAt: new Date().toISOString() } : d));
+    
+    // Update InsForge Backend
+    const updated = await dealOperations.updateStage(id, nextStage);
+    if (updated) {
+      if (nextStage === 'Converted') await finalizeDeal(dealToUpdate);
+      setDeals(deals.map(d => d.id === id ? { ...d, stage: nextStage, updatedAt: new Date().toISOString() } : d));
+      await logAuditEvent(`Stage Update: ${dealToUpdate.businessName} moved to ${nextStage}`, 'system', dealToUpdate.lead_id);
+    }
   };
 
   const finalizeDeal = async (deal: Deal) => {
