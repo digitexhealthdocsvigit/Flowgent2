@@ -67,7 +67,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
           <div className="space-y-12 text-center lg:text-left">
             <h1 className="text-[60px] md:text-[90px] font-black leading-[0.9] tracking-tighter">
               Stop Losing <br/>
-              <span className="text-blue-500 italic">Uncaptured <br/> Inquiries.</span>
+              <span className="text-blue-500 italic">Uncaptured <br;> Inquiries.</span>
             </h1>
             <p className="text-slate-400 text-xl font-medium max-w-lg">
               Flowgent™ automates your business infrastructure, from lead discovery to WhatsApp-driven conversion.
@@ -80,16 +80,23 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
 
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-emerald-600 rounded-[56px] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-            <div className="relative bg-[#1e293b]/40 border border-white/5 rounded-[56px] shadow-2xl backdrop-blur-xl overflow-hidden min-h-[500px] flex flex-col">
+            <div className="relative bg-[#1e293b]/40 border border-white/5 rounded-[56px] shadow-2xl backdrop-blur-xl overflow-hidden min-h-[550px] flex flex-col group">
               <AIImage 
-                prompt="A cinematic 3D abstract visualization of flowing digital data nodes, interconnected neural pathways, professional tech aesthetic, deep blue and emerald green palette" 
+                prompt="Futuristic high-end creative agency interior, glass walls with complex 3D holographic data overlays, professional marketers interacting with floating digital UI, cinematic lighting, teal and deep navy color scheme, high-tech luxury aesthetic" 
                 aspectRatio="4:3"
-                className="w-full h-full min-h-[400px]"
+                quality="high"
+                className="w-full h-full min-h-[450px]"
               />
-              <div className="p-12 space-y-6 bg-slate-900/80 backdrop-blur-md mt-auto">
+              <div className="p-12 space-y-6 bg-slate-900/80 backdrop-blur-md mt-auto border-t border-white/5">
                 <div className="flex justify-between items-center">
-                  <span className="font-black text-lg italic">Infrastructure Velocity</span>
-                  <span className="text-2xl font-black tracking-tighter text-blue-500">+240%</span>
+                  <div className="space-y-1">
+                    <span className="font-black text-lg italic text-white uppercase tracking-tighter">AI Node Discovery</span>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Neural Pathway: Active</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-black tracking-tighter text-blue-500">+240%</span>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Throughput Lift</p>
+                  </div>
                 </div>
               </div>
             </div>

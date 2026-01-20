@@ -5,10 +5,10 @@ import AIImage from './AIImage';
 const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false }) => {
   const categories = [
     {
-      title: "Automation & AI Systems",
+      title: "Business Automation & AI",
       icon: "🤖",
       color: "blue",
-      prompt: "A minimalist 3D robotic hand interacting with a glowing hologram of a business dashboard, clean studio lighting, futuristic blue theme",
+      prompt: "A 3D visualization of automated business workflows, glowing digital connectors between different business apps, professional tech style, clean lighting, 8k",
       items: [
         { name: "WhatsApp Lead Capture", desc: "Automated site leads → WhatsApp follow-ups → CRM sync." },
         { name: "Gemini AI Agents", desc: "Custom chatbots and knowledge assistants tailored to your brand." },
@@ -17,10 +17,22 @@ const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false })
       ]
     },
     {
-      title: "Developer Infrastructure",
+      title: "WhatsApp Lead Generation",
+      icon: "💬",
+      color: "emerald",
+      prompt: "Macro photography of a high-end smartphone showing a professional WhatsApp business interface with multiple incoming lead notifications, glowing green accents, sharp focus, clean office background",
+      items: [
+        { name: "Bulk Broadcast Nodes", desc: "Targeted message campaigns with 98% open rate engineering." },
+        { name: "Auto-Reply Logic", desc: "Instant response infrastructure for 24/7 lead nurture." },
+        { name: "CRM Integration", desc: "Direct pipe from WhatsApp messages to sales pipeline." },
+        { name: "Appointment Booking", desc: "Automated scheduling directly within the chat interface." }
+      ]
+    },
+    {
+      title: "Full-Stack Dev Agency",
       icon: "⚙️",
       color: "indigo",
-      prompt: "A sophisticated crystal-clear glass server rack with internal glowing circuits, representing high-speed cloud infrastructure, macro photography",
+      prompt: "Sophisticated minimalist 3D rendering of code symbols (brackets, slashes) forming a structured building, crystal glass texture, neon blue backlighting",
       items: [
         { name: "Next.js Development", desc: "High-performance corporate websites and progressive web apps." },
         { name: "Supabase Backend", desc: "Enterprise-grade database design and serverless infrastructure." },
@@ -29,27 +41,15 @@ const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false })
       ]
     },
     {
-      title: "Growth & Marketing",
+      title: "Digital Marketing Intel",
       icon: "📈",
       color: "purple",
-      prompt: "An elegant 3D upward trending arrow made of light particles, shattering through dark glass layers, representing high-velocity business growth",
+      prompt: "Modern professional 3D chart showing explosive growth, light particles creating upward trends, cinematic dark tech theme, purple and blue tones",
       items: [
         { name: "Performance Marketing", desc: "Google and Meta Ads end-to-end management with AI tracking." },
         { name: "SEO Intelligence", desc: "Content strategy driven by real-time neural search trends." },
         { name: "Funnel Science", desc: "Conversion audit and UI/UX optimization for lead capture nodes." },
         { name: "CRM Deployment", desc: "Setting up sales pipelines with automated qualification logic." }
-      ]
-    },
-    {
-      title: "Client Systems Integration",
-      icon: "📡",
-      color: "slate",
-      prompt: "Stylized 3D speech bubbles morphing into golden digital tokens, vibrant messaging app colors, professional digital marketing concept",
-      items: [
-        { name: "Communication Layers", desc: "WhatsApp, Email, SMS, and Push notification orchestration." },
-        { name: "Appointment Nodes", desc: "Cal.com and Google Calendar automated scheduling systems." },
-        { name: "Payment Gateways", desc: "Razorpay and Stripe settlement portal integrations." },
-        { name: "Security Protocols", desc: "E2E encryption and infrastructure audit logs for compliance." }
       ]
     }
   ];
@@ -68,13 +68,13 @@ const ServicesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false })
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 px-12">
         {categories.map((cat, i) => (
           <div key={i} className={`bg-slate-900/50 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl relative overflow-hidden group flex flex-col`}>
-            <div className="h-64 relative overflow-hidden">
+            <div className="h-72 relative overflow-hidden">
                <AIImage 
                  prompt={cat.prompt} 
                  aspectRatio="16:9" 
-                 className="w-full h-full group-hover:scale-110 transition-transform duration-1000"
+                 className="w-full h-full group-hover:scale-105 transition-transform duration-1000"
                />
-               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 to-transparent"></div>
+               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 to-transparent"></div>
             </div>
             
             <div className="p-12 relative z-10 flex-1">
