@@ -51,7 +51,7 @@ const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStat
                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocol Instructions</h4>
                  <div className="space-y-3">
                    <p className="text-slate-300 font-bold text-xs flex gap-3"><span className="text-blue-500">01</span> Webhook Trigger (POST)</p>
-                   <p className="text-slate-300 font-bold text-xs flex gap-3"><span className="text-blue-500">02</span> Filter: readiness_score > 80</p>
+                   <p className="text-slate-300 font-bold text-xs flex gap-3"><span className="text-blue-500">02</span> Filter: readiness_score &gt; 80</p>
                    <p className="text-slate-300 font-bold text-xs flex gap-3"><span className="text-blue-500">03</span> Provision: WhatsApp / CRM Sync</p>
                  </div>
                </div>
