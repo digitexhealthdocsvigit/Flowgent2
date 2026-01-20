@@ -2,8 +2,6 @@
   "name": "Flowgent™ - Business Automation Platform",
   "description": "A comprehensive SaaS platform for lead management, AI-driven audits, and sales funnel automation.",
   "requestFramePermissions": [
-    "camera",
-    "microphone",
-    "geolocation"
+    "microphone"
   ]
 }
