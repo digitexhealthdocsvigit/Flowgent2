@@ -23,6 +23,7 @@ const AIImage: React.FC<AIImageProps> = ({
   const [needsKeySelection, setNeedsKeySelection] = useState(false);
   const [currentQuality, setCurrentQuality] = useState(quality);
   const [hudText, setHudText] = useState("Initializing Neural Link...");
+  const [stats, setStats] = useState({ leads: 2184, gaps: 732, probability: 78 });
 
   const hudPhrases = [
     "Scanning regional business clusters...",
@@ -30,19 +31,25 @@ const AIImage: React.FC<AIImageProps> = ({
     "Auditing web presence...",
     "Cross-verifying social identity...",
     "Neural link established ✅",
-    "Synthesizing visual logic..."
+    "Synthesizing visual logic...",
+    "Detecting uncaptured inquiry nodes...",
+    "Calculating digital readiness score..."
   ];
 
   useEffect(() => {
     let i = 0;
     const interval = setInterval(() => {
-      if (isLoading) {
-        setHudText(hudPhrases[i % hudPhrases.length]);
-        i++;
-      }
-    }, 2000);
+      setHudText(hudPhrases[i % hudPhrases.length]);
+      i++;
+      // Jitter the stats for a "live" feel
+      setStats(prev => ({
+        leads: prev.leads + (Math.random() > 0.5 ? 1 : -1),
+        gaps: prev.gaps + (Math.random() > 0.5 ? 1 : -1),
+        probability: Math.min(99, Math.max(70, prev.probability + (Math.random() > 0.5 ? 0.1 : -0.1)))
+      }));
+    }, 2500);
     return () => clearInterval(interval);
-  }, [isLoading]);
+  }, []);
 
   const generateImage = async (forceModel?: string) => {
     setIsLoading(true);
@@ -52,27 +59,24 @@ const AIImage: React.FC<AIImageProps> = ({
     const aistudio = (window as any).aistudio;
     const apiKey = process.env.API_KEY;
 
-    // Hardened check for environment configuration
     if (aistudio) {
       const hasKey = await aistudio.hasSelectedApiKey();
-      if (!hasKey) {
+      if (!hasKey && currentQuality === 'high') {
         setNeedsKeySelection(true);
         setIsLoading(false);
         return;
       }
     } else if (!apiKey) {
-      // If we're not in the AI Studio environment and have no key, we can't generate
       setError("Infrastructure Signal Offline: Key Required");
       setIsLoading(false);
       return;
     }
 
     try {
-      // Use the injected key or the one from AI Studio
       const ai = new GoogleGenAI({ apiKey: apiKey! });
       const modelName = forceModel || (currentQuality === 'high' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image');
       
-      const enhancedPrompt = `Masterpiece commercial photography: ${prompt}. Cinematic lighting, 8k resolution, volumetric data overlay effects, sharp focus, professional tech aesthetic, deep blue and emerald teal accents.`;
+      const enhancedPrompt = `High-end commercial masterpiece photography: ${prompt}. Cinematic volumetric lighting, ultra-sharp 8k resolution, professional tech aesthetic, deep navy and emerald blue color grading, clean and prestigious composition.`;
 
       const response = await ai.models.generateContent({
         model: modelName,
@@ -93,15 +97,14 @@ const AIImage: React.FC<AIImageProps> = ({
         setImageUrl(`data:image/png;base64,${part.inlineData.data}`);
         setIsLoading(false);
       } else {
-        throw new Error("Empty Payload");
+        throw new Error("Neural Buffer Timeout");
       }
     } catch (err: any) {
       console.error("AI Image Gen Error:", err);
-      
       if (err.message?.includes('403') || err.status === 403 || err.message?.toLowerCase().includes('permission')) {
         setNeedsKeySelection(true);
       } else {
-        setError("Synthesis Failure: Buffer Empty");
+        setError("Neural Link Failed: 0x82");
       }
       setIsLoading(false);
     }
@@ -119,73 +122,88 @@ const AIImage: React.FC<AIImageProps> = ({
     }
   };
 
-  const NeuralHUD = ({ message, showButton = false }: { message: string, showButton?: boolean }) => (
-    <div className={`bg-[#020617] flex flex-col items-center justify-center p-12 text-center relative overflow-hidden ${className}`}>
-      {/* HUD Background Decoration */}
-      <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#2563eb 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#2563eb10_0%,_transparent_70%)]"></div>
+  const NeuralHUD = ({ message, showAction = false }: { message: string, showAction?: boolean }) => (
+    <div className={`bg-[#020617] flex flex-col items-center justify-center p-8 text-center relative overflow-hidden ${className}`}>
+      {/* Background HUD Layers */}
+      <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#2563eb 1.5px, transparent 0)', backgroundSize: '32px 32px' }}></div>
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 to-transparent"></div>
       
-      {/* Animated Elements */}
-      <div className="relative z-10 space-y-8 max-w-sm">
-        <div className="flex justify-center">
-          <div className="relative w-24 h-24">
-            <div className="absolute inset-0 border-4 border-blue-600/20 rounded-full animate-pulse"></div>
-            <div className="absolute inset-2 border-2 border-t-blue-500 rounded-full animate-spin"></div>
-            <div className="absolute inset-0 flex items-center justify-center text-2xl">🧠</div>
+      {/* Animated HUD Elements */}
+      <div className="relative z-10 w-full max-w-md space-y-10">
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative">
+             <div className="w-20 h-20 border border-blue-500/30 rounded-full animate-[spin_10s_linear_infinite]"></div>
+             <div className="absolute inset-2 border-t-2 border-blue-500 rounded-full animate-spin"></div>
+             <div className="absolute inset-0 flex items-center justify-center text-3xl drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">🧠</div>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-blue-500 font-black uppercase tracking-[0.4em] text-[10px] italic">Neural Audit Engine</h3>
+            <p className="text-slate-200 text-xs font-bold min-h-[1.5rem] italic opacity-80 animate-pulse">"{message}"</p>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <h3 className="text-blue-500 font-black uppercase tracking-[0.4em] text-[10px] italic">Neural Discovery Node</h3>
-          <p className="text-slate-300 text-sm font-bold min-h-[40px] italic">"{message}"</p>
-          
-          <div className="flex justify-center gap-1 h-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="w-1 bg-blue-600 rounded-full animate-pulse" style={{ height: `${30 + Math.random() * 70}%`, animationDelay: `${i * 0.2}s` }}></div>
-            ))}
-          </div>
+        {/* Option B: Live Audit Metrics Dashboard */}
+        <div className="grid grid-cols-2 gap-4">
+           {[
+             { label: 'Leads Scanned', val: stats.leads.toLocaleString(), trend: '+42%' },
+             { label: 'Website Gaps', val: stats.gaps.toLocaleString(), trend: 'High' },
+             { label: 'Audit Cycle', val: '2.4s', trend: 'Live' },
+             { label: 'CVR Probability', val: `${stats.probability.toFixed(1)}%`, trend: 'Hot' }
+           ].map((stat, i) => (
+             <div key={i} className="bg-white/5 border border-white/5 p-4 rounded-2xl backdrop-blur-sm text-left group/stat hover:border-blue-500/30 transition-all">
+                <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest mb-1">{stat.label}</p>
+                <div className="flex justify-between items-end">
+                   <p className="text-lg font-black text-white italic tracking-tighter">{stat.val}</p>
+                   <span className="text-[7px] font-black text-blue-500 uppercase tracking-tighter">{stat.trend}</span>
+                </div>
+             </div>
+           ))}
         </div>
 
-        {showButton && (
-          <div className="pt-4 flex flex-col gap-3">
+        {showAction && (
+          <div className="flex flex-col gap-3 pt-6">
             <button 
               onClick={handleOpenKeyPicker}
-              className="bg-blue-600 text-white px-8 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20 active:scale-95"
+              className="bg-blue-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20 active:scale-95 flex items-center justify-center gap-3"
             >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
               Connect Infrastructure
             </button>
             <button 
               onClick={() => { setCurrentQuality('standard'); generateImage('gemini-2.5-flash-image'); }}
-              className="text-[8px] font-black text-slate-600 uppercase tracking-widest hover:text-slate-400 transition-colors"
+              className="text-[9px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors italic"
             >
-              Attempt Standard Link
+              Try Manual Link (Standard)
             </button>
           </div>
         )}
       </div>
 
-      {/* Edge Decals */}
-      <div className="absolute top-8 left-8 text-[8px] font-mono text-blue-600/30 font-black uppercase">NODE_STATUS: {isLoading ? 'SYNCING' : 'OFFLINE'}</div>
-      <div className="absolute bottom-8 right-8 text-[8px] font-mono text-blue-600/30 font-black uppercase">RE_INIT_GATEWAY: [JSK8SNXZ]</div>
+      {/* Frame Decals */}
+      <div className="absolute top-6 left-6 flex gap-1 items-center">
+         <div className="w-1 h-1 bg-blue-500 rounded-full animate-ping"></div>
+         <span className="text-[8px] font-mono text-blue-600/40 font-black uppercase tracking-widest">LIVE_TELEMETRY: [NODE_JSK8SNXZ]</span>
+      </div>
+      <div className="absolute bottom-6 right-6 text-[8px] font-mono text-blue-600/20 font-black uppercase">0x82_NODE_PERSISTENCE: {isLoading ? 'ACTIVE' : 'IDLE'}</div>
     </div>
   );
 
   if (isLoading) return <NeuralHUD message={hudText} />;
   
   if (needsKeySelection) {
-    return <NeuralHUD message="Infrastructure Key Not Detected. Action Required." showButton />;
+    return <NeuralHUD message="AI ENGINE OFFLINE: INFRASTRUCTURE KEY NOT DETECTED." showAction />;
   }
 
   if (error || !imageUrl) {
     return (
-      <div className={`bg-[#020617] flex flex-col items-center justify-center p-12 text-center border border-red-900/20 ${className}`}>
-        <div className="text-4xl mb-4 opacity-50">📡</div>
+      <div className={`bg-[#020617] flex flex-col items-center justify-center p-12 text-center border border-red-900/10 ${className}`}>
+        <div className="text-3xl mb-4 opacity-50 grayscale contrast-125">📡</div>
         <p className="text-red-500 font-black uppercase tracking-widest text-[10px] italic mb-6">BUFFER_ERR: {error || 'Synthesis Stalled'}</p>
         <button 
           onClick={() => generateImage()}
-          className="bg-white/5 border border-white/10 text-slate-400 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+          className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:underline active:scale-95"
         >
-          Re-Initialize
+          Re-Initialize Neural Link
         </button>
       </div>
     );
@@ -196,10 +214,15 @@ const AIImage: React.FC<AIImageProps> = ({
       <img 
         src={imageUrl} 
         alt={alt} 
-        className="object-cover w-full h-full animate-in fade-in duration-1000 group-hover:scale-105 transition-transform duration-[4000ms]" 
+        className="object-cover w-full h-full animate-in fade-in duration-1000 group-hover:scale-110 transition-transform duration-[5000ms]" 
         loading="lazy"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 to-transparent pointer-events-none"></div>
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent pointer-events-none"></div>
+      
+      {/* Subtle Overlay Label */}
+      <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="bg-blue-600 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-lg italic">Pro Synth</span>
+      </div>
     </div>
   );
 };

@@ -98,12 +98,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLeadSubmit, onGoToLogin }) 
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-emerald-600 rounded-[56px] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
             <div className="relative bg-[#020617] border border-white/5 rounded-[56px] shadow-2xl backdrop-blur-xl overflow-hidden min-h-[550px] flex flex-col">
               <AIImage 
-                prompt="Cinematic wide shot of a futuristic data center with translucent glass walls, interior showing complex holographic business projections, teal and navy blue aesthetic, hyper-realistic, high-end commercial style" 
+                prompt="Futuristic digital marketing command center, wide cinematic shot, translucent glass surfaces showing holographic business data, deep blue and emerald teal lighting, professional corporate high-tech environment, 8k render" 
                 aspectRatio="4:3"
                 quality="high"
                 className="w-full h-full min-h-[450px]"
               />
-              <div className="p-12 space-y-6 bg-slate-950/80 backdrop-blur-md mt-auto border-t border-white/5">
+              <div className="p-12 space-y-6 bg-slate-950/90 backdrop-blur-md mt-auto border-t border-white/5">
                 <div className="flex justify-between items-center">
                   <div className="space-y-1">
                     <span className="font-black text-lg italic text-white uppercase tracking-tighter">AI Node Discovery</span>
