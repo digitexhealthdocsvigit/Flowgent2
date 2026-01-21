@@ -55,13 +55,11 @@ const AIImage: React.FC<AIImageProps> = ({
     setError(null);
     setNeedsKeySelection(false);
 
-    // Primary API key from environment
-    const apiKeyFromEnv = process.env.API_KEY;
+    // Primary API key from environment - system rule: obtained exclusively from process.env.API_KEY
+    const apiKey = process.env.API_KEY;
 
-    // Check if user has a key selected in AI Studio
+    // Check if high quality is requested and if user already has a key selected in AI Studio
     const aistudio = (window as any).aistudio;
-    let finalApiKey = apiKeyFromEnv;
-
     if (aistudio && currentQuality === 'high') {
       const hasKey = await aistudio.hasSelectedApiKey();
       if (!hasKey) {
@@ -71,15 +69,18 @@ const AIImage: React.FC<AIImageProps> = ({
       }
     }
 
-    if (!finalApiKey && !aistudio) {
+    if (!apiKey && !aistudio) {
       setError("INFRASTRUCTURE OFFLINE: Vercel Variable 'API_KEY' required.");
       setIsLoading(false);
       return;
     }
 
     try {
-      // Re-instantiate to ensure latest key is used if in AI Studio
-      const ai = new GoogleGenAI({ apiKey: finalApiKey! });
+      // Create a fresh instance to avoid stale keys
+      const ai = new GoogleGenAI({ apiKey: apiKey! });
+      
+      // Select model based on task type and user choice
+      // 'gemini-2.5-flash-image' for general, 'gemini-3-pro-image-preview' for high-quality
       const modelName = forceModel || (currentQuality === 'high' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image');
       
       const enhancedPrompt = `High-end commercial masterpiece photography: ${prompt}. Cinematic volumetric lighting, ultra-sharp 8k resolution, professional tech aesthetic, deep navy and emerald blue color grading, clean and prestigious composition.`;
@@ -111,19 +112,20 @@ const AIImage: React.FC<AIImageProps> = ({
       let errorMessage = err.message || 'Check API Scope';
       let isPermissionError = false;
 
-      // Parse JSON error message if present
+      // Parse JSON error message if present (common in GenAI SDK)
       try {
         if (typeof errorMessage === 'string' && errorMessage.startsWith('{')) {
           const parsed = JSON.parse(errorMessage);
           if (parsed.error?.code === 403 || parsed.error?.status === 'PERMISSION_DENIED') {
             isPermissionError = true;
-            errorMessage = "PERMISSION_DENIED: Access restricted on current node.";
+            errorMessage = "PERMISSION_DENIED: Your API project is restricted from Image Generation.";
           }
         }
-      } catch (e) { /* Fallback to raw string check */ }
+      } catch (e) { /* ignore parse errors */ }
 
+      // Handle 403 specifically to prompt for paid key
       if (isPermissionError || errorMessage.includes('403') || err.status === 403 || errorMessage.toLowerCase().includes('permission')) {
-        setError("BUFFER_ERR: Image Generation restricted on current project.");
+        setError("BUFFER_ERR: Image Generation requires a project with paid billing enabled.");
         setNeedsKeySelection(true);
       } else {
         setError(`Neural Link Failed: ${errorMessage}`);
@@ -140,10 +142,10 @@ const AIImage: React.FC<AIImageProps> = ({
     const aistudio = (window as any).aistudio;
     if (aistudio) {
       await aistudio.openSelectKey();
-      // Assume success and proceed to generate
+      // Assume success and proceed to generate with high quality
       setCurrentQuality('high');
-      // Adding a small timeout to let env state settle
-      setTimeout(() => generateImage(), 100);
+      // Wait a moment for environment variables to settle
+      setTimeout(() => generateImage(), 200);
     }
   };
 
@@ -192,7 +194,7 @@ const AIImage: React.FC<AIImageProps> = ({
               Link Personal API Key (Pro)
             </button>
             <p className="text-[9px] text-slate-500 italic max-w-xs mx-auto">
-              High-quality synthesis requires a personal API key from a project with Imagen enabled. 
+              Image generation requires a personal API key from a project with Imagen enabled. 
               <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline ml-1">Learn more about billing.</a>
             </p>
           </div>
