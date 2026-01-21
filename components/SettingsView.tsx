@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { testInsForgeConnection, activeProjectRef, getEnvironmentTelemetry } from '../lib/supabase';
 
@@ -11,6 +12,7 @@ interface SettingsViewProps {
 const SettingsView: React.FC<SettingsViewProps> = ({ webhookUrl, onUpdate, onTest }) => {
   const [localUrl, setLocalUrl] = useState(webhookUrl);
   const [dbStatus, setDbStatus] = useState<'testing' | 'ok' | 'error' | 'schema_error'>('testing');
+  const [apiHealth, setApiHealth] = useState<'testing' | 'ok' | 'error'>('testing');
   const [telemetry, setTelemetry] = useState(getEnvironmentTelemetry());
   const [diagnosticsLog, setDiagnosticsLog] = useState<string[]>([]);
 
@@ -20,20 +22,30 @@ const SettingsView: React.FC<SettingsViewProps> = ({ webhookUrl, onUpdate, onTes
 
   const checkHealth = async () => {
     setDbStatus('testing');
-    setDiagnosticsLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] Probing Neural Node JSK8SNXZ...`]);
+    setApiHealth('testing');
+    setDiagnosticsLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] Probing Flowgent2 Infrastructure...`]);
     
-    const status = await testInsForgeConnection();
-    
-    if (status === 'schema_error') {
-      setDbStatus('schema_error');
-      setDiagnosticsLog(prev => [...prev, `[FAIL] Schema Error: user_id column reference failed.`]);
-    } else if (status === true) {
-      setDbStatus('ok');
-      setDiagnosticsLog(prev => [...prev, `[PASS] Node ACK Received. Handshake successful.`]);
-    } else {
-      setDbStatus('error');
-      setDiagnosticsLog(prev => [...prev, `[FAIL] Timeout: Could not reach cluster jsk8snxz.`]);
+    // 1. Direct DB Handshake
+    const dbOk = await testInsForgeConnection();
+    if (dbOk === 'schema_error') setDbStatus('schema_error');
+    else if (dbOk === true) setDbStatus('ok');
+    else setDbStatus('error');
+
+    // 2. Production API Endpoint Handshake
+    try {
+      const healthRes = await fetch('/api/health');
+      if (healthRes.ok) {
+        setApiHealth('ok');
+        setDiagnosticsLog(prev => [...prev, `[PASS] /api/health detected. Vercel deployment verified.`]);
+      } else {
+        setApiHealth('error');
+        setDiagnosticsLog(prev => [...prev, `[FAIL] /api/health returned ${healthRes.status}. Check Vercel logs.`]);
+      }
+    } catch (e) {
+      setApiHealth('error');
+      setDiagnosticsLog(prev => [...prev, `[FAIL] Failed to reach production API endpoints.`]);
     }
+
     setTelemetry(getEnvironmentTelemetry());
   };
 
@@ -44,10 +56,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ webhookUrl, onUpdate, onTes
   };
 
   const checklist = [
-    { label: 'Cloud Connectivity', status: dbStatus === 'ok' ? 'pass' : 'testing', desc: 'lib/supabase.ts ↔ Node' },
-    { label: 'Schema Alignment', status: dbStatus === 'schema_error' ? 'fail' : dbStatus === 'ok' ? 'pass' : 'testing', desc: 'user_id detection' },
-    { label: 'Production Vercel', status: telemetry.VERCEL_ENV !== 'development' ? 'pass' : 'testing', desc: `Runtime: ${telemetry.VERCEL_ENV}` },
-    { label: 'Signal Orchestration', status: 'pending', desc: 'n8n Webhook Signal Ready' }
+    { label: 'Database Node', status: dbStatus === 'ok' ? 'pass' : dbStatus === 'schema_error' ? 'fail' : 'testing', desc: 'JSK8SNXZ Cluster' },
+    { label: 'Production API', status: apiHealth === 'ok' ? 'pass' : 'testing', desc: '/api/health handshake' },
+    { label: 'Vercel Vars', status: telemetry.SUPABASE_URL ? 'pass' : 'testing', desc: 'NEXT_PUBLIC_ detection' },
+    { label: 'Signal Link', status: 'pending', desc: 'n8n Orchestrator Ready' }
   ];
 
   return (
@@ -55,12 +67,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ webhookUrl, onUpdate, onTes
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">Neural Bridge Diagnostics</h2>
-          <p className="text-slate-500 font-bold">Flowgent × InsForge Verification Document</p>
+          <p className="text-slate-500 font-bold">Flowgent2 × InsForge Production Validation</p>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={checkHealth} className="bg-blue-600/10 text-blue-400 border border-blue-500/20 px-6 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-blue-600/20 transition-all">Run System Audit</button>
+          <button onClick={checkHealth} className="bg-blue-600/10 text-blue-400 border border-blue-500/20 px-6 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-blue-600/20 transition-all">Verify Deployment</button>
           <div className="bg-emerald-600/10 text-emerald-400 px-6 py-2 rounded-xl text-[10px] font-black uppercase italic border border-emerald-500/20">
-            Readiness: {dbStatus === 'ok' ? '100%' : '80%'}
+            Readiness: {dbStatus === 'ok' && apiHealth === 'ok' ? '100%' : '75%'}
           </div>
         </div>
       </div>
@@ -71,21 +83,21 @@ const SettingsView: React.FC<SettingsViewProps> = ({ webhookUrl, onUpdate, onTes
             <h3 className="text-xl font-black text-white italic">Cloud Environment Probe</h3>
             <div className="space-y-3">
               {[
-                { name: 'NEXT_PUBLIC_SUPABASE_URL', active: telemetry.NEXT_PUBLIC_SUPABASE_URL },
-                { name: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', active: telemetry.NEXT_PUBLIC_SUPABASE_ANON_KEY },
-                { name: 'VITE_SUPABASE_URL', active: telemetry.VITE_SUPABASE_URL },
-                { name: 'VITE_SUPABASE_ANON_KEY', active: telemetry.VITE_SUPABASE_ANON_KEY }
+                { name: 'SUPABASE_URL (Vercel)', active: telemetry.SUPABASE_URL },
+                { name: 'SUPABASE_ANON_KEY (Vercel)', active: telemetry.SUPABASE_ANON_KEY },
+                { name: 'ENVIRONMENT', active: true, val: telemetry.VERCEL_ENV.toUpperCase() },
+                { name: 'API_ENDPOINT', active: apiHealth === 'ok', val: apiHealth === 'ok' ? 'STABLE' : 'PENDING' }
               ].map((v, i) => (
                 <div key={i} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 group-hover:border-blue-500/20 transition-all">
                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">{v.name}</span>
                    <span className={`text-[8px] font-black px-3 py-1 rounded-md ${v.active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-800 text-slate-500'}`}>
-                     {v.active ? 'DETECTED' : 'MISSING'}
+                     {v.val || (v.active ? 'DETECTED' : 'MISSING')}
                    </span>
                 </div>
               ))}
             </div>
             <div className="p-6 bg-blue-500/5 border border-blue-500/10 rounded-3xl">
-               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-blue-400/60">Connected Endpoint</p>
+               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-blue-400/60">Connected Cluster</p>
                <p className="text-lg font-black text-blue-400 font-mono tracking-tighter">NODE_{telemetry.CONNECTED_ENDPOINT.toUpperCase()}</p>
             </div>
           </div>

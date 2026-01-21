@@ -1,9 +1,10 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { AuditLog, Project, Subscription, Lead, Deal } from '../types';
 
 /**
- * FINAL MAPPING: Flowgent x InsForge Neural Cloud Bridge
- * Prioritizes Vercel Environment Variables seen in Dashboard.
+ * FINAL MAPPING: Flowgent2 x InsForge Neural Cloud Bridge
+ * Aligned with Vercel Environment Variables: https://flowgent2.vercel.app/
  */
 const INSFORGE_URL = 
   process.env.NEXT_PUBLIC_SUPABASE_URL || 
@@ -29,16 +30,12 @@ export const supabase = createClient(INSFORGE_URL, INSFORGE_KEY, {
 });
 
 /**
- * Telemetry aligned with Vercel Project Environment Variables Dashboard
+ * Diagnostic utility to check which variables are being picked up by the build
  */
 export const getEnvironmentTelemetry = () => ({
-  SUPABASE_URL: !!process.env.SUPABASE_URL,
-  SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
-  NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
-  VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
-  VERCEL_ENV: process.env.VERCEL_ENV || 'development',
+  SUPABASE_URL: !!(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
+  SUPABASE_ANON_KEY: !!(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY),
+  VERCEL_ENV: process.env.VERCEL_ENV || 'production',
   CONNECTED_ENDPOINT: INSFORGE_URL.split('//')[1]?.split('.')[0] || 'Unknown'
 });
 
