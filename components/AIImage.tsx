@@ -41,7 +41,6 @@ const AIImage: React.FC<AIImageProps> = ({
     const interval = setInterval(() => {
       setHudText(hudPhrases[i % hudPhrases.length]);
       i++;
-      // Jitter the stats for a "live" feel
       setStats(prev => ({
         leads: prev.leads + (Math.random() > 0.5 ? 1 : -1),
         gaps: prev.gaps + (Math.random() > 0.5 ? 1 : -1),
@@ -67,7 +66,8 @@ const AIImage: React.FC<AIImageProps> = ({
         return;
       }
     } else if (!apiKey) {
-      setError("Infrastructure Signal Offline: Key Required");
+      // Direct instruction to user: Variable must be named exactly API_KEY
+      setError("Infrastructure Signal Offline: Rename Vercel Variable to 'API_KEY'");
       setIsLoading(false);
       return;
     }
@@ -104,7 +104,7 @@ const AIImage: React.FC<AIImageProps> = ({
       if (err.message?.includes('403') || err.status === 403 || err.message?.toLowerCase().includes('permission')) {
         setNeedsKeySelection(true);
       } else {
-        setError("Neural Link Failed: 0x82");
+        setError("Neural Link Failed: 0x82 Check API Key Scope");
       }
       setIsLoading(false);
     }
@@ -124,11 +124,9 @@ const AIImage: React.FC<AIImageProps> = ({
 
   const NeuralHUD = ({ message, showAction = false }: { message: string, showAction?: boolean }) => (
     <div className={`bg-[#020617] flex flex-col items-center justify-center p-8 text-center relative overflow-hidden ${className}`}>
-      {/* Background HUD Layers */}
       <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#2563eb 1.5px, transparent 0)', backgroundSize: '32px 32px' }}></div>
       <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 to-transparent"></div>
       
-      {/* Animated HUD Elements */}
       <div className="relative z-10 w-full max-w-md space-y-10">
         <div className="flex flex-col items-center gap-6">
           <div className="relative">
@@ -142,7 +140,6 @@ const AIImage: React.FC<AIImageProps> = ({
           </div>
         </div>
 
-        {/* Option B: Live Audit Metrics Dashboard */}
         <div className="grid grid-cols-2 gap-4">
            {[
              { label: 'Leads Scanned', val: stats.leads.toLocaleString(), trend: '+42%' },
@@ -179,12 +176,10 @@ const AIImage: React.FC<AIImageProps> = ({
         )}
       </div>
 
-      {/* Frame Decals */}
       <div className="absolute top-6 left-6 flex gap-1 items-center">
          <div className="w-1 h-1 bg-blue-500 rounded-full animate-ping"></div>
          <span className="text-[8px] font-mono text-blue-600/40 font-black uppercase tracking-widest">LIVE_TELEMETRY: [NODE_JSK8SNXZ]</span>
       </div>
-      <div className="absolute bottom-6 right-6 text-[8px] font-mono text-blue-600/20 font-black uppercase">0x82_NODE_PERSISTENCE: {isLoading ? 'ACTIVE' : 'IDLE'}</div>
     </div>
   );
 
@@ -219,7 +214,6 @@ const AIImage: React.FC<AIImageProps> = ({
       />
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent pointer-events-none"></div>
       
-      {/* Subtle Overlay Label */}
       <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity">
         <span className="bg-blue-600 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-lg italic">Pro Synth</span>
       </div>
