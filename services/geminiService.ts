@@ -115,8 +115,11 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
 
     const audit = JSON.parse(response.text || "{}");
     return { audit, toolCalls: response.functionCalls };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Audit Engine Failure:", error);
+    if (error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED')) {
+      console.error("QUOTA_EXHAUSTED: System limits reached on current key. Falling back to simulated audit.");
+    }
     return { audit: getSimulatedAudit() };
   }
 };
@@ -134,7 +137,6 @@ export const searchLocalBusinesses = async (query: string, lat?: number, lng?: n
   const ai = getAI();
   if (!ai) return [];
   try {
-    // Fix: Use Gemini 2.5 series model as Maps grounding is only supported in Gemini 2.5 series.
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Find 5 business leads for "${query}" in India.`,
@@ -160,7 +162,8 @@ export const searchLocalBusinesses = async (query: string, lat?: number, lng?: n
       type: c.maps.type || query,
       mapsUrl: c.maps.uri
     }));
-  } catch (e) {
+  } catch (e: any) {
+    console.error("Search Discovery Failure:", e);
     return [];
   }
 };

@@ -76,7 +76,7 @@ const AIImage: React.FC<AIImageProps> = ({
     }
 
     try {
-      // Create a fresh instance to ensure latest key is used if in AI Studio
+      // Create a fresh instance to ensure latest key is used
       const ai = new GoogleGenAI({ apiKey: apiKey! });
       
       // Select model based on task type and user choice
@@ -108,36 +108,35 @@ const AIImage: React.FC<AIImageProps> = ({
     } catch (err: any) {
       console.error("AI Image Gen Error:", err);
       
-      let errorMessage = err.message || 'Check API Scope';
+      let errorMessage = typeof err === 'string' ? err : (err.message || 'Check API Scope');
       let isQuotaError = false;
       let isPermissionError = false;
 
-      // Parse JSON error message if present (common in GenAI SDK)
+      // Extract JSON from error string if it exists
       try {
-        if (typeof errorMessage === 'string' && errorMessage.includes('{')) {
-          const jsonStartIndex = errorMessage.indexOf('{');
-          const jsonEndIndex = errorMessage.lastIndexOf('}') + 1;
-          const jsonStr = errorMessage.substring(jsonStartIndex, jsonEndIndex);
-          const parsed = JSON.parse(jsonStr);
-          
+        const jsonMatch = errorMessage.match(/\{.*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
           if (parsed.error?.code === 429 || parsed.error?.status === 'RESOURCE_EXHAUSTED') {
             isQuotaError = true;
-            errorMessage = "QUOTA_EXHAUSTED: Free tier rate limits reached.";
           } else if (parsed.error?.code === 403 || parsed.error?.status === 'PERMISSION_DENIED') {
             isPermissionError = true;
-            errorMessage = "PERMISSION_DENIED: Access restricted. Key likely lacks billing.";
           }
         }
-      } catch (e) { /* ignore parse errors */ }
+      } catch (e) { /* Fallback to string checks */ }
 
-      // Also check raw string for common error codes
-      if (!isQuotaError && (errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED'))) {
+      // Direct checks for 429/403 in the error object or string
+      if (!isQuotaError && (errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED') || err.status === 429)) {
         isQuotaError = true;
-        errorMessage = "QUOTA_EXHAUSTED: System limits reached on current key.";
+      }
+      if (!isPermissionError && (errorMessage.includes('403') || errorMessage.includes('PERMISSION_DENIED') || err.status === 403)) {
+        isPermissionError = true;
       }
 
-      if (isQuotaError || isPermissionError || errorMessage.includes('403') || err.status === 403 || err.status === 429 || errorMessage.toLowerCase().includes('permission')) {
-        setError(isQuotaError ? "QUOTA_ERR: Synthesis Limit Reached. Use a personal paid key to continue." : "BUFFER_ERR: Image Generation restricted. Please link a paid project key.");
+      if (isQuotaError || isPermissionError) {
+        setError(isQuotaError 
+          ? "QUOTA_EXHAUSTED: Shared infrastructure limit reached. Link a personal paid key to bypass." 
+          : "PERMISSION_DENIED: Access restricted. Please link a paid project API key.");
         setNeedsKeySelection(true);
       } else {
         setError(`Neural Link Failed: ${errorMessage}`);
@@ -154,10 +153,11 @@ const AIImage: React.FC<AIImageProps> = ({
     const aistudio = (window as any).aistudio;
     if (aistudio) {
       await aistudio.openSelectKey();
-      // Assume success and proceed to generate with high quality
-      setCurrentQuality('high');
-      // Wait a moment for environment variables to settle
-      setTimeout(() => generateImage(), 200);
+      // Wait a moment for environment variables to settle then retry
+      setTimeout(() => {
+        setCurrentQuality('high');
+        generateImage();
+      }, 500);
     }
   };
 
@@ -175,7 +175,7 @@ const AIImage: React.FC<AIImageProps> = ({
           </div>
           <div className="space-y-2">
             <h3 className="text-blue-500 font-black uppercase tracking-[0.4em] text-[10px] italic">Neural Audit Engine</h3>
-            <p className="text-slate-200 text-xs font-bold min-h-[1.5rem] italic opacity-80 animate-pulse">"{message}"</p>
+            <p className="text-slate-200 text-xs font-bold min-h-[1.5rem] italic opacity-80 animate-pulse px-4">"{message}"</p>
           </div>
         </div>
 
@@ -205,9 +205,9 @@ const AIImage: React.FC<AIImageProps> = ({
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
               Link Personal API Key (Pro)
             </button>
-            <p className="text-[9px] text-slate-500 italic max-w-xs mx-auto">
-              High-quality synthesis requires a personal API key from a project with Imagen enabled and sufficient quota. 
-              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline ml-1">Learn more about billing.</a>
+            <p className="text-[9px] text-slate-500 italic max-w-xs mx-auto leading-relaxed">
+              Shared infrastructure is currently at capacity. Please link your own Gemini API key with billing enabled.
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline ml-1">Learn about billing.</a>
             </p>
           </div>
         )}
