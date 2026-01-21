@@ -55,19 +55,22 @@ const AIImage: React.FC<AIImageProps> = ({
     setError(null);
     setNeedsKeySelection(false);
 
-    const aistudio = (window as any).aistudio;
+    // Primary API key from environment
     const apiKey = process.env.API_KEY;
 
-    if (aistudio) {
+    // Check if high quality is requested and if user already has a key selected in AI Studio
+    const aistudio = (window as any).aistudio;
+    if (aistudio && currentQuality === 'high') {
       const hasKey = await aistudio.hasSelectedApiKey();
-      if (!hasKey && currentQuality === 'high') {
+      if (!hasKey) {
         setNeedsKeySelection(true);
         setIsLoading(false);
         return;
       }
-    } else if (!apiKey) {
-      // Direct instruction to user: Variable must be named exactly API_KEY
-      setError("Infrastructure Signal Offline: Rename Vercel Variable to 'API_KEY'");
+    }
+
+    if (!apiKey && !aistudio) {
+      setError("INFRASTRUCTURE OFFLINE: Vercel Variable 'API_KEY' required.");
       setIsLoading(false);
       return;
     }
@@ -97,14 +100,16 @@ const AIImage: React.FC<AIImageProps> = ({
         setImageUrl(`data:image/png;base64,${part.inlineData.data}`);
         setIsLoading(false);
       } else {
-        throw new Error("Neural Buffer Timeout");
+        throw new Error("Neural Buffer Timeout: Content Synthesis Failed.");
       }
     } catch (err: any) {
       console.error("AI Image Gen Error:", err);
+      // Specifically handle 403 PERMISSION_DENIED which often means image generation is restricted on the default key
       if (err.message?.includes('403') || err.status === 403 || err.message?.toLowerCase().includes('permission')) {
+        setError("BUFFER_ERR: Image Generation restricted on current project.");
         setNeedsKeySelection(true);
       } else {
-        setError("Neural Link Failed: 0x82 Check API Key Scope");
+        setError(`Neural Link Failed: ${err.message || 'Check API Scope'}`);
       }
       setIsLoading(false);
     }
@@ -118,6 +123,8 @@ const AIImage: React.FC<AIImageProps> = ({
     const aistudio = (window as any).aistudio;
     if (aistudio) {
       await aistudio.openSelectKey();
+      // Assume success and proceed to generate
+      setCurrentQuality('high');
       generateImage();
     }
   };
@@ -164,14 +171,12 @@ const AIImage: React.FC<AIImageProps> = ({
               className="bg-blue-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20 active:scale-95 flex items-center justify-center gap-3"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
-              Connect Infrastructure
+              Use Own API Key (Pro)
             </button>
-            <button 
-              onClick={() => { setCurrentQuality('standard'); generateImage('gemini-2.5-flash-image'); }}
-              className="text-[9px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors italic"
-            >
-              Try Manual Link (Standard)
-            </button>
+            <p className="text-[9px] text-slate-500 italic max-w-xs mx-auto">
+              Image generation requires a paid API key from a project with billing enabled. 
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline ml-1">Learn more about billing.</a>
+            </p>
           </div>
         )}
       </div>
@@ -186,20 +191,28 @@ const AIImage: React.FC<AIImageProps> = ({
   if (isLoading) return <NeuralHUD message={hudText} />;
   
   if (needsKeySelection) {
-    return <NeuralHUD message="AI ENGINE OFFLINE: INFRASTRUCTURE KEY NOT DETECTED." showAction />;
+    return <NeuralHUD message="BUFFER_ERR: INFRASTRUCTURE SIGNAL OFFLINE: KEY REQUIRED FOR IMAGES." showAction />;
   }
 
   if (error || !imageUrl) {
     return (
       <div className={`bg-[#020617] flex flex-col items-center justify-center p-12 text-center border border-red-900/10 ${className}`}>
         <div className="text-3xl mb-4 opacity-50 grayscale contrast-125">📡</div>
-        <p className="text-red-500 font-black uppercase tracking-widest text-[10px] italic mb-6">BUFFER_ERR: {error || 'Synthesis Stalled'}</p>
-        <button 
-          onClick={() => generateImage()}
-          className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:underline active:scale-95"
-        >
-          Re-Initialize Neural Link
-        </button>
+        <p className="text-red-500 font-black uppercase tracking-widest text-[10px] italic mb-6">{error || 'Synthesis Stalled'}</p>
+        <div className="flex flex-col gap-4">
+          <button 
+            onClick={() => generateImage()}
+            className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:underline active:scale-95"
+          >
+            Retry Neural Handshake
+          </button>
+          <button 
+            onClick={handleOpenKeyPicker}
+            className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-white transition-colors"
+          >
+            Link Paid API Key
+          </button>
+        </div>
       </div>
     );
   }
@@ -215,7 +228,7 @@ const AIImage: React.FC<AIImageProps> = ({
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent pointer-events-none"></div>
       
       <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        <span className="bg-blue-600 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-lg italic">Pro Synth</span>
+        <span className="bg-blue-600 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-lg italic">Neural Render Active</span>
       </div>
     </div>
   );
