@@ -205,7 +205,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ webhookUrl, onUpdate, onTes
                <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 space-y-4 hover:border-blue-500/30 transition-all">
                   <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black italic text-xl">02</div>
                   <h4 className="text-white font-black text-xs uppercase italic">Condition Node</h4>
-                  <p className="text-[10px] text-slate-500 leading-relaxed font-bold">Recommended filter: `readiness_score > 80`. Prioritizes high-ticket automation deals.</p>
+                  <p className="text-[10px] text-slate-500 leading-relaxed font-bold">Recommended filter: `readiness_score &gt; 80`. Prioritizes high-ticket automation deals.</p>
                </div>
                <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 space-y-4 hover:border-blue-500/30 transition-all">
                   <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black italic text-xl">03</div>

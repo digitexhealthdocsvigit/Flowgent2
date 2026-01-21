@@ -56,10 +56,12 @@ const AIImage: React.FC<AIImageProps> = ({
     setNeedsKeySelection(false);
 
     // Primary API key from environment
-    const apiKey = process.env.API_KEY;
+    const apiKeyFromEnv = process.env.API_KEY;
 
-    // Check if high quality is requested and if user already has a key selected in AI Studio
+    // Check if user has a key selected in AI Studio
     const aistudio = (window as any).aistudio;
+    let finalApiKey = apiKeyFromEnv;
+
     if (aistudio && currentQuality === 'high') {
       const hasKey = await aistudio.hasSelectedApiKey();
       if (!hasKey) {
@@ -69,14 +71,15 @@ const AIImage: React.FC<AIImageProps> = ({
       }
     }
 
-    if (!apiKey && !aistudio) {
+    if (!finalApiKey && !aistudio) {
       setError("INFRASTRUCTURE OFFLINE: Vercel Variable 'API_KEY' required.");
       setIsLoading(false);
       return;
     }
 
     try {
-      const ai = new GoogleGenAI({ apiKey: apiKey! });
+      // Re-instantiate to ensure latest key is used if in AI Studio
+      const ai = new GoogleGenAI({ apiKey: finalApiKey! });
       const modelName = forceModel || (currentQuality === 'high' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image');
       
       const enhancedPrompt = `High-end commercial masterpiece photography: ${prompt}. Cinematic volumetric lighting, ultra-sharp 8k resolution, professional tech aesthetic, deep navy and emerald blue color grading, clean and prestigious composition.`;
@@ -104,12 +107,26 @@ const AIImage: React.FC<AIImageProps> = ({
       }
     } catch (err: any) {
       console.error("AI Image Gen Error:", err);
-      // Specifically handle 403 PERMISSION_DENIED which often means image generation is restricted on the default key
-      if (err.message?.includes('403') || err.status === 403 || err.message?.toLowerCase().includes('permission')) {
+      
+      let errorMessage = err.message || 'Check API Scope';
+      let isPermissionError = false;
+
+      // Parse JSON error message if present
+      try {
+        if (typeof errorMessage === 'string' && errorMessage.startsWith('{')) {
+          const parsed = JSON.parse(errorMessage);
+          if (parsed.error?.code === 403 || parsed.error?.status === 'PERMISSION_DENIED') {
+            isPermissionError = true;
+            errorMessage = "PERMISSION_DENIED: Access restricted on current node.";
+          }
+        }
+      } catch (e) { /* Fallback to raw string check */ }
+
+      if (isPermissionError || errorMessage.includes('403') || err.status === 403 || errorMessage.toLowerCase().includes('permission')) {
         setError("BUFFER_ERR: Image Generation restricted on current project.");
         setNeedsKeySelection(true);
       } else {
-        setError(`Neural Link Failed: ${err.message || 'Check API Scope'}`);
+        setError(`Neural Link Failed: ${errorMessage}`);
       }
       setIsLoading(false);
     }
@@ -125,7 +142,8 @@ const AIImage: React.FC<AIImageProps> = ({
       await aistudio.openSelectKey();
       // Assume success and proceed to generate
       setCurrentQuality('high');
-      generateImage();
+      // Adding a small timeout to let env state settle
+      setTimeout(() => generateImage(), 100);
     }
   };
 
@@ -171,10 +189,10 @@ const AIImage: React.FC<AIImageProps> = ({
               className="bg-blue-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20 active:scale-95 flex items-center justify-center gap-3"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
-              Use Own API Key (Pro)
+              Link Personal API Key (Pro)
             </button>
             <p className="text-[9px] text-slate-500 italic max-w-xs mx-auto">
-              Image generation requires a paid API key from a project with billing enabled. 
+              High-quality synthesis requires a personal API key from a project with Imagen enabled. 
               <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline ml-1">Learn more about billing.</a>
             </p>
           </div>
