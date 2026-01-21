@@ -1,13 +1,21 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { AuditLog, Project, Subscription, Lead, Deal } from '../types';
 
 /**
  * FINAL MAPPING: Flowgent x InsForge Neural Cloud Bridge
- * Prioritizes Vercel Environment Variables (NEXT_PUBLIC_*) for production readiness.
+ * Prioritizes Vercel Environment Variables seen in Dashboard.
  */
-const INSFORGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || process.env.INSFORGE_URL || 'https://jsk8snxz.ap-southeast.insforge.app';
-const INSFORGE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.INSFORGE_KEY || 'ik_2ef615853868d11f26c1b6a8cd7550ad';
+const INSFORGE_URL = 
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 
+  process.env.VITE_SUPABASE_URL || 
+  process.env.SUPABASE_URL || 
+  'https://jsk8snxz.ap-southeast.insforge.app';
+
+const INSFORGE_KEY = 
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+  process.env.VITE_SUPABASE_ANON_KEY || 
+  process.env.SUPABASE_ANON_KEY || 
+  'ik_2ef615853868d11f26c1b6a8cd7550ad';
 
 export const activeProjectRef = "01144a09-e1ef-40a7-b32b-bfbbd5bafea9";
 export const isSupabaseConfigured = !!INSFORGE_URL && !!INSFORGE_KEY;
@@ -21,13 +29,15 @@ export const supabase = createClient(INSFORGE_URL, INSFORGE_KEY, {
 });
 
 /**
- * Diagnostic utility to check which variables are being picked up by the build
+ * Telemetry aligned with Vercel Project Environment Variables Dashboard
  */
 export const getEnvironmentTelemetry = () => ({
-  SUPABASE_URL: !!(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL),
-  SUPABASE_ANON_KEY: !!(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY),
-  INSFORGE_URL: !!process.env.INSFORGE_URL,
-  INSFORGE_KEY: !!process.env.INSFORGE_KEY,
+  SUPABASE_URL: !!process.env.SUPABASE_URL,
+  SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+  NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+  VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
   VERCEL_ENV: process.env.VERCEL_ENV || 'development',
   CONNECTED_ENDPOINT: INSFORGE_URL.split('//')[1]?.split('.')[0] || 'Unknown'
 });
@@ -54,7 +64,6 @@ export const leadOperations = {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const payload = { ...lead, user_id: user?.id || null, last_audit_at: new Date().toISOString() };
-      // Sanitize score as it might be a UI-only property
       const { score, ...sanitizedLead } = payload as any;
       const { data, error } = await supabase.from('leads').upsert(sanitizedLead, { onConflict: 'place_id' }).select().single();
       if (error) throw error;

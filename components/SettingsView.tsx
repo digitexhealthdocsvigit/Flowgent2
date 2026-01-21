@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { testInsForgeConnection, activeProjectRef, getEnvironmentTelemetry } from '../lib/supabase';
 
@@ -72,10 +71,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ webhookUrl, onUpdate, onTes
             <h3 className="text-xl font-black text-white italic">Cloud Environment Probe</h3>
             <div className="space-y-3">
               {[
-                { name: 'NEXT_PUBLIC_SUPABASE_URL', active: telemetry.SUPABASE_URL },
-                { name: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', active: telemetry.SUPABASE_ANON_KEY },
-                { name: 'INSFORGE_URL (Alias)', active: telemetry.INSFORGE_URL },
-                { name: 'INSFORGE_KEY (Alias)', active: telemetry.INSFORGE_KEY }
+                { name: 'NEXT_PUBLIC_SUPABASE_URL', active: telemetry.NEXT_PUBLIC_SUPABASE_URL },
+                { name: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', active: telemetry.NEXT_PUBLIC_SUPABASE_ANON_KEY },
+                { name: 'VITE_SUPABASE_URL', active: telemetry.VITE_SUPABASE_URL },
+                { name: 'VITE_SUPABASE_ANON_KEY', active: telemetry.VITE_SUPABASE_ANON_KEY }
               ].map((v, i) => (
                 <div key={i} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 group-hover:border-blue-500/20 transition-all">
                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">{v.name}</span>
@@ -86,7 +85,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ webhookUrl, onUpdate, onTes
               ))}
             </div>
             <div className="p-6 bg-blue-500/5 border border-blue-500/10 rounded-3xl">
-               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Connected Node</p>
+               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-blue-400/60">Connected Endpoint</p>
                <p className="text-lg font-black text-blue-400 font-mono tracking-tighter">NODE_{telemetry.CONNECTED_ENDPOINT.toUpperCase()}</p>
             </div>
           </div>
