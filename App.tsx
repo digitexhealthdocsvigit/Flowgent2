@@ -26,8 +26,11 @@ const ReportsView = lazy(() => import('./components/ReportsView'));
 const ProjectsListView = lazy(() => import('./components/ProjectsListView'));
 
 const ViewLoader = () => (
-  <div className="flex items-center justify-center min-h-[400px] text-slate-400 font-black uppercase tracking-widest animate-pulse">
-    Syncing Neural Node...
+  <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    <div className="text-slate-400 font-black uppercase tracking-[0.3em] text-[10px] animate-pulse">
+      Syncing Neural Node...
+    </div>
   </div>
 );
 
@@ -66,7 +69,7 @@ const App: React.FC = () => {
     checkAuth();
 
     // Verify Backend Connectivity
-    testInsForgeConnection().then(setIsNodeOnline);
+    testInsForgeConnection().then(status => setIsNodeOnline(status === true));
 
     // Active Handshake: Realtime PostgreSQL Channels
     const dealChannel = supabase
@@ -161,7 +164,6 @@ const App: React.FC = () => {
 
   const logAuditEvent = async (text: string, type: string, leadId?: string, payload?: any) => {
     await logOperations.create({ text, type, lead_id: leadId, payload });
-    // loadSignals is now handled by real-time listener
   };
 
   const triggerWebhook = async (lead: Lead) => {
@@ -244,7 +246,6 @@ const App: React.FC = () => {
       
       // Persist to InsForge (handled by leadOperations)
       await leadOperations.upsert({ ...lead, ...audit });
-      // refreshLeads is now handled by real-time listener
     } catch (e) {
       await logAuditEvent(`Audit Failure: Neural path unstable.`, 'system', lead.id);
     } finally { 
@@ -270,14 +271,17 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                   <section className="lg:col-span-2 bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
                     <div className="flex justify-between items-center mb-10">
-                      <h3 className="font-black text-2xl text-white italic">Intelligence Feed</h3>
-                      <button onClick={refreshLeads} className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-400">Neural Sync</button>
+                      <h3 className="font-black text-2xl text-white italic text-shadow-glow">Intelligence Feed</h3>
+                      <button onClick={refreshLeads} className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-400 flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                        Neural Sync
+                      </button>
                     </div>
                     <div className="space-y-4">
                       {leads.length > 0 ? leads.slice(0, 5).map(l => (
-                        <div key={l.id} className="p-5 bg-white/5 border border-white/5 rounded-3xl flex items-center justify-between hover:border-blue-500/30 cursor-pointer group" onClick={() => handleAudit(l)}>
+                        <div key={l.id} className="p-5 bg-white/5 border border-white/5 rounded-3xl flex items-center justify-between hover:border-blue-500/30 cursor-pointer group transition-all hover:bg-white/10" onClick={() => handleAudit(l)}>
                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center font-black border border-white/10 group-hover:bg-blue-600">
+                              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center font-black border border-white/10 group-hover:bg-blue-600 transition-colors">
                                 {l.business_name.charAt(0)}
                               </div>
                               <div>
@@ -285,15 +289,15 @@ const App: React.FC = () => {
                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{l.city}</p>
                               </div>
                            </div>
-                           <p className="text-xl font-black text-blue-500 italic">{l.readiness_score || 0}%</p>
+                           <p className="text-xl font-black text-blue-500 italic tracking-tighter">{l.readiness_score || 0}%</p>
                         </div>
                       )) : (
-                        <div className="py-20 text-center text-slate-500 italic uppercase font-black text-[10px] tracking-[0.3em]">No Nodes Detected in JSK8SNXZ</div>
+                        <div className="py-20 text-center text-slate-500 italic uppercase font-black text-[10px] tracking-[0.3em] bg-white/5 rounded-[40px] border border-dashed border-white/5">No Nodes Detected in JSK8SNXZ</div>
                       )}
                     </div>
                   </section>
                   <section className="bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
-                    <h3 className="font-black text-2xl text-white mb-10 italic">Signal Log</h3>
+                    <h3 className="font-black text-2xl text-white mb-10 italic text-shadow-glow">Signal Log</h3>
                     <SignalLog signals={signals} />
                   </section>
                 </div>
@@ -325,14 +329,14 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 bg-[#0f172a]/50 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-12 sticky top-0 z-40">
            <div className="flex items-center gap-4">
-              <div className={`w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.4)] ${isNodeOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <div className={`w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.4)] ${isNodeOnline ? 'bg-green-500 shadow-green-500/50' : 'bg-red-500 shadow-red-500/50'}`}></div>
               <p className="font-black text-white uppercase tracking-tighter text-[10px] bg-white/5 px-4 py-2 rounded-xl border border-white/5 italic">
                 {isNodeOnline ? `Node: ${activeProjectRef.split('-')[0]}` : 'Handshake Pending'}
               </p>
            </div>
            <div className="flex items-center gap-6">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{currentUser.email}</span>
-              <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3 bg-white text-slate-900 rounded-2xl shadow-xl hover:bg-slate-200">Logout</button>
+              <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest px-8 py-3 bg-white text-slate-900 rounded-2xl shadow-xl hover:bg-slate-200 transition-all active:scale-95">Logout</button>
            </div>
         </header>
 
@@ -342,16 +346,16 @@ const App: React.FC = () => {
       </div>
 
       {isAuditing && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[500] flex flex-col items-center justify-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="font-black uppercase tracking-[0.4em] text-[10px]">Processing Decision Science...</p>
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[500] flex flex-col items-center justify-center space-y-4">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="font-black uppercase tracking-[0.4em] text-[10px] text-blue-500">Processing Decision Science...</p>
         </div>
       )}
 
       {currentAudit && (
         <div className="fixed inset-0 bg-[#030712]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-10 overflow-y-auto">
           <div className="bg-slate-900 rounded-[64px] max-w-6xl w-full p-20 relative animate-in zoom-in-95 duration-500 shadow-2xl border border-white/5">
-             <button onClick={() => setCurrentAudit(null)} className="absolute top-12 right-12 text-slate-500 p-4 hover:bg-white/5 hover:text-white rounded-full font-black text-xl">✕</button>
+             <button onClick={() => setCurrentAudit(null)} className="absolute top-12 right-12 text-slate-500 p-4 hover:bg-white/5 hover:text-white rounded-full font-black text-xl transition-all">✕</button>
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-20">
                 <div className="lg:col-span-2 space-y-12">
                    <div>
@@ -379,7 +383,7 @@ const App: React.FC = () => {
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Readiness</span>
                     <span className="text-8xl font-black my-6 tracking-tighter italic">{currentAudit.result.score}%</span>
                   </div>
-                  <button onClick={() => triggerWebhook(currentAudit.lead)} className="w-full bg-blue-600 text-white font-black py-6 rounded-[32px] uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all">Manual Webhook Sync</button>
+                  <button onClick={() => triggerWebhook(currentAudit.lead)} className="w-full bg-blue-600 text-white font-black py-6 rounded-[32px] uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all active:scale-95">Manual Webhook Sync</button>
                 </aside>
              </div>
           </div>

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { testInsForgeConnection, activeProjectRef } from '../lib/supabase';
+import { testInsForgeConnection, activeProjectRef, getEnvironmentTelemetry } from '../lib/supabase';
 
 interface SettingsViewProps {
   webhookUrl: string;
@@ -11,8 +11,9 @@ interface SettingsViewProps {
 
 const SettingsView: React.FC<SettingsViewProps> = ({ webhookUrl, onUpdate, onTest }) => {
   const [localUrl, setLocalUrl] = useState(webhookUrl);
-  const [dbStatus, setDbStatus] = useState<'testing' | 'ok' | 'error'>('testing');
-  const [showMcpGuide, setShowMcpGuide] = useState(true);
+  const [dbStatus, setDbStatus] = useState<'testing' | 'ok' | 'error' | 'schema_error'>('testing');
+  const [telemetry, setTelemetry] = useState(getEnvironmentTelemetry());
+  const [diagnosticsLog, setDiagnosticsLog] = useState<string[]>([]);
 
   useEffect(() => {
     checkHealth();
@@ -20,136 +21,112 @@ const SettingsView: React.FC<SettingsViewProps> = ({ webhookUrl, onUpdate, onTes
 
   const checkHealth = async () => {
     setDbStatus('testing');
-    const ok = await testInsForgeConnection();
-    setDbStatus(ok ? 'ok' : 'error');
+    setDiagnosticsLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] Probing Neural Node JSK8SNXZ...`]);
+    
+    const status = await testInsForgeConnection();
+    
+    if (status === 'schema_error') {
+      setDbStatus('schema_error');
+      setDiagnosticsLog(prev => [...prev, `[FAIL] Schema Error: user_id column reference failed.`]);
+    } else if (status === true) {
+      setDbStatus('ok');
+      setDiagnosticsLog(prev => [...prev, `[PASS] Node ACK Received. Handshake successful.`]);
+    } else {
+      setDbStatus('error');
+      setDiagnosticsLog(prev => [...prev, `[FAIL] Timeout: Could not reach cluster jsk8snxz.`]);
+    }
+    setTelemetry(getEnvironmentTelemetry());
   };
 
   const handleSave = () => {
     onUpdate(localUrl);
     localStorage.setItem('flowgent_n8n_webhook', localUrl);
-    alert("Infrastructure Link Persistent.");
+    setDiagnosticsLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] Orchestrator URI Persistent.`]);
   };
 
-  const mcpConfig = JSON.stringify({
-    "mcpServers": {
-      "insforge": {
-        "command": "npx",
-        "args": ["-y", "@insforge/mcp@latest"],
-        "env": {
-          "API_KEY": "ik_2ef615853868d11f26c1b6a8cd7550ad",
-          "API_BASE_URL": "https://jsk8snxz.ap-southeast.insforge.app"
-        }
-      }
-    }
-  }, null, 2);
+  const checklist = [
+    { label: 'Cloud Connectivity', status: dbStatus === 'ok' ? 'pass' : 'testing', desc: 'lib/supabase.ts ↔ Node' },
+    { label: 'Schema Alignment', status: dbStatus === 'schema_error' ? 'fail' : dbStatus === 'ok' ? 'pass' : 'testing', desc: 'user_id detection' },
+    { label: 'Production Vercel', status: telemetry.VERCEL_ENV !== 'development' ? 'pass' : 'testing', desc: `Runtime: ${telemetry.VERCEL_ENV}` },
+    { label: 'Signal Orchestration', status: 'pending', desc: 'n8n Webhook Signal Ready' }
+  ];
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500 p-8 max-w-7xl mx-auto">
+    <div className="space-y-10 p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-4xl font-black text-white tracking-tighter italic uppercase">Platform Architecture</h2>
-          <p className="text-slate-500 mt-1 font-bold">Node Management: {activeProjectRef}</p>
+          <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">Neural Bridge Diagnostics</h2>
+          <p className="text-slate-500 font-bold">Flowgent × InsForge Verification Document</p>
         </div>
-        <div className="bg-emerald-600/10 text-emerald-400 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest italic border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
-          MCP v1.2 Ready
+        <div className="flex items-center gap-4">
+          <button onClick={checkHealth} className="bg-blue-600/10 text-blue-400 border border-blue-500/20 px-6 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-blue-600/20 transition-all">Run System Audit</button>
+          <div className="bg-emerald-600/10 text-emerald-400 px-6 py-2 rounded-xl text-[10px] font-black uppercase italic border border-emerald-500/20">
+            Readiness: {dbStatus === 'ok' ? '100%' : '80%'}
+          </div>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-8">
-          <div className="bg-slate-900 p-12 rounded-[56px] border border-white/5 shadow-2xl space-y-8">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-              </div>
-              <h3 className="text-xl font-black text-white italic">Neural Orchestrator</h3>
+          <div className="bg-slate-900 p-10 rounded-[48px] border border-white/5 space-y-8 relative overflow-hidden group">
+            <h3 className="text-xl font-black text-white italic">Cloud Environment Probe</h3>
+            <div className="space-y-3">
+              {[
+                { name: 'NEXT_PUBLIC_SUPABASE_URL', active: telemetry.SUPABASE_URL },
+                { name: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', active: telemetry.SUPABASE_ANON_KEY },
+                { name: 'INSFORGE_URL (Alias)', active: telemetry.INSFORGE_URL },
+                { name: 'INSFORGE_KEY (Alias)', active: telemetry.INSFORGE_KEY }
+              ].map((v, i) => (
+                <div key={i} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 group-hover:border-blue-500/20 transition-all">
+                   <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">{v.name}</span>
+                   <span className={`text-[8px] font-black px-3 py-1 rounded-md ${v.active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-800 text-slate-500'}`}>
+                     {v.active ? 'DETECTED' : 'MISSING'}
+                   </span>
+                </div>
+              ))}
             </div>
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-2">n8n Gateway URI</label>
-                <input 
-                  type="text"
-                  className="w-full bg-slate-800 border border-white/5 rounded-2xl p-5 font-bold text-blue-400 outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all shadow-inner"
-                  value={localUrl}
-                  onChange={(e) => setLocalUrl(e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <button onClick={handleSave} className="bg-white text-slate-900 px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all active:scale-95 shadow-xl">Update Link</button>
-                <button onClick={onTest} className="bg-blue-600 text-white px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 transition-all active:scale-95 shadow-lg">Test Handshake</button>
-              </div>
+            <div className="p-6 bg-blue-500/5 border border-blue-500/10 rounded-3xl">
+               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Connected Node</p>
+               <p className="text-lg font-black text-blue-400 font-mono tracking-tighter">NODE_{telemetry.CONNECTED_ENDPOINT.toUpperCase()}</p>
             </div>
           </div>
 
-          <div className="bg-emerald-950/20 p-12 rounded-[56px] text-white border border-emerald-500/10 shadow-2xl flex flex-col justify-between relative overflow-hidden group">
-             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-600/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
-             <div>
-                <div className="flex justify-between items-start mb-8">
-                  <h3 className="text-xl font-black text-emerald-400 italic leading-none">InsForge <br/> Node Health</h3>
-                  <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${dbStatus === 'ok' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${dbStatus === 'ok' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
-                    {dbStatus === 'testing' ? 'Syncing...' : dbStatus === 'ok' ? 'Online' : 'Restricted'}
-                  </div>
-                </div>
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">MCP Call Log</span>
-                    <span className="text-emerald-500 font-black italic text-xs">Awaiting Activity...</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">DB Persistence</span>
-                    <span className="text-white font-mono text-xs italic">Readiness: High</span>
-                  </div>
-                </div>
-             </div>
-             <button onClick={checkHealth} className="mt-8 text-[10px] font-black text-emerald-500/50 uppercase tracking-widest hover:text-emerald-400 transition-colors text-left underline italic">Refresh Infrastructure</button>
+          <div className="bg-slate-900 p-10 rounded-[48px] border border-white/5 space-y-6">
+            <h3 className="text-xl font-black text-white italic">Signal Gateway</h3>
+            <div className="space-y-4">
+              <input 
+                type="text" 
+                className="w-full bg-slate-800 border border-white/5 rounded-2xl p-5 font-bold text-blue-400 outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all shadow-inner"
+                value={localUrl}
+                onChange={(e) => setLocalUrl(e.target.value)}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <button onClick={handleSave} className="bg-white text-slate-900 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all active:scale-95 shadow-xl">Lock URI</button>
+                <button onClick={onTest} className="bg-blue-600 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 transition-all active:scale-95 shadow-lg">Ping Webhook</button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl space-y-8 backdrop-blur-xl">
-           <div className="flex justify-between items-center">
-             <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></svg>
-                </div>
-                <h3 className="text-xl font-black text-white italic">Founder MCP Setup</h3>
-             </div>
-             <button 
-               onClick={() => setShowMcpGuide(!showMcpGuide)}
-               className="text-[10px] font-black uppercase text-emerald-500 hover:text-emerald-400 transition-colors"
-             >
-               {showMcpGuide ? 'Hide' : 'Reveal'}
-             </button>
+        <div className="bg-black/40 p-10 rounded-[48px] border border-white/5 flex flex-col backdrop-blur-md">
+           <h3 className="text-xl font-black text-white italic mb-6">Neural Handshake Log</h3>
+           <div className="flex-1 bg-black/40 rounded-3xl p-6 font-mono text-[10px] text-emerald-400 overflow-y-auto mb-8 leading-relaxed custom-scrollbar">
+             {diagnosticsLog.map((log, i) => <p key={i} className="mb-2 opacity-80 font-medium">➜ {log}</p>)}
+             {diagnosticsLog.length === 0 && <p className="text-slate-700 italic">No events cached.</p>}
            </div>
-
-           <div className="space-y-6">
-             <p className="text-slate-400 text-sm font-medium leading-relaxed italic">
-               Claude Desktop Configuration for project <span className="text-white font-mono">{activeProjectRef.split('-')[0]}</span>.
-             </p>
-             
-             {showMcpGuide && (
-               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                 <div className="bg-black/40 rounded-3xl p-8 space-y-4 border border-white/5">
-                    <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">JSON Payload (Claude Desktop)</p>
-                    <pre className="text-[10px] font-mono text-emerald-300 overflow-x-auto p-4 bg-black/20 rounded-xl custom-scrollbar leading-relaxed">
-                      {mcpConfig}
-                    </pre>
-                    <button 
-                      onClick={() => { navigator.clipboard.writeText(mcpConfig); alert("MCP Config Payload Copied."); }}
-                      className="w-full bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 font-black py-4 rounded-2xl text-[9px] uppercase tracking-widest transition-all"
-                    >
-                      Copy Configuration
-                    </button>
-                 </div>
-                 <div className="p-8 bg-slate-900 border border-white/5 rounded-[32px] space-y-6">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Live Handshake Test</h4>
-                    <div className="space-y-3 font-mono text-[10px]">
-                       <p className="text-slate-400 flex gap-4"><span className="text-emerald-500">PROMPT:</span> "Learn about my InsForge leads via MCP."</p>
-                       <p className="text-slate-400 flex gap-4"><span className="text-emerald-500">EXPECTED:</span> Call to fetch-docs on JSK8SNXZ.</p>
-                    </div>
-                 </div>
-               </div>
-             )}
+           <div className="space-y-4">
+              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic mb-2">Launch Readiness Checklist</h4>
+              {checklist.map((item, i) => (
+                <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                   <div className="flex items-center gap-4">
+                      <div className={`w-2 h-2 rounded-full ${item.status === 'pass' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]' : item.status === 'fail' ? 'bg-red-500 animate-pulse' : 'bg-slate-600'}`}></div>
+                      <div>
+                        <p className="text-[10px] font-black text-white uppercase tracking-widest">{item.label}</p>
+                        <p className="text-[8px] text-slate-500 font-bold uppercase">{item.desc}</p>
+                      </div>
+                   </div>
+                </div>
+              ))}
            </div>
         </div>
       </div>
