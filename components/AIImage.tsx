@@ -58,7 +58,7 @@ const AIImage: React.FC<AIImageProps> = ({
     // Primary API key from environment - system rule: obtained exclusively from process.env.API_KEY
     const apiKey = process.env.API_KEY;
 
-    // Check if high quality is requested and if user already has a key selected in AI Studio
+    // Check if user has a key selected in AI Studio
     const aistudio = (window as any).aistudio;
     if (aistudio && currentQuality === 'high') {
       const hasKey = await aistudio.hasSelectedApiKey();
@@ -76,11 +76,10 @@ const AIImage: React.FC<AIImageProps> = ({
     }
 
     try {
-      // Create a fresh instance to avoid stale keys
+      // Create a fresh instance to ensure latest key is used if in AI Studio
       const ai = new GoogleGenAI({ apiKey: apiKey! });
       
       // Select model based on task type and user choice
-      // 'gemini-2.5-flash-image' for general, 'gemini-3-pro-image-preview' for high-quality
       const modelName = forceModel || (currentQuality === 'high' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image');
       
       const enhancedPrompt = `High-end commercial masterpiece photography: ${prompt}. Cinematic volumetric lighting, ultra-sharp 8k resolution, professional tech aesthetic, deep navy and emerald blue color grading, clean and prestigious composition.`;
@@ -110,22 +109,35 @@ const AIImage: React.FC<AIImageProps> = ({
       console.error("AI Image Gen Error:", err);
       
       let errorMessage = err.message || 'Check API Scope';
+      let isQuotaError = false;
       let isPermissionError = false;
 
       // Parse JSON error message if present (common in GenAI SDK)
       try {
-        if (typeof errorMessage === 'string' && errorMessage.startsWith('{')) {
-          const parsed = JSON.parse(errorMessage);
-          if (parsed.error?.code === 403 || parsed.error?.status === 'PERMISSION_DENIED') {
+        if (typeof errorMessage === 'string' && errorMessage.includes('{')) {
+          const jsonStartIndex = errorMessage.indexOf('{');
+          const jsonEndIndex = errorMessage.lastIndexOf('}') + 1;
+          const jsonStr = errorMessage.substring(jsonStartIndex, jsonEndIndex);
+          const parsed = JSON.parse(jsonStr);
+          
+          if (parsed.error?.code === 429 || parsed.error?.status === 'RESOURCE_EXHAUSTED') {
+            isQuotaError = true;
+            errorMessage = "QUOTA_EXHAUSTED: Free tier rate limits reached.";
+          } else if (parsed.error?.code === 403 || parsed.error?.status === 'PERMISSION_DENIED') {
             isPermissionError = true;
-            errorMessage = "PERMISSION_DENIED: Your API project is restricted from Image Generation.";
+            errorMessage = "PERMISSION_DENIED: Access restricted. Key likely lacks billing.";
           }
         }
       } catch (e) { /* ignore parse errors */ }
 
-      // Handle 403 specifically to prompt for paid key
-      if (isPermissionError || errorMessage.includes('403') || err.status === 403 || errorMessage.toLowerCase().includes('permission')) {
-        setError("BUFFER_ERR: Image Generation requires a project with paid billing enabled.");
+      // Also check raw string for common error codes
+      if (!isQuotaError && (errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED'))) {
+        isQuotaError = true;
+        errorMessage = "QUOTA_EXHAUSTED: System limits reached on current key.";
+      }
+
+      if (isQuotaError || isPermissionError || errorMessage.includes('403') || err.status === 403 || err.status === 429 || errorMessage.toLowerCase().includes('permission')) {
+        setError(isQuotaError ? "QUOTA_ERR: Synthesis Limit Reached. Use a personal paid key to continue." : "BUFFER_ERR: Image Generation restricted. Please link a paid project key.");
         setNeedsKeySelection(true);
       } else {
         setError(`Neural Link Failed: ${errorMessage}`);
@@ -194,7 +206,7 @@ const AIImage: React.FC<AIImageProps> = ({
               Link Personal API Key (Pro)
             </button>
             <p className="text-[9px] text-slate-500 italic max-w-xs mx-auto">
-              Image generation requires a personal API key from a project with Imagen enabled. 
+              High-quality synthesis requires a personal API key from a project with Imagen enabled and sufficient quota. 
               <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline ml-1">Learn more about billing.</a>
             </p>
           </div>
@@ -211,7 +223,7 @@ const AIImage: React.FC<AIImageProps> = ({
   if (isLoading) return <NeuralHUD message={hudText} />;
   
   if (needsKeySelection) {
-    return <NeuralHUD message="BUFFER_ERR: INFRASTRUCTURE SIGNAL OFFLINE: KEY REQUIRED FOR IMAGES." showAction />;
+    return <NeuralHUD message={error || "BUFFER_ERR: INFRASTRUCTURE SIGNAL OFFLINE: KEY REQUIRED."} showAction />;
   }
 
   if (error || !imageUrl) {
