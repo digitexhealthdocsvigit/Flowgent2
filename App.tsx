@@ -6,7 +6,8 @@ import LandingPage from './components/LandingPage';
 import LoginScreen from './components/LoginScreen';
 import AdminInfographic from './components/AdminInfographic';
 import { DecisionBanner, SignalLog } from './components/AppContent';
-import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_SUBSCRIPTIONS } from './services/mockData';
+// Added MOCK_WORKFLOWS to imports to fix "Cannot find name 'MOCK_WORKFLOWS'" error
+import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_SUBSCRIPTIONS, MOCK_WORKFLOWS } from './services/mockData';
 import { Lead, AuditResult, User, AuditLog, Deal, Subscription } from './types';
 import { generateAuditWithTools } from './services/geminiService';
 import { supabase, activeProjectRef, leadOperations, logOperations, projectOperations, subscriptionOperations, dealOperations, testInsForgeConnection } from './lib/supabase';
@@ -24,6 +25,7 @@ const ServicesCatalog = lazy(() => import('./components/ServicesCatalog'));
 const AutomationView = lazy(() => import('./components/AutomationView'));
 const ReportsView = lazy(() => import('./components/ReportsView'));
 const ProjectsListView = lazy(() => import('./components/ProjectsListView'));
+const WorkflowAuditView = lazy(() => import('./components/WorkflowAuditView'));
 
 const ViewLoader = () => (
   <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
@@ -312,6 +314,8 @@ const App: React.FC = () => {
           case 'reports': return <ReportsView />;
           case 'projects': return <ProjectsListView projects={MOCK_PROJECTS} />;
           case 'service_catalog': return <ServicesCatalog />;
+          case 'workflow_audit': return <WorkflowAuditView />;
+          case 'workflows': return <AutomationView workflows={MOCK_WORKFLOWS as any[]} onToggleStatus={() => {}} signals={signals.map(s => ({id: s.id!, text: s.text, type: s.type as any, time: s.created_at || 'Just now'}))} />;
           default: return <div className="py-20 text-center text-slate-500 italic">Node Hydrating...</div>;
         }
       })()}
