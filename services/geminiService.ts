@@ -51,7 +51,7 @@ export const insforgeDocsTool: FunctionDeclaration = {
  * Generates an Enterprise-Grade Decision Science Audit.
  * Uses Gemini 3 Pro for advanced reasoning.
  */
-export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: AuditResult, toolCalls?: any[] }> => {
+export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: AuditResult, toolCalls?: any[], isQuotaError?: boolean }> => {
   const ai = getAI();
   if (!ai) return { audit: getSimulatedAudit() };
   
@@ -117,8 +117,12 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
     return { audit, toolCalls: response.functionCalls };
   } catch (error: any) {
     console.error("Audit Engine Failure:", error);
-    if (error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED')) {
-      console.error("QUOTA_EXHAUSTED: System limits reached on current key. Falling back to simulated audit.");
+    const errorMsg = error.message || "";
+    const isQuota = errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED');
+    
+    if (isQuota) {
+      console.error("QUOTA_EXHAUSTED: System limits reached. Falling back to simulated logic.");
+      return { audit: getSimulatedAudit(), isQuotaError: true };
     }
     return { audit: getSimulatedAudit() };
   }

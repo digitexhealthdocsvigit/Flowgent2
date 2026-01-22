@@ -1,20 +1,21 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🧠 Flowgent Agent Zero
+Autonomous AI background agent for the Flowgent2 ecosystem.
 
-# Run and deploy your AI Studio app
+## Primary Functions
+• **Lead Polling**: Continuously monitors Supabase `leads` table for unenriched entries.
+• **Web Scraping**: Uses Scrapingdog to extract digital footprints and contact info.
+• **Neural Scoring**: Leverages Gemini 3 Flash to calculate sales readiness scores.
+• **Persistence**: Updates the central database with enriched data.
+• **Orchestration**: Dispatches high-priority signals to n8n for automated outreach.
 
-This contains everything you need to run your app locally.
+## Deployment Instructions
+1. **Repository**: Push this codebase to `digitexhealthdocsvigit/flowgent-agentzero`.
+2. **Platform**: Connect to Railway, Render, or any Docker-capable host.
+3. **Environment**: Configure variables as seen in `.env.example`. 
+   * Note: Use `API_KEY` for Gemini access.
+4. **Build**: The included `Dockerfile` handles the environment setup.
 
-View your app in AI Studio: https://ai.studio/apps/drive/12scbpXqAsV1VH3kkKXplsyjYHA24CL6D
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Technical Specs
+- **Runtime**: Node.js 18 (Alpine)
+- **Framework**: Supabase JS + Google GenAI SDK
+- **Architecture**: Event-loop polling with deterministic enrichment logic.

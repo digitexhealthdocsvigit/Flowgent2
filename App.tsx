@@ -6,7 +6,6 @@ import LandingPage from './components/LandingPage';
 import LoginScreen from './components/LoginScreen';
 import AdminInfographic from './components/AdminInfographic';
 import { DecisionBanner, SignalLog } from './components/AppContent';
-// Added MOCK_WORKFLOWS to imports to fix "Cannot find name 'MOCK_WORKFLOWS'" error
 import { MOCK_LEADS, MOCK_DEALS, MOCK_PROJECTS, MOCK_SUBSCRIPTIONS, MOCK_WORKFLOWS } from './services/mockData';
 import { Lead, AuditResult, User, AuditLog, Deal, Subscription } from './types';
 import { generateAuditWithTools } from './services/geminiService';
@@ -44,7 +43,7 @@ const App: React.FC = () => {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isAuditing, setIsAuditing] = useState(false);
-  const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult } | null>(null);
+  const [currentAudit, setCurrentAudit] = useState<{ lead: Lead; result: AuditResult; isQuotaError?: boolean } | null>(null);
   const [signals, setSignals] = useState<AuditLog[]>([]);
   const [isNodeOnline, setIsNodeOnline] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState(() => 
@@ -237,14 +236,14 @@ const App: React.FC = () => {
     setIsAuditing(true);
     await logAuditEvent(`AI: Initiating Decision Science Audit for ${lead.business_name}`, 'tool', lead.id);
     try {
-      const { audit, toolCalls } = await generateAuditWithTools(lead);
+      const { audit, toolCalls, isQuotaError } = await generateAuditWithTools(lead);
       if (toolCalls?.length) {
         for (const call of toolCalls) {
           if (call.name === 'trigger_n8n_signal') await triggerWebhook({ ...lead, ...call.args });
         }
       }
-      await logAuditEvent(`Audit Resolved: ${lead.business_name} score: ${audit.score}%`, 'tool', lead.id, audit);
-      setCurrentAudit({ lead: { ...lead, ...audit }, result: audit });
+      await logAuditEvent(isQuotaError ? `Audit Resolved (Simulated): ${lead.business_name}` : `Audit Resolved: ${lead.business_name} score: ${audit.score}%`, 'tool', lead.id, audit);
+      setCurrentAudit({ lead: { ...lead, ...audit }, result: audit, isQuotaError });
       
       // Persist to InsForge (handled by leadOperations)
       await leadOperations.upsert({ ...lead, ...audit });
@@ -259,6 +258,13 @@ const App: React.FC = () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
     setViewState('public');
+  };
+
+  const handleOpenKeyPicker = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio) {
+      await aistudio.openSelectKey();
+    }
   };
 
   const renderTabContent = () => (
@@ -366,6 +372,19 @@ const App: React.FC = () => {
                      <h2 className="text-6xl font-black text-white tracking-tighter leading-none italic">{currentAudit.lead.business_name}</h2>
                      <p className="text-blue-500 font-black uppercase tracking-widest text-[10px] mt-4 italic">Infrastructure Node Ready</p>
                    </div>
+                   
+                   {currentAudit.isQuotaError && (
+                     <div className="bg-amber-600/10 border border-amber-500/20 p-6 rounded-3xl flex items-center justify-between animate-in slide-in-from-top-4">
+                       <div className="flex items-center gap-4">
+                         <div className="w-8 h-8 bg-amber-500/20 rounded-lg flex items-center justify-center text-amber-500">⚡</div>
+                         <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest leading-relaxed">
+                           Shared Quota Exhausted. Results are currently simulated. Link a paid key for precision.
+                         </p>
+                       </div>
+                       <button onClick={handleOpenKeyPicker} className="text-[8px] font-black text-white bg-amber-600 px-4 py-2 rounded-xl uppercase tracking-widest hover:bg-amber-500 transition-all">Link Key</button>
+                     </div>
+                   )}
+
                    <DecisionBanner audit={currentAudit.result} />
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                      <div className="p-10 bg-white/5 rounded-[48px] border border-white/5">

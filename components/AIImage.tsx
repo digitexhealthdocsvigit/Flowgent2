@@ -20,6 +20,7 @@ const AIImage: React.FC<AIImageProps> = ({
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [needsKeySelection, setNeedsKeySelection] = useState(false);
   const [currentQuality, setCurrentQuality] = useState(quality);
   const [hudText, setHudText] = useState("Initializing Neural Link...");
@@ -53,12 +54,13 @@ const AIImage: React.FC<AIImageProps> = ({
   const generateImage = async (forceModel?: string) => {
     setIsLoading(true);
     setError(null);
+    setIsQuotaExceeded(false);
     setNeedsKeySelection(false);
 
     // Primary API key from environment - system rule: obtained exclusively from process.env.API_KEY
     const apiKey = process.env.API_KEY;
 
-    // Check if user has a key selected in AI Studio
+    // Check if user has a key selected in AI Studio context
     const aistudio = (window as any).aistudio;
     if (aistudio && currentQuality === 'high') {
       const hasKey = await aistudio.hasSelectedApiKey();
@@ -76,7 +78,7 @@ const AIImage: React.FC<AIImageProps> = ({
     }
 
     try {
-      // Create a fresh instance to ensure latest key is used
+      // Create a fresh instance right before making an API call to ensure it always uses the most up-to-date API key
       const ai = new GoogleGenAI({ apiKey: apiKey! });
       
       // Select model based on task type and user choice
@@ -108,38 +110,28 @@ const AIImage: React.FC<AIImageProps> = ({
     } catch (err: any) {
       console.error("AI Image Gen Error:", err);
       
-      let errorMessage = typeof err === 'string' ? err : (err.message || 'Check API Scope');
-      let isQuotaError = false;
-      let isPermissionError = false;
-
-      // Extract JSON from error string if it exists
-      try {
-        const jsonMatch = errorMessage.match(/\{.*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (parsed.error?.code === 429 || parsed.error?.status === 'RESOURCE_EXHAUSTED') {
-            isQuotaError = true;
-          } else if (parsed.error?.code === 403 || parsed.error?.status === 'PERMISSION_DENIED') {
-            isPermissionError = true;
-          }
-        }
-      } catch (e) { /* Fallback to string checks */ }
-
-      // Direct checks for 429/403 in the error object or string
-      if (!isQuotaError && (errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED') || err.status === 429)) {
-        isQuotaError = true;
-      }
-      if (!isPermissionError && (errorMessage.includes('403') || errorMessage.includes('PERMISSION_DENIED') || err.status === 403)) {
-        isPermissionError = true;
-      }
-
-      if (isQuotaError || isPermissionError) {
-        setError(isQuotaError 
-          ? "QUOTA_EXHAUSTED: Shared infrastructure limit reached. Link a personal paid key to bypass." 
-          : "PERMISSION_DENIED: Access restricted. Please link a paid project API key.");
-        setNeedsKeySelection(true);
+      let errorMessage = '';
+      if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err.message) {
+        errorMessage = err.message;
       } else {
-        setError(`Neural Link Failed: ${errorMessage}`);
+        errorMessage = JSON.stringify(err);
+      }
+
+      // Detect Quota Exceeded (429) specifically
+      const is429 = errorMessage.includes('429') || 
+                    errorMessage.includes('RESOURCE_EXHAUSTED') || 
+                    (err.status === 429);
+
+      if (is429) {
+        setIsQuotaExceeded(true);
+        setError("NEURAL_QUOTA_EXHAUSTED: Shared buffer capacity reached.");
+      } else if (errorMessage.includes('403') || errorMessage.includes('PERMISSION_DENIED') || err.status === 403) {
+        setNeedsKeySelection(true);
+        setError("PERMISSION_DENIED: Access restricted. Project billing required.");
+      } else {
+        setError(`Neural Link Failed: ${errorMessage.slice(0, 80)}...`);
       }
       setIsLoading(false);
     }
@@ -152,8 +144,10 @@ const AIImage: React.FC<AIImageProps> = ({
   const handleOpenKeyPicker = async () => {
     const aistudio = (window as any).aistudio;
     if (aistudio) {
+      // Trigger the key selection dialog per system instructions
       await aistudio.openSelectKey();
-      // Wait a moment for environment variables to settle then retry
+      
+      // Proceed immediately to retry with high quality setting
       setTimeout(() => {
         setCurrentQuality('high');
         generateImage();
@@ -161,7 +155,7 @@ const AIImage: React.FC<AIImageProps> = ({
     }
   };
 
-  const NeuralHUD = ({ message, showAction = false }: { message: string, showAction?: boolean }) => (
+  const NeuralHUD = ({ message, showAction = false, type = 'status' }: { message: string, showAction?: boolean, type?: 'status' | 'error' | 'quota' }) => (
     <div className={`bg-[#020617] flex flex-col items-center justify-center p-8 text-center relative overflow-hidden ${className}`}>
       <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#2563eb 1.5px, transparent 0)', backgroundSize: '32px 32px' }}></div>
       <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 to-transparent"></div>
@@ -169,28 +163,32 @@ const AIImage: React.FC<AIImageProps> = ({
       <div className="relative z-10 w-full max-w-md space-y-10">
         <div className="flex flex-col items-center gap-6">
           <div className="relative">
-             <div className="w-20 h-20 border border-blue-500/30 rounded-full animate-[spin_10s_linear_infinite]"></div>
-             <div className="absolute inset-2 border-t-2 border-blue-500 rounded-full animate-spin"></div>
-             <div className="absolute inset-0 flex items-center justify-center text-3xl drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">🧠</div>
+             <div className={`w-20 h-20 border ${type === 'quota' ? 'border-amber-500/30' : 'border-blue-500/30'} rounded-full animate-[spin_10s_linear_infinite]`}></div>
+             <div className={`absolute inset-2 border-t-2 ${type === 'quota' ? 'border-amber-500' : 'border-blue-500'} rounded-full animate-spin`}></div>
+             <div className="absolute inset-0 flex items-center justify-center text-3xl drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+               {type === 'quota' ? '⚡' : type === 'error' ? '📡' : '🧠'}
+             </div>
           </div>
-          <div className="space-y-2">
-            <h3 className="text-blue-500 font-black uppercase tracking-[0.4em] text-[10px] italic">Neural Audit Engine</h3>
-            <p className="text-slate-200 text-xs font-bold min-h-[1.5rem] italic opacity-80 animate-pulse px-4">"{message}"</p>
+          <div className="space-y-2 px-4">
+            <h3 className={`${type === 'quota' ? 'text-amber-500' : 'text-blue-500'} font-black uppercase tracking-[0.4em] text-[10px] italic`}>
+              {type === 'quota' ? 'Neural Capacity Alert' : 'Neural Audit Engine'}
+            </h3>
+            <p className="text-slate-200 text-xs font-bold italic opacity-80 animate-pulse leading-relaxed">"{message}"</p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
            {[
-             { label: 'Leads Scanned', val: stats.leads.toLocaleString(), trend: '+42%' },
-             { label: 'Website Gaps', val: stats.gaps.toLocaleString(), trend: 'High' },
-             { label: 'Audit Cycle', val: '2.4s', trend: 'Live' },
-             { label: 'CVR Probability', val: `${stats.probability.toFixed(1)}%`, trend: 'Hot' }
+             { label: 'Infrastructure', val: '0x82_JSK8', trend: 'NODE_READY' },
+             { label: 'Cluster Load', val: type === 'quota' ? 'MAX' : '92%', trend: type === 'quota' ? 'STALLED' : 'STABLE' },
+             { label: 'Sync Cycle', val: '2.4s', trend: 'LIVE' },
+             { label: 'Signal Path', val: type === 'quota' ? 'REJECTED' : 'OPEN', trend: 'E2E' }
            ].map((stat, i) => (
              <div key={i} className="bg-white/5 border border-white/5 p-4 rounded-2xl backdrop-blur-sm text-left group/stat hover:border-blue-500/30 transition-all">
                 <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest mb-1">{stat.label}</p>
                 <div className="flex justify-between items-end">
-                   <p className="text-lg font-black text-white italic tracking-tighter">{stat.val}</p>
-                   <span className="text-[7px] font-black text-blue-500 uppercase tracking-tighter">{stat.trend}</span>
+                   <p className="text-sm font-black text-white italic tracking-tighter">{stat.val}</p>
+                   <span className={`text-[7px] font-black uppercase tracking-tighter ${stat.trend === 'REJECTED' || stat.trend === 'STALLED' ? 'text-amber-500' : 'text-blue-500'}`}>{stat.trend}</span>
                 </div>
              </div>
            ))}
@@ -200,30 +198,34 @@ const AIImage: React.FC<AIImageProps> = ({
           <div className="flex flex-col gap-3 pt-6">
             <button 
               onClick={handleOpenKeyPicker}
-              className="bg-blue-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20 active:scale-95 flex items-center justify-center gap-3"
+              className={`bg-blue-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20 active:scale-95 flex items-center justify-center gap-3`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
-              Link Personal API Key (Pro)
+              Link Personal API Key
             </button>
             <p className="text-[9px] text-slate-500 italic max-w-xs mx-auto leading-relaxed">
-              Shared infrastructure is currently at capacity. Please link your own Gemini API key with billing enabled.
-              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline ml-1">Learn about billing.</a>
+              Shared infrastructure is currently at capacity. Please link your own Gemini API key (GCP project with billing) to bypass these limits.
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline ml-1">Learn more.</a>
             </p>
           </div>
         )}
       </div>
 
       <div className="absolute top-6 left-6 flex gap-1 items-center">
-         <div className="w-1 h-1 bg-blue-500 rounded-full animate-ping"></div>
-         <span className="text-[8px] font-mono text-blue-600/40 font-black uppercase tracking-widest">LIVE_TELEMETRY: [NODE_JSK8SNXZ]</span>
+         <div className={`w-1 h-1 ${type === 'quota' ? 'bg-amber-500' : 'bg-blue-500'} rounded-full animate-ping`}></div>
+         <span className={`text-[8px] font-mono ${type === 'quota' ? 'text-amber-500/40' : 'text-blue-600/40'} font-black uppercase tracking-widest`}>LIVE_TELEMETRY: [NODE_JSK8SNXZ]</span>
       </div>
     </div>
   );
 
   if (isLoading) return <NeuralHUD message={hudText} />;
   
+  if (isQuotaExceeded) {
+    return <NeuralHUD message="BUFFER_CAPACITY_REACHED: Shared API quota exhausted for this cycle. Switch to a personal node to continue." showAction type="quota" />;
+  }
+
   if (needsKeySelection) {
-    return <NeuralHUD message={error || "BUFFER_ERR: INFRASTRUCTURE SIGNAL OFFLINE: KEY REQUIRED."} showAction />;
+    return <NeuralHUD message="PERMISSION_DENIED: Access restricted. Linking a paid project API key is required for image generation." showAction type="error" />;
   }
 
   if (error || !imageUrl) {
@@ -242,7 +244,7 @@ const AIImage: React.FC<AIImageProps> = ({
             onClick={handleOpenKeyPicker}
             className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-white transition-colors"
           >
-            Link Paid API Key
+            Provision Personal Key
           </button>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 const StrategyRoom: React.FC = () => {
   const [isActive, setIsActive] = useState(false);
   const [status, setStatus] = useState('Offline');
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [transcription, setTranscription] = useState<string[]>([]);
   
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -46,6 +47,7 @@ const StrategyRoom: React.FC = () => {
   const startSession = async () => {
     setIsActive(true);
     setStatus('Initializing Neural Link...');
+    setErrorDetail(null);
     
     try {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
@@ -97,8 +99,21 @@ const StrategyRoom: React.FC = () => {
               setTranscription(prev => [...prev.slice(-4), message.serverContent!.outputTranscription!.text]);
             }
           },
-          onerror: (e) => setStatus('Neural Link Error'),
-          onclose: () => setStatus('Offline')
+          onerror: (e: any) => {
+            console.error("Live Session Error:", e);
+            const msg = e.message || "";
+            if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
+              setStatus('QUOTA_EXHAUSTED');
+              setErrorDetail('The shared API quota has been exhausted. Please link your personal paid API key to restore service.');
+            } else {
+              setStatus('Neural Link Error');
+              setErrorDetail(msg || 'Connection unstable.');
+            }
+          },
+          onclose: () => {
+            if (isActive) setStatus('Connection Terminated');
+            else setStatus('Offline');
+          }
         },
         config: {
           responseModalities: [Modality.AUDIO],
@@ -108,9 +123,15 @@ const StrategyRoom: React.FC = () => {
       });
 
       sessionPromiseRef.current = sessionPromise;
-    } catch (e) {
+    } catch (e: any) {
       console.error("AI Session Initialization Failed:", e);
-      setStatus('Access Denied: Microphone Restricted');
+      if (e.name === 'NotAllowedError' || e.name === 'NotFoundError') {
+        setStatus('Access Denied');
+        setErrorDetail('Microphone permissions are required for voice consultation.');
+      } else {
+        setStatus('Infrastructure Offline');
+        setErrorDetail(e.message || 'System handshake failed.');
+      }
       setIsActive(false);
     }
   };
@@ -118,10 +139,21 @@ const StrategyRoom: React.FC = () => {
   const stopSession = () => {
     setIsActive(false);
     setStatus('Offline');
+    setErrorDetail(null);
     if (audioContextRef.current) audioContextRef.current.close();
     if (outputAudioContextRef.current) outputAudioContextRef.current.close();
     sourcesRef.current.forEach(s => s.stop());
     sourcesRef.current.clear();
+  };
+
+  const handleOpenKeyPicker = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio) {
+      await aistudio.openSelectKey();
+      // Restart attempt after key selection
+      stopSession();
+      setTimeout(() => startSession(), 500);
+    }
   };
 
   return (
@@ -129,8 +161,11 @@ const StrategyRoom: React.FC = () => {
       <div className="text-center space-y-6">
         <h2 className="text-6xl font-black text-white tracking-tighter italic">Strategy Room</h2>
         <p className="text-slate-400 font-bold text-lg">Real-time voice-to-voice consultation with Flowgent Intelligence.</p>
-        <div className={`inline-flex items-center gap-3 px-6 py-2 rounded-full border ${isActive ? 'bg-green-600/10 border-green-500/20 text-green-500' : 'bg-slate-800 border-white/5 text-slate-500'}`}>
-          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`}></div>
+        <div className={`inline-flex items-center gap-3 px-6 py-2 rounded-full border ${
+          status === 'QUOTA_EXHAUSTED' ? 'bg-amber-600/10 border-amber-500/20 text-amber-500' :
+          isActive ? 'bg-green-600/10 border-green-500/20 text-green-500' : 'bg-slate-800 border-white/5 text-slate-500'
+        }`}>
+          <div className={`w-2 h-2 rounded-full ${status === 'QUOTA_EXHAUSTED' ? 'bg-amber-500' : isActive ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`}></div>
           <span className="text-[10px] font-black uppercase tracking-widest">{status}</span>
         </div>
       </div>
@@ -138,20 +173,38 @@ const StrategyRoom: React.FC = () => {
       <div className="bg-slate-900 rounded-[64px] p-20 border border-white/5 shadow-2xl relative overflow-hidden flex flex-col items-center justify-center min-h-[400px]">
         {isActive ? (
           <div className="flex flex-col items-center gap-12 w-full">
-            <div className="flex gap-2 h-24 items-center">
-              {[...Array(24)].map((_, i) => (
-                <div key={i} className="w-1.5 bg-blue-500 rounded-full animate-bounce" style={{ height: `${20 + Math.random() * 80}%`, animationDelay: `${i * 0.05}s` }}></div>
-              ))}
-            </div>
-            <div className="w-full space-y-3 bg-white/5 p-8 rounded-[32px] border border-white/5 min-h-[120px]">
-              <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-2 italic">Neural Transcription</p>
-              {transcription.length > 0 ? transcription.map((t, i) => (
-                <p key={i} className="text-sm font-medium text-slate-300 italic">"{t}"</p>
-              )) : (
-                <p className="text-sm font-medium text-slate-600 italic">Monitoring neural throughput...</p>
-              )}
-            </div>
-            <button onClick={stopSession} className="bg-red-600 text-white font-black px-12 py-5 rounded-2xl text-xs uppercase tracking-widest hover:bg-red-500 transition-all shadow-xl shadow-red-600/20">End Session</button>
+            {status === 'QUOTA_EXHAUSTED' ? (
+              <div className="text-center space-y-8 animate-in zoom-in">
+                <div className="w-24 h-24 bg-amber-600/20 rounded-full flex items-center justify-center mx-auto text-4xl">⚡</div>
+                <div className="space-y-4">
+                  <h3 className="text-2xl font-black text-white italic tracking-tighter">Capacity Limit Reached</h3>
+                  <p className="text-slate-400 text-sm max-w-md mx-auto leading-relaxed">{errorDetail}</p>
+                </div>
+                <button 
+                  onClick={handleOpenKeyPicker}
+                  className="bg-blue-600 text-white font-black px-12 py-5 rounded-2xl text-[10px] uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20"
+                >
+                  Link Personal API Key
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2 h-24 items-center">
+                  {[...Array(24)].map((_, i) => (
+                    <div key={i} className="w-1.5 bg-blue-500 rounded-full animate-bounce" style={{ height: `${20 + Math.random() * 80}%`, animationDelay: `${i * 0.05}s` }}></div>
+                  ))}
+                </div>
+                <div className="w-full space-y-3 bg-white/5 p-8 rounded-[32px] border border-white/5 min-h-[120px]">
+                  <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-2 italic">Neural Transcription</p>
+                  {transcription.length > 0 ? transcription.map((t, i) => (
+                    <p key={i} className="text-sm font-medium text-slate-300 italic">"{t}"</p>
+                  )) : (
+                    <p className="text-sm font-medium text-slate-600 italic">Monitoring neural throughput...</p>
+                  )}
+                </div>
+                <button onClick={stopSession} className="bg-red-600 text-white font-black px-12 py-5 rounded-2xl text-xs uppercase tracking-widest hover:bg-red-500 transition-all shadow-xl shadow-red-600/20">End Session</button>
+              </>
+            )}
           </div>
         ) : (
           <div className="text-center space-y-10">

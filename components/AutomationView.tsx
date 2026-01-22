@@ -31,8 +31,8 @@ const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStat
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        <div className="bg-[#0f172a] rounded-[64px] p-16 text-white shadow-2xl border border-white/5 space-y-10 relative overflow-hidden group">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="lg:col-span-2 bg-[#0f172a] rounded-[64px] p-16 text-white shadow-2xl border border-white/5 space-y-10 relative overflow-hidden group">
            <div className="absolute top-0 right-0 p-12 opacity-5 group-hover:opacity-10 transition-opacity">
               <svg width="150" height="150" viewBox="0 0 100 100"><circle cx="100" cy="100" r="80" fill="none" stroke="white" strokeWidth="2" strokeDasharray="10 10"/></svg>
            </div>
@@ -68,41 +68,34 @@ const AutomationView: React.FC<AutomationViewProps> = ({ workflows, onToggleStat
            </div>
         </div>
 
-        <div className="bg-white rounded-[64px] border border-slate-200 p-16 shadow-sm space-y-8 flex flex-col">
-           <div className="flex justify-between items-center">
-              <h3 className="text-3xl font-black text-slate-900 tracking-tighter italic leading-none">Telemetry Log</h3>
-              <div className="flex gap-1">
-                 {[...Array(4)].map((_, i) => (
-                   <div key={i} className="w-1 h-4 bg-slate-200 rounded-full animate-pulse" style={{ animationDelay: `${i * 0.2}s` }}></div>
-                 ))}
-              </div>
-           </div>
-           <div className="space-y-6 flex-1 max-h-[450px] overflow-y-auto pr-4 custom-scrollbar">
-             {signals.length > 0 ? signals.map((log, i) => (
-               <div key={i} className="flex items-center gap-6 p-7 bg-slate-50 rounded-[32px] border border-slate-100 group hover:bg-white hover:border-blue-200 transition-all hover:shadow-2xl">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0 ${log.type === 'tool' ? 'bg-blue-50 border border-blue-100' : 'bg-slate-200 border border-slate-300'}`}>
-                    {log.type === 'tool' ? '🧠' : '📡'}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-black text-slate-900 tracking-tight leading-tight uppercase italic">{log.text}</p>
-                    <div className="flex items-center gap-3 mt-3">
-                       <span className={`text-[8px] font-black uppercase px-3 py-1 rounded-full ${log.type === 'tool' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-900 text-white'}`}>
-                          {log.type === 'tool' ? 'Neural Node' : 'MCP Handshake'}
-                       </span>
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic tracking-tighter">{log.time}</span>
-                    </div>
-                  </div>
-                  <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)] animate-pulse"></div>
+        <div className="bg-white rounded-[64px] border border-slate-200 p-16 shadow-sm flex flex-col justify-between">
+           <div className="space-y-6">
+             <div className="flex justify-between items-center">
+               <h3 className="text-2xl font-black text-slate-900 italic tracking-tighter">Agent Zero</h3>
+               <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                 <span className="text-[9px] font-black uppercase text-blue-500">Polling</span>
                </div>
-             )) : (
-               <div className="py-32 text-center">
-                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-dashed border-slate-200">
-                    <span className="text-3xl opacity-20 italic font-black">?</span>
-                 </div>
-                 <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] italic">Monitoring neural pathways for MCP signals...</p>
+             </div>
+             <p className="text-xs text-slate-500 font-medium leading-relaxed">
+               Autonomous node performing background enrichment, scraping, and AI scoring for every incoming lead.
+             </p>
+             <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
+               <div className="flex justify-between items-center">
+                 <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Scraping Logic</span>
+                 <span className="text-[8px] font-black text-green-600 uppercase">Enabled</span>
                </div>
-             )}
+               <div className="flex justify-between items-center">
+                 <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">AI Scoring</span>
+                 <span className="text-[8px] font-black text-green-600 uppercase">Active</span>
+               </div>
+               <div className="flex justify-between items-center">
+                 <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Webhook Trigger</span>
+                 <span className="text-[8px] font-black text-blue-600 uppercase">Persistent</span>
+               </div>
+             </div>
            </div>
+           <button className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl text-[10px] uppercase tracking-widest mt-8">View Node Logs</button>
         </div>
       </div>
 
