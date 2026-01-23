@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 
@@ -56,13 +55,13 @@ const AIImage: React.FC<AIImageProps> = ({
       const hasKey = await aistudio.hasSelectedApiKey();
       if (!hasKey) {
         setNeedsKeySelection(true);
+        setIsLoading(true); // Keep loading state until they click
         setIsLoading(false);
         return;
       }
     }
 
     try {
-      // Create new instance right before call as per guidelines
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       
       const modelName = forceModel || (currentQuality === 'high' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image');
@@ -98,7 +97,7 @@ const AIImage: React.FC<AIImageProps> = ({
 
       if (is429) {
         setIsQuotaExceeded(true);
-        setError("NEURAL_QUOTA_EXHAUSTED: Shared buffer capacity reached.");
+        setError("NEURAL_QUOTA_EXHAUSTED: System limits reached. Manual key injection required.");
       } else if (errorMessage.includes('403') || errorMessage.includes('PERMISSION_DENIED')) {
         setNeedsKeySelection(true);
       } else {
@@ -116,60 +115,60 @@ const AIImage: React.FC<AIImageProps> = ({
     const aistudio = (window as any).aistudio;
     if (aistudio) {
       await aistudio.openSelectKey();
-      // Assume success and retry immediately as per guidelines
+      // Assume success and retry
       setCurrentQuality('high');
       generateImage();
     }
   };
 
   const NeuralHUD = ({ message, showAction = false, type = 'status' }: { message: string, showAction?: boolean, type?: 'status' | 'error' | 'quota' }) => (
-    <div className={`bg-[#020617] flex flex-col items-center justify-center p-8 text-center relative overflow-hidden ${className}`}>
+    <div className={`bg-[#020617] flex flex-col items-center justify-center p-8 text-center relative overflow-hidden ${className} min-h-[300px]`}>
       <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#2563eb 1.5px, transparent 0)', backgroundSize: '32px 32px' }}></div>
-      <div className="relative z-10 w-full max-w-md space-y-10">
-        <div className="flex flex-col items-center gap-6">
+      <div className="relative z-10 w-full max-w-md space-y-6">
+        <div className="flex flex-col items-center gap-4">
           <div className="relative">
-             <div className={`w-20 h-20 border ${type === 'quota' ? 'border-amber-500/30' : 'border-blue-500/30'} rounded-full animate-[spin_10s_linear_infinite]`}></div>
-             <div className={`absolute inset-2 border-t-2 ${type === 'quota' ? 'border-amber-500' : 'border-blue-500'} rounded-full animate-spin`}></div>
-             <div className="absolute inset-0 flex items-center justify-center text-3xl">
+             <div className={`w-16 h-16 border ${type === 'quota' ? 'border-amber-500/30' : 'border-blue-500/30'} rounded-full animate-[spin_10s_linear_infinite]`}></div>
+             <div className={`absolute inset-1.5 border-t-2 ${type === 'quota' ? 'border-amber-500' : 'border-blue-500'} rounded-full animate-spin`}></div>
+             <div className="absolute inset-0 flex items-center justify-center text-2xl">
                {type === 'quota' ? '⚡' : type === 'error' ? '📡' : '🧠'}
              </div>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1">
             <h3 className={`${type === 'quota' ? 'text-amber-500' : 'text-blue-500'} font-black uppercase tracking-[0.4em] text-[10px] italic`}>
               {type === 'quota' ? 'Quota Exhausted' : 'Neural Audit Engine'}
             </h3>
-            <p className="text-slate-200 text-xs font-bold italic opacity-80 animate-pulse">"{message}"</p>
+            <p className="text-slate-200 text-xs font-bold italic opacity-80 animate-pulse leading-snug">"{message}"</p>
           </div>
         </div>
 
         {showAction && (
-          <div className="flex flex-col gap-4 pt-6 border-t border-white/5">
+          <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
             <button 
               onClick={handleOpenKeyPicker}
-              className="bg-blue-600 text-white px-10 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20 active:scale-95"
+              className="bg-blue-600 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20 active:scale-95"
             >
               Link Personal API Key
             </button>
-            <p className="text-[9px] text-slate-500 italic leading-relaxed">
-              To bypass shared platform limits and access high-fidelity image generation, please link a paid Gemini API key from your own GCP project.
+            <p className="text-[9px] text-slate-500 italic leading-relaxed px-4">
+              Access high-fidelity image generation by linking a paid Gemini API key from your project.
               <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline block mt-1">Billing Documentation</a>
             </p>
           </div>
         )}
       </div>
-      <div className="absolute top-6 left-6">
-         <span className={`text-[8px] font-mono ${type === 'quota' ? 'text-amber-500/40' : 'text-blue-600/40'} font-black uppercase tracking-widest`}>LIVE_TELEMETRY: [NODE_JSK8SNXZ]</span>
+      <div className="absolute top-4 left-4">
+         <span className={`text-[7px] font-mono ${type === 'quota' ? 'text-amber-500/40' : 'text-blue-600/40'} font-black uppercase tracking-widest`}>STATUS: {type.toUpperCase()}</span>
       </div>
     </div>
   );
 
   if (isLoading) return <NeuralHUD message={hudText} />;
-  if (isQuotaExceeded) return <NeuralHUD message="RESOURCE_EXHAUSTED: System limits reached. Manual key injection required." showAction type="quota" />;
+  if (isQuotaExceeded) return <NeuralHUD message="RESOURCE_EXHAUSTED: Neural quota reached. Link a personal key to continue." showAction type="quota" />;
   if (needsKeySelection) return <NeuralHUD message="AUTHENTICATION_REQUIRED: High-fidelity node requires a personal API key." showAction type="error" />;
 
   if (error || !imageUrl) {
     return (
-      <div className={`bg-[#020617] flex flex-col items-center justify-center p-12 text-center border border-white/5 ${className}`}>
+      <div className={`bg-[#020617] flex flex-col items-center justify-center p-8 text-center border border-white/5 ${className} min-h-[300px]`}>
         <p className="text-slate-500 font-black uppercase tracking-widest text-[9px] mb-4">{error || 'Handshake Stalled'}</p>
         <button onClick={() => generateImage()} className="text-[10px] font-black text-blue-500 uppercase tracking-widest hover:underline">Retry Signal</button>
       </div>

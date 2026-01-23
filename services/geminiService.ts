@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { AuditResult, Lead } from "../types";
 
@@ -13,7 +12,6 @@ const getAI = () => {
 
 /**
  * MCP-Compliant Tool for Orchestration.
- * Aligned with InsForge 'audit_logs' and 'leads' table schema.
  */
 export const n8nToolDeclaration: FunctionDeclaration = {
   name: 'trigger_n8n_signal',
@@ -33,7 +31,6 @@ export const n8nToolDeclaration: FunctionDeclaration = {
 
 /**
  * MCP Documentation Tool.
- * Used to learn about InsForge specific instructions.
  */
 export const insforgeDocsTool: FunctionDeclaration = {
   name: 'insforge_fetch_docs',
@@ -121,7 +118,7 @@ export const generateAuditWithTools = async (lead: Lead): Promise<{ audit: Audit
     const isQuota = errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED');
     
     if (isQuota) {
-      console.error("QUOTA_EXHAUSTED: System limits reached. Falling back to simulated logic.");
+      console.warn("QUOTA_EXHAUSTED: Falling back to simulated logic.");
       return { audit: getSimulatedAudit(), isQuotaError: true };
     }
     return { audit: getSimulatedAudit() };
