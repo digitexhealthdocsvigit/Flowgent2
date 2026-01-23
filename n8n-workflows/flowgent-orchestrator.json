@@ -1,0 +1,83 @@
+{
+  "name": "Flowgent Orchestrator - Complete Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "flowgent-orchestrator",
+        "options": {}
+      },
+      "name": "Webhook Entry Point",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json[\"readiness_score\"]}}",
+              "operation": "largerEqual",
+              "value2": 80
+            }
+          ]
+        }
+      },
+      "name": "Hot Opportunity Filter",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot{{$env[\"TELEGRAM_BOT_TOKEN\"]}}/sendMessage",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{$env[\"TELEGRAM_CHAT_ID\"]}}"
+            },
+            {
+              "name": "text",
+              "value": "🔥 <b>HOT LEAD DETECTED!</b>\n\n<b>Business:</b> {{$json[\"business_name\"]}}\n<b>Score:</b> {{$json[\"readiness_score\"]}}/100\n<b>Action:</b> Triggering Sales Handshake."
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        }
+      },
+      "name": "Send Telegram Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"success\",\"node\":\"JSK8SNXZ\"}",
+        "options": {}
+      },
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Entry Point": {
+      "main": [[{"node": "Hot Opportunity Filter", "type": "main", "index": 0}]]
+    },
+    "Hot Opportunity Filter": {
+      "main": [
+        [{"node": "Send Telegram Alert", "type": "main", "index": 0}],
+        [{"node": "Webhook Response", "type": "main", "index": 0}]
+      ]
+    },
+    "Send Telegram Alert": {
+      "main": [[{"node": "Webhook Response", "type": "main", "index": 0}]]
+    }
+  }
+}
