@@ -1,3 +1,3 @@
-// Simple healthcheck to ensure the process is running
-console.log('OK');
+// Standard Docker Healthcheck
+console.log('AGENT_ZERO_STATUS: OPERATIONAL');
 process.exit(0);
