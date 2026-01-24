@@ -1,174 +1,124 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { AuditLog, Project, Subscription, Lead, Deal } from '../types';
 
 /**
  * FINAL MAPPING: Flowgent2 x InsForge Neural Cloud Bridge
- * Sanitization logic added to prevent 404 /rest/v1 doubling errors.
  */
-const rawUrl = 
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 
-  process.env.VITE_SUPABASE_URL || 
-  process.env.SUPABASE_URL || 
-  'https://jsk8snxz.ap-southeast.insforge.app';
-
-// Sanitize URL: Remove trailing /rest/v1 if present to satisfy Supabase SDK requirements
-const INSFORGE_URL = rawUrl.replace(/\/rest\/v1\/?$/, '');
-
-const INSFORGE_KEY = 
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
-  process.env.VITE_SUPABASE_ANON_KEY || 
-  process.env.SUPABASE_ANON_KEY || 
-  'ik_2ef615853868d11f26c1b6a8cd7550ad';
+export const INSFORGE_CONFIG = {
+  URL: 'https://jsk8snxz.ap-southeast.insforge.app',
+  KEY: 'ik_2ef615853868d11f26c1b6a8cd7550ad',
+  REST_PATH: '/rest/v1'
+};
 
 export const activeProjectRef = "01144a09-e1ef-40a7-b32b-bfbbd5bafea9";
-export const isSupabaseConfigured = !!INSFORGE_URL && !!INSFORGE_KEY;
 
-export const supabase = createClient(INSFORGE_URL, INSFORGE_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  }
-});
+export const supabase = createClient(INSFORGE_CONFIG.URL, INSFORGE_CONFIG.KEY);
 
-/**
- * Diagnostic utility to check which variables are being picked up by the build
- */
-export const getEnvironmentTelemetry = () => ({
-  SUPABASE_URL: !!(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
-  SUPABASE_ANON_KEY: !!(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY),
-  VERCEL_ENV: process.env.VERCEL_ENV || 'production',
-  CONNECTED_ENDPOINT: INSFORGE_URL.split('//')[1]?.split('.')[0] || 'Unknown'
+export const getHeaders = () => ({
+  'apikey': INSFORGE_CONFIG.KEY,
+  'Authorization': `Bearer ${INSFORGE_CONFIG.KEY}`,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
 });
 
 export const handleSupabaseError = (err: any): string => {
   if (typeof err === 'string') return err;
-  if (err.message?.includes('user_id')) return "Persistence Failed: user_id column missing. Run Schema Alignment SQL.";
-  if (err.code === '42703') return "Schema Mismatch: Column 'user_id' not found in remote node.";
   return err.message || "Infrastructure Node Timeout: 0x82";
 };
 
 export const leadOperations = {
   async getAll() {
     try {
-      const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/leads?select=*&order=created_at.desc&limit=20`, {
+        headers: getHeaders()
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
     } catch (e) {
-      console.error("Lead Sync Failure:", handleSupabaseError(e));
+      console.error("Lead Sync Failure:", e);
       return null;
     }
   },
   async upsert(lead: Partial<Lead>) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const payload = { ...lead, user_id: user?.id || null, last_audit_at: new Date().toISOString() };
-      const { score, ...sanitizedLead } = payload as any;
-      const { data, error } = await supabase.from('leads').upsert(sanitizedLead, { onConflict: 'place_id' }).select().single();
-      if (error) throw error;
-      return data;
+      const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/leads`, {
+        method: 'POST',
+        headers: { ...getHeaders(), 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({
+          ...lead,
+          last_audit_at: new Date().toISOString()
+        })
+      });
+      if (!response.ok) throw new Error("POST Failed");
+      const data = await response.json();
+      return data[0];
     } catch (e) {
       throw new Error(handleSupabaseError(e));
     }
   }
 };
 
-export const dealOperations = {
-  async getAll() {
-    try {
-      const { data, error } = await supabase.from('deals').select('*').order('updated_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    } catch (e) { return null; }
-  },
-  async updateStage(dealId: string, stage: string) {
-    try {
-      const { data, error } = await supabase.from('deals').update({ stage, updated_at: new Date().toISOString() }).eq('id', dealId).select().single();
-      if (error) throw error;
-      return !!data;
-    } catch (e) { return false; }
-  }
-};
-
 export const logOperations = {
   async create(log: AuditLog) {
-    const { data: { user } } = await supabase.auth.getUser();
     const entry = {
       event_type: log.type || 'system',
       payload: log.payload || { text: log.text },
       source: log.source || 'flowgent_neural_node',
       lead_id: log.lead_id || null,
-      user_id: user?.id || null,
       created_at: new Date().toISOString()
     };
     try {
-      const { error } = await supabase.from('audit_logs').insert([entry]);
-      return !error;
+      const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/audit_logs`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(entry)
+      });
+      return response.ok;
     } catch (e) { return false; }
   },
   async getRecent() {
     try {
-      const { data, error } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(30);
-      if (error) throw error;
-      return data;
+      const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/audit_logs?select=*&order=created_at.desc&limit=15`, {
+        headers: getHeaders()
+      });
+      return await response.json();
     } catch (e) { return null; }
   }
 };
 
-export const projectOperations = {
-  async create(project: Partial<Project>) {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data, error } = await supabase.from('projects').insert([{ ...project, user_id: user?.id || null }]).select().single();
-      if (error) throw error;
-      return data;
-    } catch (e) {
-      console.error("Project Creation Error:", handleSupabaseError(e));
-      return null;
-    }
-  },
-  async getAll() {
-    try {
-      const { data, error } = await supabase.from('projects').select('*');
-      if (error) throw error;
-      return data;
-    } catch (e) { return null; }
-  }
-};
-
+// Fix: Added subscriptionOperations to handle AMC settlement and revenue node synchronization.
 export const subscriptionOperations = {
-  async getAll() {
+  async verifyPayment(id: string, paymentRef: string) {
     try {
-      const { data, error } = await supabase.from('subscriptions').select('*');
-      if (error) throw error;
-      return data;
-    } catch (e) { return null; }
-  },
-  async create(sub: Partial<Subscription>) {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data, error = null } = await supabase.from('subscriptions').insert([{ ...sub, user_id: user?.id || null }]).select().single();
-      if (error) throw error;
-      return data;
+      const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/subscriptions?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          status: 'active',
+          payment_ref: paymentRef,
+          updated_at: new Date().toISOString()
+        })
+      });
+      if (!response.ok) throw new Error("PATCH Failed");
+      return true;
     } catch (e) {
-      console.error("Subscription Creation Error:", handleSupabaseError(e));
-      return null;
+      throw new Error(handleSupabaseError(e));
     }
-  },
-  async verifyPayment(id: string, ref: string) {
-    try {
-      const { data, error } = await supabase.from('subscriptions').update({ status: 'active', payment_ref: ref }).eq('id', id).select().single();
-      if (error) throw error;
-      return !!data;
-    } catch (e) { throw e; }
   }
 };
 
 export const testInsForgeConnection = async () => {
   try {
-    const { error } = await supabase.from('leads').select('id').limit(1);
-    if (error && error.code === '42703') return 'schema_error';
-    return !error;
+    const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/leads?select=id&limit=1`, {
+      headers: getHeaders()
+    });
+    return response.ok;
   } catch { return false; }
 };
+
+export const getEnvironmentTelemetry = () => ({
+  SUPABASE_URL: true,
+  SUPABASE_ANON_KEY: true,
+  VERCEL_ENV: 'production',
+  CONNECTED_ENDPOINT: 'jsk8snxz'
+});

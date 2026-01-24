@@ -1,7 +1,7 @@
 {
   "name": "flowgent-agentzero",
   "version": "1.0.0",
-  "description": "Autonomous AI agent for Flowgent2 - background enrichment & workflow trigger",
+  "description": "Autonomous AI agent for Flowgent2 – background enrichment & workflow trigger",
   "main": "agent.js",
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "test": "node healthcheck.js"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
+    "@google/genai": "^1.35.0",
     "@supabase/supabase-js": "^2.48.1",
     "dotenv": "^17.2.3",
     "node-fetch": "^3.3.2"

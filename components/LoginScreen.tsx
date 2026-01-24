@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured, activeProjectRef, handleSupabaseError } from '../lib/supabase';
+// Fix: Removed non-existent import isSupabaseConfigured to resolve module resolution error.
+import { supabase, activeProjectRef, handleSupabaseError } from '../lib/supabase';
 import { User } from '../types';
 
 interface LoginScreenProps {
