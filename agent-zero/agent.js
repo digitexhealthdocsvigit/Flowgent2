@@ -2,12 +2,15 @@ import fetch from "node-fetch";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenAI } from "@google/genai";
 
-const SUPABASE_URL = "https://jsk8snxz.ap-southeast.insforge.app";
+const SUPABASE_URL = "https://jsk8snxz.ap-southeast.insforge.app/rest/v1";
 const SUPABASE_KEY = "ik_2ef615853868d11f26c1b6a8cd7550ad";
 const GEMINI_API_KEY = "AIzaSyBPs2T-1zpAo1q_huSx4dOt-CB-aPwPCmY";
 const POLL_INTERVAL = 300000;
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: false }
+});
+
 const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
 
 async function runAgent() {
