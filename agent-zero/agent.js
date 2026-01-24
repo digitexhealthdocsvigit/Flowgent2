@@ -9,12 +9,13 @@ const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300") * 1000;
 const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
 
 async function queryInsForge(table, filters = {}) {
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ select: '*', limit: '5' });
+  
   Object.entries(filters).forEach(([key, value]) => {
     params.append(key, `eq.${value}`);
   });
   
-  const url = `${INSFORGE_URL}/rest/v1/${table}?${params.toString()}&limit=5`;
+  const url = `${INSFORGE_URL}/rest/v1/${table}?${params.toString()}`;
   
   const response = await fetch(url, {
     method: 'GET',
@@ -58,7 +59,6 @@ async function updateInsForge(table, id, data) {
 async function runAgent() {
   try {
     log("🔍 Polling new leads from InsForge...");
-    log(`📡 URL: ${INSFORGE_URL}/rest/v1/leads`);
     
     const leads = await queryInsForge('leads', { ai_audit_completed: false });
     
@@ -122,7 +122,6 @@ async function runAgent() {
 
 log("🚀 Flowgent Agent Zero initialized");
 log(`⏰ Polling every ${POLL_INTERVAL / 1000} seconds`);
-log(`🔑 Using API Key: ${GEMINI_API_KEY.substring(0, 10)}...`);
 
 runAgent();
 setInterval(runAgent, POLL_INTERVAL);
