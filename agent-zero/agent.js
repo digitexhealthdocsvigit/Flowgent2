@@ -1,10 +1,10 @@
 import fetch from "node-fetch";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const INSFORGE_URL = "https://jsk8snxz.ap-southeast.insforge.app/rest/v1";
-const INSFORGE_KEY = "ik_2ef615853868d11f26c1b6a8cd7550ad";
-const GEMINI_API_KEY = "AIzaSyBPs2T-1zpAo1q_huSx4dOt-CB-aPwPCmY";
-const POLL_INTERVAL = 300000;
+const INSFORGE_URL = process.env.SUPABASE_URL || "https://jsk8snxz.ap-southeast.insforge.app";
+const INSFORGE_KEY = process.env.SUPABASE_SERVICE_KEY || "ik_2ef615853868d11f26c1b6a8cd7550ad";
+const GEMINI_API_KEY = process.env.API_KEY || "AIzaSyBPs2T-1zpAo1q_huSx4dOt-CB-aPwPCmY";
+const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300") * 1000;
 
 const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
 
@@ -14,28 +14,27 @@ async function queryInsForge(table, filters = {}) {
     params.append(key, `eq.${value}`);
   });
   
-  const url = `${INSFORGE_URL}/${table}?${params.toString()}&limit=5`;
+  const url = `${INSFORGE_URL}/rest/v1/${table}?${params.toString()}&limit=5`;
   
   const response = await fetch(url, {
     method: 'GET',
     headers: {
       'apikey': INSFORGE_KEY,
       'Authorization': `Bearer ${INSFORGE_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
+      'Content-Type': 'application/json'
     }
   });
   
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`HTTP ${response.status}: ${text}`);
+    throw new Error(`Query failed: ${response.status} - ${text.substring(0, 200)}`);
   }
   
   return await response.json();
 }
 
 async function updateInsForge(table, id, data) {
-  const url = `${INSFORGE_URL}/${table}?id=eq.${id}`;
+  const url = `${INSFORGE_URL}/rest/v1/${table}?id=eq.${id}`;
   
   const response = await fetch(url, {
     method: 'PATCH',
@@ -50,7 +49,7 @@ async function updateInsForge(table, id, data) {
   
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`HTTP ${response.status}: ${text}`);
+    throw new Error(`Update failed: ${response.status} - ${text.substring(0, 200)}`);
   }
   
   return await response.json();
@@ -59,6 +58,7 @@ async function updateInsForge(table, id, data) {
 async function runAgent() {
   try {
     log("🔍 Polling new leads from InsForge...");
+    log(`📡 URL: ${INSFORGE_URL}/rest/v1/leads`);
     
     const leads = await queryInsForge('leads', { ai_audit_completed: false });
     
@@ -69,7 +69,8 @@ async function runAgent() {
 
     log(`📊 Found ${leads.length} leads to process`);
 
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     for (const lead of leads) {
       log(`📝 Processing: ${lead.business_name}`);
@@ -80,12 +81,9 @@ async function runAgent() {
       try {
         const prompt = `Rate this business digital readiness 0-100: ${lead.business_name}, ${lead.category || 'Unknown'}, Has website: ${lead.has_website}`;
         
-        const response = await ai.models.generateContent({
-          model: "gemini-1.5-flash",
-          contents: prompt,
-        });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
         
-        const text = response.text || "";
         const match = text.match(/(\d+)\/100|Score:\s*(\d+)/i);
         readiness_score = match ? parseInt(match[1] || match[2], 10) : 50;
         ai_insights = text.substring(0, 500);
@@ -122,8 +120,9 @@ async function runAgent() {
   }
 }
 
-log("🚀 Flowgent Agent Zero initialized - Direct REST API");
+log("🚀 Flowgent Agent Zero initialized");
 log(`⏰ Polling every ${POLL_INTERVAL / 1000} seconds`);
+log(`🔑 Using API Key: ${GEMINI_API_KEY.substring(0, 10)}...`);
 
 runAgent();
 setInterval(runAgent, POLL_INTERVAL);
