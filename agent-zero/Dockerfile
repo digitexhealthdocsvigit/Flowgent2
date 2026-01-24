@@ -19,9 +19,6 @@ HEALTHCHECK --interval=60s --timeout=10s \
 
 # Start the Agent Zero service
 CMD ["node", "agent.js"]
-```
-
----
 
 ## 🎯 WHAT EACH LINE DOES
 
@@ -62,4 +59,4 @@ Let me explain the Dockerfile line by line:
 - **Why array syntax:** More reliable, handles signals properly, cleaner logs
 - **Result:** Agent Zero begins polling InsForge every 5 minutes
 
----
+
