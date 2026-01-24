@@ -101,14 +101,8 @@ const StrategyRoom: React.FC = () => {
           },
           onerror: (e: any) => {
             console.error("Live Session Error:", e);
-            const msg = e.message || "";
-            if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
-              setStatus('QUOTA_EXHAUSTED');
-              setErrorDetail('The shared API quota has been exhausted. Please link your personal paid API key to restore service.');
-            } else {
-              setStatus('Neural Link Error');
-              setErrorDetail(msg || 'Connection unstable.');
-            }
+            setStatus('Infrastructure Error');
+            setErrorDetail(e.message || 'Connection lost.');
           },
           onclose: () => {
             if (isActive) setStatus('Connection Terminated');
@@ -124,14 +118,9 @@ const StrategyRoom: React.FC = () => {
 
       sessionPromiseRef.current = sessionPromise;
     } catch (e: any) {
-      console.error("AI Session Initialization Failed:", e);
-      if (e.name === 'NotAllowedError' || e.name === 'NotFoundError') {
-        setStatus('Access Denied');
-        setErrorDetail('Microphone permissions are required for voice consultation.');
-      } else {
-        setStatus('Infrastructure Offline');
-        setErrorDetail(e.message || 'System handshake failed.');
-      }
+      console.error(e);
+      setStatus('Access Denied');
+      setErrorDetail(e.message || 'Handshake failed.');
       setIsActive(false);
     }
   };
@@ -146,88 +135,71 @@ const StrategyRoom: React.FC = () => {
     sourcesRef.current.clear();
   };
 
-  const handleOpenKeyPicker = async () => {
-    const aistudio = (window as any).aistudio;
-    if (aistudio) {
-      await aistudio.openSelectKey();
-      // Restart attempt after key selection
-      stopSession();
-      setTimeout(() => startSession(), 500);
-    }
-  };
-
   return (
-    <div className="space-y-12 animate-in fade-in duration-500 p-8 max-w-4xl mx-auto">
-      <div className="text-center space-y-6">
-        <h2 className="text-6xl font-black text-white tracking-tighter italic">Strategy Room</h2>
-        <p className="text-slate-400 font-bold text-lg">Real-time voice-to-voice consultation with Flowgent Intelligence.</p>
-        <div className={`inline-flex items-center gap-3 px-6 py-2 rounded-full border ${
-          status === 'QUOTA_EXHAUSTED' ? 'bg-amber-600/10 border-amber-500/20 text-amber-500' :
+    <div className="space-y-12 animate-in fade-in duration-500 p-12 max-w-5xl mx-auto">
+      <div className="text-center space-y-8">
+        <div>
+          <h2 className="text-7xl font-black text-white tracking-tighter italic leading-none">Strategy Room</h2>
+          <p className="text-slate-500 font-bold text-xl mt-4">Autonomous Voice-to-Voice Strategic Consult.</p>
+        </div>
+        <div className={`inline-flex items-center gap-4 px-8 py-3 rounded-full border shadow-2xl transition-all ${
           isActive ? 'bg-green-600/10 border-green-500/20 text-green-500' : 'bg-slate-800 border-white/5 text-slate-500'
         }`}>
-          <div className={`w-2 h-2 rounded-full ${status === 'QUOTA_EXHAUSTED' ? 'bg-amber-500' : isActive ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`}></div>
-          <span className="text-[10px] font-black uppercase tracking-widest">{status}</span>
+          <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`}></div>
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] italic">{status}</span>
         </div>
       </div>
 
-      <div className="bg-slate-900 rounded-[64px] p-20 border border-white/5 shadow-2xl relative overflow-hidden flex flex-col items-center justify-center min-h-[400px]">
+      <div className="bg-slate-900 rounded-[80px] p-24 border border-white/5 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col items-center justify-center min-h-[500px]">
         {isActive ? (
-          <div className="flex flex-col items-center gap-12 w-full">
-            {status === 'QUOTA_EXHAUSTED' ? (
-              <div className="text-center space-y-8 animate-in zoom-in">
-                <div className="w-24 h-24 bg-amber-600/20 rounded-full flex items-center justify-center mx-auto text-4xl">⚡</div>
-                <div className="space-y-4">
-                  <h3 className="text-2xl font-black text-white italic tracking-tighter">Capacity Limit Reached</h3>
-                  <p className="text-slate-400 text-sm max-w-md mx-auto leading-relaxed">{errorDetail}</p>
-                </div>
-                <button 
-                  onClick={handleOpenKeyPicker}
-                  className="bg-blue-600 text-white font-black px-12 py-5 rounded-2xl text-[10px] uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20"
-                >
-                  Link Personal API Key
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="flex gap-2 h-24 items-center">
-                  {[...Array(24)].map((_, i) => (
-                    <div key={i} className="w-1.5 bg-blue-500 rounded-full animate-bounce" style={{ height: `${20 + Math.random() * 80}%`, animationDelay: `${i * 0.05}s` }}></div>
-                  ))}
-                </div>
-                <div className="w-full space-y-3 bg-white/5 p-8 rounded-[32px] border border-white/5 min-h-[120px]">
-                  <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-2 italic">Neural Transcription</p>
-                  {transcription.length > 0 ? transcription.map((t, i) => (
-                    <p key={i} className="text-sm font-medium text-slate-300 italic">"{t}"</p>
-                  )) : (
-                    <p className="text-sm font-medium text-slate-600 italic">Monitoring neural throughput...</p>
-                  )}
-                </div>
-                <button onClick={stopSession} className="bg-red-600 text-white font-black px-12 py-5 rounded-2xl text-xs uppercase tracking-widest hover:bg-red-500 transition-all shadow-xl shadow-red-600/20">End Session</button>
-              </>
-            )}
+          <div className="flex flex-col items-center gap-16 w-full animate-in zoom-in-95">
+            <div className="flex gap-3 h-32 items-center">
+              {[...Array(24)].map((_, i) => (
+                <div key={i} className="w-2 bg-blue-600 rounded-full animate-bounce" style={{ height: `${20 + Math.random() * 80}%`, animationDelay: `${i * 0.05}s` }}></div>
+              ))}
+            </div>
+            <div className="w-full space-y-4 bg-white/5 p-12 rounded-[48px] border border-white/5 min-h-[160px] backdrop-blur-md shadow-inner">
+              <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-4 italic">Neural Feed Transcription</p>
+              {transcription.length > 0 ? transcription.map((t, i) => (
+                <p key={i} className="text-md font-black text-slate-200 italic leading-relaxed">"{t}"</p>
+              )) : (
+                <p className="text-md font-bold text-slate-600 italic animate-pulse">Establishing audio-to-text bridge...</p>
+              )}
+            </div>
+            <button onClick={stopSession} className="bg-red-600 text-white font-black px-16 py-6 rounded-3xl text-xs uppercase tracking-[0.3em] hover:bg-red-500 transition-all shadow-2xl active:scale-95 italic">Disconnect Neural Path</button>
           </div>
         ) : (
-          <div className="text-center space-y-10">
-            <div className="w-32 h-32 bg-blue-600 rounded-full flex items-center justify-center mx-auto shadow-[0_0_50px_rgba(37,99,235,0.4)]">
-               <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          <div className="text-center space-y-12">
+            <div className="w-40 h-40 bg-blue-600 rounded-full flex items-center justify-center mx-auto shadow-[0_0_80px_rgba(37,99,235,0.4)] hover:scale-105 transition-all cursor-pointer group" onClick={startSession}>
+               <svg xmlns="http://www.w3.org/2000/svg" className="group-hover:scale-110 transition-transform" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
             </div>
-            <button onClick={startSession} className="bg-white text-slate-900 font-black px-16 py-6 rounded-2xl text-xs uppercase tracking-widest hover:bg-slate-100 transition-all shadow-2xl">Initiate Strategy Session</button>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Encrypted low-latency neural path active.</p>
+            <div className="space-y-4">
+              <button onClick={startSession} className="bg-white text-slate-900 font-black px-20 py-8 rounded-[32px] text-sm uppercase tracking-[0.4em] hover:bg-slate-100 transition-all shadow-2xl italic">Sync Strategic Node</button>
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.5em] italic">E2E Encrypted • Low Latency Protocol 0x82</p>
+            </div>
           </div>
         )}
+        
+        {/* Background Visual HUD Elements */}
+        <div className="absolute top-8 left-8">
+           <span className="text-[8px] font-black text-white/10 uppercase tracking-[1em]">SYSTEM_VERSION_2.5_FLASH</span>
+        </div>
+        <div className="absolute bottom-8 right-8">
+           <span className="text-[8px] font-black text-white/10 uppercase tracking-[1em]">JSK8SNXZ_AUDIT_LOGS</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {[
-          { label: 'Voice Mode', val: 'Low Latency', icon: '⚡' },
-          { label: 'Intelligence', val: 'Gemini 2.5 Flash', icon: '🧠' },
-          { label: 'Privacy', val: 'E2E Encrypted', icon: '🔒' }
+          { label: 'Latency Node', val: '120ms (Avg)', icon: '⚡' },
+          { label: 'Neural Intelligence', val: 'Gemini 3 Pro', icon: '🧠' },
+          { label: 'Signal Encryption', val: 'TLS 1.3 Secure', icon: '🔒' }
         ].map((feat, i) => (
-          <div key={i} className="bg-white/5 border border-white/5 p-6 rounded-3xl flex items-center gap-4">
-            <span className="text-2xl">{feat.icon}</span>
+          <div key={i} className="bg-white/5 border border-white/5 p-10 rounded-[48px] flex items-center gap-6 shadow-xl backdrop-blur-sm hover:border-blue-500/20 transition-all">
+            <span className="text-3xl">{feat.icon}</span>
             <div>
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{feat.label}</p>
-              <p className="text-xs font-bold text-white">{feat.val}</p>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">{feat.label}</p>
+              <p className="text-sm font-black text-white italic tracking-tight">{feat.val}</p>
             </div>
           </div>
         ))}

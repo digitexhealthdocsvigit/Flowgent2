@@ -1,5 +1,5 @@
 
-export type LeadStatus = 'Discovered' | 'Contacted' | 'Engaged' | 'Qualified' | 'Converted' | 'no_website' | 'has_website' | 'scored' | 'audit_viewed' | 'form_submitted' | 'calendar_booked' | 'proposal_sent' | 'new' | 'lost';
+export type LeadStatus = 'discovered' | 'no_website' | 'has_website' | 'scored' | 'converted' | 'contacted' | 'lost';
 export type LeadTemperature = 'hot' | 'warm' | 'cold';
 export type UserRole = 'super_admin' | 'admin' | 'sales' | 'client' | 'agent';
 export type PitchType = 'website_development' | 'seo_audit' | 'lead_gen' | 'crm_setup' | 'seo' | 'automation';
@@ -51,6 +51,29 @@ export interface Lead {
   place_id?: string;
   is_synced_to_n8n?: boolean;
   sync_timestamp?: string;
+  ai_audit_completed?: boolean;
+  ai_insights?: string;
+}
+
+export interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  company_id?: string;
+  tags: string[];
+  last_contacted?: string;
+  role?: string;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  industry: string;
+  website: string;
+  city: string;
+  contacts_count: number;
+  mrr?: number;
 }
 
 export interface AuditResult {
@@ -63,6 +86,20 @@ export interface AuditResult {
   radar_metrics?: RadarMetrics;
 }
 
+export interface DealNote {
+  id: string;
+  text: string;
+  created_at: string;
+  author: string;
+}
+
+export interface DealTask {
+  id: string;
+  title: string;
+  due_date: string;
+  is_completed: boolean;
+}
+
 export interface Deal {
   id: string;
   leadId: string;
@@ -73,6 +110,10 @@ export interface Deal {
   service_tier?: ServiceTier;
   pitch_type?: PitchType;
   lead_id?: string;
+  next_follow_up?: string;
+  notes?: DealNote[];
+  tasks?: DealTask[];
+  attachments?: string[];
 }
 
 export interface Project {

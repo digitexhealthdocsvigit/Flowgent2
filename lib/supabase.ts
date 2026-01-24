@@ -4,13 +4,16 @@ import { AuditLog, Project, Subscription, Lead, Deal } from '../types';
 
 /**
  * FINAL MAPPING: Flowgent2 x InsForge Neural Cloud Bridge
- * Aligned with Vercel Environment Variables: https://flowgent2.vercel.app/
+ * Sanitization logic added to prevent 404 /rest/v1 doubling errors.
  */
-const INSFORGE_URL = 
+const rawUrl = 
   process.env.NEXT_PUBLIC_SUPABASE_URL || 
   process.env.VITE_SUPABASE_URL || 
   process.env.SUPABASE_URL || 
   'https://jsk8snxz.ap-southeast.insforge.app';
+
+// Sanitize URL: Remove trailing /rest/v1 if present to satisfy Supabase SDK requirements
+const INSFORGE_URL = rawUrl.replace(/\/rest\/v1\/?$/, '');
 
 const INSFORGE_KEY = 
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
@@ -145,7 +148,7 @@ export const subscriptionOperations = {
   async create(sub: Partial<Subscription>) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { data, error } = await supabase.from('subscriptions').insert([{ ...sub, user_id: user?.id || null }]).select().single();
+      const { data, error = null } = await supabase.from('subscriptions').insert([{ ...sub, user_id: user?.id || null }]).select().single();
       if (error) throw error;
       return data;
     } catch (e) {
