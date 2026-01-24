@@ -14,8 +14,7 @@ RUN npm install --production
 COPY . .
 
 # Add health check (Railway auto-restarts if this fails)
-HEALTHCHECK --interval=60s --timeout=10s \
-  CMD node healthcheck.js || exit 1
+HEALTHCHECK --interval=60s --timeout=10s CMD node healthcheck.js || exit 1
 
 # Start the Agent Zero service
 CMD ["node", "agent.js"]
