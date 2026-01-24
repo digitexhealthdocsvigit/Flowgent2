@@ -1,8 +1,10 @@
+
 import { createClient } from '@supabase/supabase-js';
-import { AuditLog, Project, Subscription, Lead, Deal } from '../types';
+import { Lead, AuditLog } from '../types';
 
 /**
- * FINAL MAPPING: Flowgent2 x InsForge Neural Cloud Bridge
+ * INSFORGE NODE JSK8SNXZ - NEURAL CLOUD BRIDGE
+ * Optimized for PostgREST v12.2 (InsForge Standard)
  */
 export const INSFORGE_CONFIG = {
   URL: 'https://jsk8snxz.ap-southeast.insforge.app',
@@ -10,10 +12,11 @@ export const INSFORGE_CONFIG = {
   REST_PATH: '/rest/v1'
 };
 
-export const activeProjectRef = "01144a09-e1ef-40a7-b32b-bfbbd5bafea9";
+export const activeProjectRef = "JSK8SNXZ";
 
-export const supabase = createClient(INSFORGE_CONFIG.URL, INSFORGE_CONFIG.KEY);
-
+/**
+ * MANDATORY HEADERS FOR INSFORGE HANDSHAKE
+ */
 export const getHeaders = () => ({
   'apikey': INSFORGE_CONFIG.KEY,
   'Authorization': `Bearer ${INSFORGE_CONFIG.KEY}`,
@@ -21,59 +24,55 @@ export const getHeaders = () => ({
   'Prefer': 'return=representation'
 });
 
-export const handleSupabaseError = (err: any): string => {
-  if (typeof err === 'string') return err;
-  return err.message || "Infrastructure Node Timeout: 0x82";
-};
-
 export const leadOperations = {
   async getAll() {
     try {
-      const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/leads?select=*&order=created_at.desc&limit=20`, {
+      const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/leads?select=*&order=created_at.desc&limit=15`, {
         headers: getHeaders()
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) throw new Error(`Handshake Rejected: ${response.status}`);
       return await response.json();
     } catch (e) {
-      console.error("Lead Sync Failure:", e);
+      console.error("Cluster Sync Failure:", e);
       return null;
     }
   },
-  async upsert(lead: Partial<Lead>) {
+  async getContacts() {
+    try {
+      const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/leads?select=*&ai_audit_completed=eq.true&order=readiness_score.desc`, {
+        headers: getHeaders()
+      });
+      return response.ok ? await response.json() : null;
+    } catch (e) { return null; }
+  },
+  async create(lead: Partial<Lead>) {
     try {
       const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/leads`, {
         method: 'POST',
-        headers: { ...getHeaders(), 'Prefer': 'resolution=merge-duplicates' },
+        headers: getHeaders(),
         body: JSON.stringify({
           ...lead,
-          last_audit_at: new Date().toISOString()
+          created_at: new Date().toISOString()
         })
       });
-      if (!response.ok) throw new Error("POST Failed");
-      const data = await response.json();
-      return data[0];
-    } catch (e) {
-      throw new Error(handleSupabaseError(e));
-    }
+      return response.ok;
+    } catch (e) { return false; }
   }
 };
 
 export const logOperations = {
-  async create(log: AuditLog) {
-    const entry = {
-      event_type: log.type || 'system',
-      payload: log.payload || { text: log.text },
-      source: log.source || 'flowgent_neural_node',
-      lead_id: log.lead_id || null,
-      created_at: new Date().toISOString()
-    };
+  async create(log: Partial<AuditLog>) {
     try {
-      const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/audit_logs`, {
+      await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/audit_logs`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify(entry)
+        body: JSON.stringify({
+          ...log,
+          created_at: new Date().toISOString(),
+          source: log.source || 'flowgent_neural_node'
+        })
       });
-      return response.ok;
+      return true;
     } catch (e) { return false; }
   },
   async getRecent() {
@@ -81,12 +80,11 @@ export const logOperations = {
       const response = await fetch(`${INSFORGE_CONFIG.URL}${INSFORGE_CONFIG.REST_PATH}/audit_logs?select=*&order=created_at.desc&limit=15`, {
         headers: getHeaders()
       });
-      return await response.json();
-    } catch (e) { return null; }
+      return response.ok ? await response.json() : [];
+    } catch (e) { return []; }
   }
 };
 
-// Fix: Added subscriptionOperations to handle AMC settlement and revenue node synchronization.
 export const subscriptionOperations = {
   async verifyPayment(id: string, paymentRef: string) {
     try {
@@ -99,11 +97,8 @@ export const subscriptionOperations = {
           updated_at: new Date().toISOString()
         })
       });
-      if (!response.ok) throw new Error("PATCH Failed");
-      return true;
-    } catch (e) {
-      throw new Error(handleSupabaseError(e));
-    }
+      return response.ok;
+    } catch (e) { return false; }
   }
 };
 
@@ -116,9 +111,10 @@ export const testInsForgeConnection = async () => {
   } catch { return false; }
 };
 
-export const getEnvironmentTelemetry = () => ({
-  SUPABASE_URL: true,
-  SUPABASE_ANON_KEY: true,
-  VERCEL_ENV: 'production',
-  CONNECTED_ENDPOINT: 'jsk8snxz'
-});
+export const handleSupabaseError = (err: any): string => {
+  if (typeof err === 'string') return err;
+  return err.message || "Infrastructure Node Timeout: 0x82";
+};
+
+// Main SDK Client (kept for Auth compatibility)
+export const supabase = createClient(INSFORGE_CONFIG.URL, INSFORGE_CONFIG.KEY);

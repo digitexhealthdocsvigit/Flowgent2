@@ -13,6 +13,7 @@ const StrategyRoom: React.FC = () => {
   const nextStartTimeRef = useRef<number>(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
 
+  // Fix: Manual implementation of base64 decoding following coding guidelines
   const decode = (base64: string) => {
     const binaryString = atob(base64);
     const bytes = new Uint8Array(binaryString.length);
@@ -22,6 +23,7 @@ const StrategyRoom: React.FC = () => {
     return bytes;
   };
 
+  // Fix: Manual implementation of audio decoding following coding guidelines
   const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
     const dataInt16 = new Int16Array(data.buffer);
     const frameCount = dataInt16.length / numChannels;
@@ -35,6 +37,7 @@ const StrategyRoom: React.FC = () => {
     return buffer;
   };
 
+  // Fix: Manual implementation of base64 encoding following coding guidelines
   const encode = (bytes: Uint8Array) => {
     let binary = '';
     for (let i = 0; i < bytes.byteLength; i++) {
@@ -52,7 +55,8 @@ const StrategyRoom: React.FC = () => {
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || 'AIzaSyBPs2T-1zpAo1q_huSx4dOt-CB-aPwPCmY' });
+      // Fix: Use process.env.API_KEY exclusively for GoogleGenAI initialization
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
@@ -67,10 +71,12 @@ const StrategyRoom: React.FC = () => {
               const int16 = new Int16Array(inputData.length);
               for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
               
+              // Fix: Use sessionPromise.then to avoid race conditions when sending input
               sessionPromise.then(session => {
                 session.sendRealtimeInput({
                   media: {
                     data: encode(new Uint8Array(int16.buffer)),
+                    // Fix: Use correct MIME type for raw PCM audio
                     mimeType: 'audio/pcm;rate=16000'
                   }
                 });
@@ -88,10 +94,27 @@ const StrategyRoom: React.FC = () => {
               const source = ctx.createBufferSource();
               source.buffer = audioBuffer;
               source.connect(ctx.destination);
+              
+              // Fix: Add ended listener for source cleanup
+              source.addEventListener('ended', () => {
+                sourcesRef.current.delete(source);
+              });
+              
               source.start(nextStartTimeRef.current);
               nextStartTimeRef.current += audioBuffer.duration;
               sourcesRef.current.add(source);
             }
+
+            // Fix: Handle interruption messages to stop stale audio playback
+            const interrupted = message.serverContent?.interrupted;
+            if (interrupted) {
+              for (const source of sourcesRef.current.values()) {
+                source.stop();
+              }
+              sourcesRef.current.clear();
+              nextStartTimeRef.current = 0;
+            }
+
             if (message.serverContent?.outputTranscription) {
               setTranscription(prev => [...prev.slice(-4), message.serverContent!.outputTranscription!.text]);
             }
@@ -120,12 +143,14 @@ const StrategyRoom: React.FC = () => {
     setStatus('Standby');
     if (audioContextRef.current) audioContextRef.current.close();
     if (outputAudioContextRef.current) outputAudioContextRef.current.close();
+    // Fix: Clear session promise reference
+    sessionPromiseRef.current = null;
   };
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500 p-12 max-w-5xl mx-auto">
       <div className="text-center space-y-8">
-        <h2 className="text-7xl font-black text-white tracking-tighter italic italic leading-none">Strategy Room</h2>
+        <h2 className="text-7xl font-black text-white tracking-tighter italic leading-none">Strategy Room</h2>
         <div className={`inline-flex items-center gap-4 px-8 py-3 rounded-full border shadow-2xl transition-all ${isActive ? 'bg-green-600/10 border-green-500/20 text-green-500' : 'bg-slate-800 border-white/5 text-slate-500'}`}>
           <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`}></div>
           <span className="text-[10px] font-black uppercase tracking-[0.3em] italic">{status}</span>
