@@ -22,8 +22,6 @@ CMD ["node", "agent.js"]
 
 ## 🎯 WHAT EACH LINE DOES
 
-Let me explain the Dockerfile line by line:
-
 ### **Line 1: `FROM node:18-alpine`**
 - **What it does:** Downloads a pre-built Node.js 18 environment
 - **Why Alpine:** Smallest size (5MB vs 900MB), most secure, fastest builds
@@ -58,5 +56,6 @@ Let me explain the Dockerfile line by line:
 - **What it does:** Starts your Agent Zero service
 - **Why array syntax:** More reliable, handles signals properly, cleaner logs
 - **Result:** Agent Zero begins polling InsForge every 5 minutes
+
 
 
