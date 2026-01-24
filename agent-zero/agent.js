@@ -1,78 +1,143 @@
 import fetch from "node-fetch";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const INSFORGE_URL = "https://jsk8snxz.ap-southeast.insforge.app";
+// Try different URL formats - one of these should work
+const INSFORGE_URLS = [
+  "https://jsk8snxz.ap-southeast.insforge.app",
+  "https://jsk8snxz.ap-southeast.insforge.app/rest/v1",
+  "https://jsk8snxz.ap-southeast.insforge.app/api"
+];
+
 const INSFORGE_KEY = "ik_2ef615853868d11f26c1b6a8cd7550ad";
 const GEMINI_API_KEY = "AIzaSyBPs2T-1zpAo1q_huSx4dOt-CB-aPwPCmY";
 const POLL_INTERVAL = 300000; // 5 minutes
 
 const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
 
-// Simple function to test InsForge connection
-async function testConnection() {
+// Test ALL possible URL combinations
+async function testAllConnections() {
+  log("🔧 Testing all possible InsForge connections...");
+  
+  const testEndpoints = [
+    "/",
+    "/rest/v1/",
+    "/rest/v1/leads?select=count",
+    "/leads?select=count"
+  ];
+  
+  for (const baseUrl of INSFORGE_URLS) {
+    for (const endpoint of testEndpoints) {
+      const testUrl = baseUrl + endpoint;
+      try {
+        log(`📡 Testing: ${testUrl}`);
+        
+        const response = await fetch(testUrl, {
+          headers: {
+            'apikey': INSFORGE_KEY,
+            'Authorization': `Bearer ${INSFORGE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 5000
+        });
+        
+        const status = response.status;
+        log(`   Status: ${status} ${response.statusText}`);
+        
+        if (response.ok) {
+          const data = await response.text();
+          log(`   ✅ SUCCESS with: ${baseUrl + endpoint}`);
+          return { baseUrl, endpoint };
+        }
+      } catch (error) {
+        log(`   ❌ Error: ${error.message}`);
+      }
+    }
+  }
+  
+  return null;
+}
+
+async function getWorkingConnection() {
+  // Try environment variables first
+  const envUrl = process.env.SUPABASE_URL;
+  if (envUrl) {
+    log(`⚙️ Using environment URL: ${envUrl}`);
+    return envUrl;
+  }
+  
+  // Test all connections
+  const working = await testAllConnections();
+  if (working) {
+    log(`🎯 Using working URL: ${working.baseUrl}`);
+    return working.baseUrl;
+  }
+  
+  // Fallback to first URL
+  log(`⚠️ No connection worked, using fallback: ${INSFORGE_URLS[0]}`);
+  return INSFORGE_URLS[0];
+}
+
+async function queryInsForge(table, filters = {}) {
+  const baseUrl = await getWorkingConnection();
+  const params = new URLSearchParams({ select: '*', limit: '5' });
+  
+  Object.entries(filters).forEach(([key, value]) => {
+    params.append(key, `eq.${value}`);
+  });
+  
+  const url = `${baseUrl}/${table}?${params.toString()}`;
+  log(`🔍 Querying: ${url}`);
+  
   try {
-    const testUrl = `${INSFORGE_URL}/rest/v1/leads?select=count`;
-    log(`🔧 Testing: ${testUrl}`);
-    
-    const response = await fetch(testUrl, {
+    const response = await fetch(url, {
       headers: {
         'apikey': INSFORGE_KEY,
-        'Authorization': `Bearer ${INSFORGE_KEY}`
+        'Authorization': `Bearer ${INSFORGE_KEY}`,
+        'Content-Type': 'application/json'
       }
     });
     
-    if (response.ok) {
-      log("✅ InsForge connection successful");
-      return true;
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
     }
-    return false;
+    
+    const data = await response.json();
+    log(`📊 Query successful, found ${data.length} records`);
+    return data;
   } catch (error) {
-    log("❌ Connection test failed:", error.message);
-    return false;
+    log(`❌ Query failed: ${error.message}`);
+    throw error;
   }
 }
 
-async function getUnprocessedLeads() {
-  const url = `${INSFORGE_URL}/rest/v1/leads?ai_audit_completed=eq.false&select=*&limit=5`;
+async function updateInsForge(table, id, updates) {
+  const baseUrl = await getWorkingConnection();
+  const url = `${baseUrl}/${table}?id=eq.${id}`;
   
-  log(`📡 Fetching from: ${url}`);
+  log(`✏️ Updating: ${url}`);
   
-  const response = await fetch(url, {
-    headers: {
-      'apikey': INSFORGE_KEY,
-      'Authorization': `Bearer ${INSFORGE_KEY}`,
-      'Content-Type': 'application/json'
+  try {
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'apikey': INSFORGE_KEY,
+        'Authorization': `Bearer ${INSFORGE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(updates)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
     }
-  });
-  
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to fetch leads: ${response.status} - ${text}`);
+    
+    log(`✅ Update successful for ID: ${id}`);
+    return await response.json();
+  } catch (error) {
+    log(`❌ Update failed: ${error.message}`);
+    throw error;
   }
-  
-  return await response.json();
-}
-
-async function updateLead(leadId, updates) {
-  const url = `${INSFORGE_URL}/rest/v1/leads?id=eq.${leadId}`;
-  
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: {
-      'apikey': INSFORGE_KEY,
-      'Authorization': `Bearer ${INSFORGE_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
-    },
-    body: JSON.stringify(updates)
-  });
-  
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to update lead: ${response.status} - ${text}`);
-  }
-  
-  return await response.json();
 }
 
 async function processLeadWithAI(lead) {
@@ -86,31 +151,33 @@ async function processLeadWithAI(lead) {
     City: ${lead.city || 'Unknown'}
     Has Website: ${lead.has_website ? 'Yes' : 'No'}
     
-    Provide a score and brief insights.`;
+    Provide ONLY a number between 0-100 and brief insights. Example: "85 - This business shows strong potential with good online presence"`;
     
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     
-    // Extract score (look for patterns like "85/100" or "Score: 85")
-    const match = text.match(/(\d+)\/100|Score:\s*(\d+)/i);
-    const readiness_score = match ? parseInt(match[1] || match[2], 10) : 50;
+    // Extract score (look for patterns like "85" or "Score: 85")
+    const match = text.match(/\b(\d{1,3})\b/);
+    const readiness_score = match ? parseInt(match[1], 10) : 50;
     
-    // Clean insights text
-    const ai_insights = text.substring(0, 500).trim();
+    // Ensure score is between 0-100
+    const clampedScore = Math.min(100, Math.max(0, readiness_score));
     
-    log(`🤖 AI Score for ${lead.business_name}: ${readiness_score}/100`);
+    const ai_insights = text.substring(0, 300).trim();
+    
+    log(`🤖 AI Score: ${lead.business_name} → ${clampedScore}/100`);
     
     return {
-      readiness_score,
-      ai_insights,
-      temperature: readiness_score >= 80 ? "hot" : readiness_score >= 50 ? "warm" : "cold",
-      is_hot_opportunity: readiness_score >= 80
+      readiness_score: clampedScore,
+      ai_insights: ai_insights || "AI analysis completed.",
+      temperature: clampedScore >= 80 ? "hot" : clampedScore >= 50 ? "warm" : "cold",
+      is_hot_opportunity: clampedScore >= 80
     };
   } catch (error) {
     log("⚠️ AI processing error:", error.message);
     return {
       readiness_score: 50,
-      ai_insights: "AI analysis failed",
+      ai_insights: "AI analysis unavailable.",
       temperature: "cold",
       is_hot_opportunity: false
     };
@@ -119,39 +186,37 @@ async function processLeadWithAI(lead) {
 
 async function runAgent() {
   try {
-    log("🔍 Checking for new leads...");
+    log("🚀 Starting agent cycle...");
     
     // Test connection first
-    const connected = await testConnection();
-    if (!connected) {
-      log("⚠️ Skipping this cycle - InsForge not reachable");
-      return;
-    }
+    const baseUrl = await getWorkingConnection();
+    log(`🔗 Connected to: ${baseUrl}`);
     
-    const leads = await getUnprocessedLeads();
+    // Get unprocessed leads
+    const leads = await queryInsForge('leads', { ai_audit_completed: false });
     
     if (!leads || leads.length === 0) {
       log("✅ No new leads to process");
       return;
     }
     
-    log(`📊 Found ${leads.length} leads to process`);
+    log(`🎯 Processing ${leads.length} leads`);
     
     for (const lead of leads) {
-      log(`📝 Processing: ${lead.business_name}`);
+      log(`📝 Lead: ${lead.business_name} (${lead.city})`);
       
       const aiResults = await processLeadWithAI(lead);
       
-      // Calculate business value estimates
+      // Calculate business metrics
       const projected_roi_lift = Math.floor(aiResults.readiness_score * 1.5);
       const est_contract_value = aiResults.temperature === "hot" ? 10000 : 
                                 aiResults.temperature === "warm" ? 5000 : 2000;
       
-      const recommended_services = aiResults.readiness_score < 30 ? 
-        ["Basic Website", "Google Business Profile"] :
-        aiResults.readiness_score < 70 ?
-        ["Website + SEO", "Social Media Setup"] :
-        ["Full Digital Transformation", "AI Automation"];
+      const recommended_services = aiResults.readiness_score >= 80 ? 
+        ["Full Digital Transformation", "AI Automation", "Analytics Dashboard"] :
+        aiResults.readiness_score >= 50 ?
+        ["Website + SEO", "Social Media Management", "Google Business"] :
+        ["Basic Website", "Online Presence Setup", "Digital Foundation"];
       
       const updates = {
         ai_audit_completed: true,
@@ -166,29 +231,41 @@ async function runAgent() {
       };
       
       try {
-        await updateLead(lead.id, updates);
-        log(`✅ Updated: ${lead.business_name} (${aiResults.readiness_score} - ${aiResults.temperature})`);
+        await updateInsForge('leads', lead.id, updates);
+        log(`✅ Updated: ${lead.business_name} → ${aiResults.readiness_score}/100 (${aiResults.temperature})`);
         
         if (aiResults.is_hot_opportunity) {
-          log(`🔥 HOT LEAD ALERT: ${lead.business_name} - Score: ${aiResults.readiness_score}`);
+          log(`🔥 HOT LEAD! ${lead.business_name} - Score: ${aiResults.readiness_score}`);
           log(`💰 Estimated Value: ₹${est_contract_value}/month`);
         }
       } catch (updateError) {
-        log("❌ Failed to update lead:", updateError.message);
+        log(`❌ Failed to update ${lead.business_name}:`, updateError.message);
       }
     }
     
-    log("🎯 Processing complete");
+    log("🎉 Processing complete!");
     
   } catch (error) {
-    log("❌ Agent error:", error.message);
+    log("❌ Agent cycle failed:", error.message);
   }
 }
 
-// Main execution
-log("🚀 Flowgent Agent Zero - Production Ready");
-log(`⏰ Polling every ${POLL_INTERVAL / 1000} seconds`);
+// Initialize and run
+log("🚀 Flowgent Agent Zero v2.0");
+log(`⏰ Polling interval: ${POLL_INTERVAL / 1000} seconds`);
+log(`🔑 Using API Key: ${GEMINI_API_KEY.substring(0, 10)}...`);
 
-// Run immediately, then on interval
+// Run immediately
 runAgent();
+
+// Then run every interval
 setInterval(runAgent, POLL_INTERVAL);
+
+// Add error handling for uncaught exceptions
+process.on('uncaughtException', (error) => {
+  log("💥 Uncaught Exception:", error.message);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  log("⚠️ Unhandled Rejection at:", promise, "reason:", reason);
+});
