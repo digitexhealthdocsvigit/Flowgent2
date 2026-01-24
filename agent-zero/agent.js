@@ -1,26 +1,25 @@
 import fetch from "node-fetch";
-import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenAI } from "@google/genai";
-
-dotenv.config();
 
 /**
  * FLOWGENT AGENT ZERO: AUTONOMOUS BACKEND NODE
  * Repository: digitexhealthdocsvigit/Flowgent2
  * Folder: /agent-zero
+ * 
+ * HARDCODED VERSION - NO ENVIRONMENT VARIABLES
  */
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || "", 
-  process.env.SUPABASE_SERVICE_KEY || ""
-);
+// HARDCODED VALUES - Replace with your actual credentials
+const SUPABASE_URL = "https://jsk8snxz.ap-southeast.insforge.app";
+const SUPABASE_KEY = "ik_2ef615853868d11f26c1b6a8cd7550ad";
+const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"; // ← Replace with your actual key
+const N8N_WEBHOOK_URL = "https://n8n-production-ecc4.up.railway.app/webhook/new-lead";
+const POLL_INTERVAL = 300 * 1000; // 5 minutes
+const TELEGRAM_BOT_TOKEN = ""; // Optional
+const TELEGRAM_CHAT_ID = ""; // Optional
 
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300") * 1000;
-
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
 
 /**
@@ -65,23 +64,19 @@ async function runAgent() {
     }
 
     // Initialize Gemini 3 for high-speed analysis
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
     for (const lead of leads) {
       log(`📝 Processing Node: ${lead.business_name}`);
       let emails = [];
       
       // 1. Digital Footprint Extraction
-      if (lead.website && process.env.SCRAPINGDOG_API_KEY) {
+      if (lead.website) {
         try {
-          const scrapeUrl = `https://api.scrapingdog.com/scrape?api_key=${process.env.SCRAPINGDOG_API_KEY}&url=${encodeURIComponent(lead.website)}`;
-          const response = await fetch(scrapeUrl);
-          const html = await response.text();
-          const matches = html.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g);
-          emails = [...new Set(matches || [])];
-          log(`📧 Found ${emails.length} contact nodes.`);
+          // Note: Removed scraping for simplicity
+          log(`🌐 Website detected: ${lead.website}`);
         } catch (err) {
-          log("⚠️ Scraping failure:", err.message);
+          log("⚠️ Website check failed:", err.message);
         }
       }
 
@@ -93,7 +88,6 @@ async function runAgent() {
         Business: ${lead.business_name}
         Website: ${lead.website || 'No website detected'}
         Category: ${lead.category || 'Unknown'}
-        Emails: ${emails.join(', ') || 'None'}
         
         Rate 0-100 on their potential for ROI through automation. 
         High scores (>80) are reserved for businesses with NO website or BROKEN automation.
@@ -118,7 +112,6 @@ async function runAgent() {
       // 3. Persistent State Update
       const { error: updateError } = await supabase.from("leads").update({
         ai_audit_completed: true,
-        email: emails[0] || lead.email,
         readiness_score,
         is_hot_opportunity: readiness_score >= 80,
         temperature: readiness_score >= 80 ? 'hot' : (readiness_score >= 50 ? 'warm' : 'cold'),
@@ -133,8 +126,8 @@ async function runAgent() {
 
       // 4. Hot Opportunity Signaling
       if (readiness_score >= 80) {
-        // Telegram Dispatch
-        const alert = `🔥 <b>HOT LEAD DETECTED!</b>\n\n<b>Business:</b> ${lead.business_name}\n<b>Score:</b> ${readiness_score}/100\n<b>Emails:</b> ${emails.join(', ') || 'None'}\n<b>Website:</b> ${lead.website || 'None'}`;
+        // Telegram Dispatch (if configured)
+        const alert = `🔥 <b>HOT LEAD DETECTED!</b>\n\n<b>Business:</b> ${lead.business_name}\n<b>Score:</b> ${readiness_score}/100\n<b>Website:</b> ${lead.website || 'None'}`;
         await sendTelegramAlert(alert);
 
         // n8n Orchestrator Dispatch
@@ -163,6 +156,9 @@ async function runAgent() {
   }
 }
 
-log("🚀 Flowgent Agent Zero operational on Node JSK8SNXZ.");
+log("🚀 Flowgent Agent Zero initialized with HARDCODED credentials");
+log(`🔗 InsForge URL: ${SUPABASE_URL}`);
+log(`⏰ Polling interval: ${POLL_INTERVAL / 1000} seconds`);
+
 setInterval(runAgent, POLL_INTERVAL);
 runAgent();
