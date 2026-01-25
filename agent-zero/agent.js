@@ -1,166 +1,157 @@
+import { createClient } from '@supabase/supabase-js';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-import fetch from "node-fetch";
-import dotenv from "dotenv";
-import { createClient } from "@supabase/supabase-js";
-import { GoogleGenAI } from "@google/genai";
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://jsk8snxz.ap-southeast.insforge.app";
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || "ik_2ef615853868d11f26c1b6a8cd7550ad";
+const GEMINI_API_KEY = process.env.API_KEY || "AIzaSyBPs2T-1zpAo1q_huSx4dOt-CB-aPwPCmY";
+const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300") * 1000;
 
-dotenv.config();
-
-/**
- * FLOWGENT AGENT ZERO: AUTONOMOUS BACKEND NODE
- * Project Node: JSK8SNXZ
- * Resolves 404 errors by sanitizing the API endpoint URL.
- */
-
-// Resilient variable mapping to handle Railway naming variations
-const rawUrl = process.env.SUPABASE_URL || process.env.INSFORGE_URL || "https://jsk8snxz.ap-southeast.insforge.app";
-const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, ''); // Strip rest/v1 to prevent SDK doubling
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.INSFORGE_API_KEY || process.env.INSFORGE_APT_KEY || "ik_2ef615853868d11f26c1b6a8cd7550ad";
-const geminiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GEMTNT_APT_KEY;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: false }
+});
 
 const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
 
-// Validation Check before initialization
-if (!supabaseUrl || !supabaseKey) {
-  log("❌ CRITICAL: Database credentials missing.");
-  log("Ensure SUPABASE_URL and SUPABASE_SERVICE_KEY are set in Railway.");
-  process.exit(1); 
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || process.env.NBN_WEBHOOK_URL;
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300") * 1000;
-
-/**
- * Dispatches high-priority Telegram alerts
- */
-async function sendTelegramAlert(message) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
+async function testConnection() {
   try {
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: 'HTML'
-      })
-    });
+    log("🔧 Testing database connection...");
+    const { count, error } = await supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true });
+    
+    if (error) {
+      log("❌ Connection test failed:", error.message);
+      return false;
+    }
+    
+    log(`✅ Connection successful - ${count} total leads in database`);
+    return true;
   } catch (err) {
-    log('Telegram alert failed:', err.message);
+    log("❌ Connection error:", err.message);
+    return false;
   }
 }
 
 async function runAgent() {
   try {
-    log("🔍 Polling leads from InsForge Node JSK8SNXZ...");
+    log("🔍 Querying unprocessed leads...");
     
     const { data: leads, error } = await supabase
-      .from("leads")
-      .select("*")
-      .eq("ai_audit_completed", false)
+      .from('leads')
+      .select('*')
+      .eq('ai_audit_completed', false)
       .limit(5);
-
+    
     if (error) {
-      log("❌ Query Error:", error.message);
-      if (error.message.includes('leads')) {
-        log("💡 Recommendation: Run the leads table migration SQL in InsForge Dashboard.");
-      }
+      log("❌ Query error:", error.message);
       return;
     }
     
-    if (!leads?.length) {
-      log("✅ Neural Queue Clear.");
+    if (!leads || leads.length === 0) {
+      log("✅ No new leads to process");
       return;
     }
-
-    if (!geminiKey) {
-      log("⚠️ AI Scoring skipped: GEMINI_API_KEY not found.");
-      return;
-    }
-
-    const ai = new GoogleGenAI({ apiKey: geminiKey });
-
+    
+    log(`📊 Found ${leads.length} leads to process`);
+    
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    
     for (const lead of leads) {
-      log(`📝 Processing Node: ${lead.business_name}`);
+      log(`📝 Processing: ${lead.business_name} (${lead.city || 'Unknown'})`);
       
-      // Neural Readiness Scoring
       let readiness_score = 50;
       let ai_insights = "";
+      
       try {
-        const prompt = `Perform a Digital Readiness Audit for this business:
-        Business: ${lead.business_name}
-        Website: ${lead.website || 'No website detected'}
-        Category: ${lead.category || 'Unknown'}
-        
-        Rate 0-100 on their potential for ROI through automation. 
-        High scores (>80) are reserved for businesses with NO website or BROKEN automation.
-        
-        Format:
-        SCORE: [number]
-        INSIGHTS: [short strategic summary]`;
+        const prompt = `Rate this business's digital readiness on a scale of 0-100:
+Business: ${lead.business_name}
+Category: ${lead.category || 'Unknown'}
+City: ${lead.city || 'Unknown'}
+Has Website: ${lead.has_website ? 'Yes' : 'No'}
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: prompt,
-        });
+Provide ONLY a number between 0-100 and a brief 1-sentence insight.`;
         
-        const text = response.text || "";
-        ai_insights = text;
-        readiness_score = parseInt(text.match(/SCORE:\s*(\d+)/i)?.[1] || "50", 10);
-        log(`🤖 Neural Score finalized: ${readiness_score}`);
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        
+        const match = text.match(/\b(\d{1,3})\b/);
+        readiness_score = match ? parseInt(match[1], 10) : 50;
+        readiness_score = Math.min(100, Math.max(0, readiness_score));
+        ai_insights = text.substring(0, 300).trim() || "Analysis completed.";
+        
+        log(`🤖 AI Score: ${readiness_score}/100`);
       } catch (err) {
-        log("⚠️ AI Scoring error:", err.message);
+        log(`⚠️ AI error for ${lead.business_name}:`, err.message);
+        ai_insights = "AI analysis temporarily unavailable.";
       }
-
-      // Persistent State Update
-      const { error: updateError } = await supabase.from("leads").update({
-        ai_audit_completed: true,
-        readiness_score,
-        is_hot_opportunity: readiness_score >= 80,
-        temperature: readiness_score >= 80 ? 'hot' : (readiness_score >= 50 ? 'warm' : 'cold'),
-        ai_insights,
-        updated_at: new Date().toISOString()
-      }).eq("id", lead.id);
-
+      
+      const temperature = readiness_score >= 80 ? "hot" : 
+                         readiness_score >= 50 ? "warm" : "cold";
+      const is_hot_opportunity = readiness_score >= 80;
+      
+      const projected_roi_lift = Math.floor(readiness_score * 1.2);
+      const est_contract_value = temperature === "hot" ? 10000 : 
+                                 temperature === "warm" ? 5000 : 2000;
+      
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({
+          ai_audit_completed: true,
+          readiness_score: readiness_score,
+          is_hot_opportunity: is_hot_opportunity,
+          temperature: temperature,
+          ai_insights: ai_insights,
+          projected_roi_lift: projected_roi_lift,
+          est_contract_value: est_contract_value,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', lead.id);
+      
       if (updateError) {
-        log("❌ DB Update Error:", updateError.message);
-        continue;
-      }
-
-      // Hot Opportunity Signaling
-      if (readiness_score >= 80) {
-        const alert = `🔥 <b>HOT LEAD DETECTED!</b>\n\n<b>Business:</b> ${lead.business_name}\n<b>Score:</b> ${readiness_score}/100\n<b>Website:</b> ${lead.website || 'None'}`;
-        await sendTelegramAlert(alert);
-
-        if (N8N_WEBHOOK_URL) {
-          try {
-            await fetch(N8N_WEBHOOK_URL, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                event: 'agent_zero_synced',
-                lead_id: lead.id, 
-                readiness_score, 
-                business_name: lead.business_name,
-                node_id: 'JSK8SNXZ'
-              })
-            });
-            log("📡 n8n Handshake Successful.");
-          } catch (err) {
-            log("⚠️ Webhook sync failed:", err.message);
-          }
+        log(`❌ Failed to update ${lead.business_name}:`, updateError.message);
+      } else {
+        log(`✅ Updated: ${lead.business_name} → ${readiness_score}/100 (${temperature})`);
+        
+        if (is_hot_opportunity) {
+          log(`🔥 HOT LEAD ALERT! ${lead.business_name} - Score: ${readiness_score}`);
+          log(`   💰 Estimated Monthly Value: ₹${est_contract_value}`);
         }
       }
     }
+    
+    log("🎉 Processing cycle complete");
+    
   } catch (err) {
-    log("❌ Critical Infrastructure Loop Error:", err.message);
+    log("❌ System error:", err.message);
   }
 }
 
-log(`🚀 Agent Zero operational on Node JSK8SNXZ (URL: ${supabaseUrl})`);
-setInterval(runAgent, POLL_INTERVAL);
-runAgent();
+async function initialize() {
+  log("🚀 Flowgent Agent Zero - Supabase Edition");
+  log(`⏰ Polling interval: ${POLL_INTERVAL / 1000} seconds`);
+  log(`🔑 Gemini API Key: ${GEMINI_API_KEY.substring(0, 10)}...`);
+  log(`🗄️ Database URL: ${SUPABASE_URL}`);
+  
+  const connected = await testConnection();
+  
+  if (connected) {
+    log("▶️ Running initial scan...");
+    await runAgent();
+    log(`⏱️ Next scan in ${POLL_INTERVAL / 1000} seconds`);
+    setInterval(runAgent, POLL_INTERVAL);
+  } else {
+    log("⚠️ Initial connection failed. Retrying every 5 minutes...");
+    setInterval(async () => {
+      const retryConnected = await testConnection();
+      if (retryConnected) {
+        await runAgent();
+      }
+    }, POLL_INTERVAL);
+  }
+}
+
+initialize().catch(error => {
+  log("💥 Fatal initialization error:", error.message);
+  process.exit(1);
+});
