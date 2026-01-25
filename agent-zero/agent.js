@@ -1,197 +1,75 @@
-import pkg from 'pg';
-const { Pool } = pkg;
+// ================= SIMPLE AGENT ZERO =================
+// No imports needed at the top
+
+console.log("🚀 Flowgent Agent Zero - Simple Version");
+console.log("✅ Starting at:", new Date().toISOString());
+
+// Get API key from Railway environment
+const GEMINI_API_KEY = process.env.API_KEY;
+
+// Check if API key exists
+if (!GEMINI_API_KEY) {
+  console.error("❌ ERROR: API_KEY not found!");
+  console.log("Please add API_KEY to Railway Variables");
+  console.log("Go to Railway → Your Project → Variables → Add API_KEY");
+  process.exit(1);
+}
+
+console.log("✅ API Key loaded successfully!");
+console.log("🔑 First 10 chars:", GEMINI_API_KEY.substring(0, 10));
+
+// Now import the Google AI library
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// PostgreSQL Connection for InsForge
-const PG_CONFIG = {
-  host: 'jsk8snxz.ap-southeast.insforge.app',
-  port: 5432,
-  database: 'postgres',
-  user: 'postgres',
-  password: 'ik_2ef615853868d11f26c1b6a8cd7550ad',
-  ssl: { rejectUnauthorized: false }
-};
+console.log("🤖 Google AI Library loaded");
 
-const GEMINI_API_KEY = 'AIzaSyCGo2qrkdDn2_DMp5tUVVTzmfvgymu0YBw';
+// Rest of your code...
 const POLL_INTERVAL = 300000; // 5 minutes
 
 const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
 
-// Create PostgreSQL connection pool
-const pool = new Pool(PG_CONFIG);
-
-// Test connection
-async function testConnection() {
+// Test function
+async function testAI() {
   try {
-    log("🔧 Testing PostgreSQL connection...");
-    const client = await pool.connect();
-    const result = await client.query('SELECT NOW() as time');
-    client.release();
-    log(`✅ PostgreSQL connected at ${result.rows[0].time}`);
+    log("Testing Gemini AI connection...");
+    
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    
+    const result = await model.generateContent("Say 'Hello from Agent Zero'");
+    const response = result.response.text();
+    
+    log("✅ AI Connection successful!");
+    log("🤖 AI says:", response.substring(0, 100));
+    
     return true;
   } catch (error) {
-    log(`❌ PostgreSQL connection failed: ${error.message}`);
+    log("❌ AI Connection failed:", error.message);
     return false;
   }
 }
 
-// Get unprocessed leads
-async function getUnprocessedLeads() {
-  try {
-    const query = `
-      SELECT id, business_name, city, category, has_website 
-      FROM leads 
-      WHERE ai_audit_completed = false
-      LIMIT 5
-    `;
-    
-    log("🔍 Querying leads from PostgreSQL...");
-    const result = await pool.query(query);
-    log(`📊 Found ${result.rows.length} unprocessed leads`);
-    return result.rows;
-  } catch (error) {
-    log(`❌ Query error: ${error.message}`);
-    return [];
-  }
-}
-
-// Update lead
-async function updateLead(leadId, updates) {
-  const fields = Object.keys(updates);
-  const values = Object.values(updates);
+// Main function
+async function main() {
+  log("🔧 Initializing Agent Zero...");
   
-  const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ');
+  const aiConnected = await testAI();
   
-  const query = `
-    UPDATE leads 
-    SET ${setClause}
-    WHERE id = $1
-  `;
-  
-  const queryValues = [leadId, ...values];
-  
-  try {
-    await pool.query(query, queryValues);
-    log(`✅ Updated lead ID ${leadId}`);
-  } catch (error) {
-    log(`❌ Update error: ${error.message}`);
-  }
-}
-
-// AI processing
-async function processLeadWithAI(lead) {
-  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  
-  try {
-    const prompt = `Rate this business digital readiness 0-100: ${lead.business_name}, ${lead.category}, ${lead.city}, Has website: ${lead.has_website}`;
+  if (aiConnected) {
+    log("🎉 Agent Zero is READY!");
+    log(`⏰ Will run every ${POLL_INTERVAL / 1000 / 60} minutes`);
     
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    // Run your agent logic here
+    // ...
     
-    const match = text.match(/\b(\d{1,3})\b/);
-    const score = match ? parseInt(match[1], 10) : 50;
-    const finalScore = Math.min(100, Math.max(0, score));
-    
-    log(`🤖 AI Score: ${lead.business_name} → ${finalScore}/100`);
-    
-    return {
-      readiness_score: finalScore,
-      ai_insights: text.substring(0, 300),
-      temperature: finalScore >= 80 ? "hot" : finalScore >= 50 ? "warm" : "cold",
-      is_hot_opportunity: finalScore >= 80
-    };
-  } catch (error) {
-    log(`⚠️ AI error: ${error.message}`);
-    return {
-      readiness_score: 50,
-      ai_insights: "AI analysis unavailable",
-      temperature: "cold",
-      is_hot_opportunity: false
-    };
-  }
-}
-
-// Main agent
-async function runAgent() {
-  try {
-    log("🚀 Starting agent cycle...");
-    
-    const leads = await getUnprocessedLeads();
-    
-    if (leads.length === 0) {
-      log("✅ No leads to process");
-      return;
-    }
-    
-    for (const lead of leads) {
-      log(`📝 Processing: ${lead.business_name}`);
-      
-      const aiResults = await processLeadWithAI(lead);
-      
-      const updates = {
-        ai_audit_completed: true,
-        readiness_score: aiResults.readiness_score,
-        is_hot_opportunity: aiResults.is_hot_opportunity,
-        temperature: aiResults.temperature,
-        ai_insights: aiResults.ai_insights,
-        updated_at: new Date()
-      };
-      
-      await updateLead(lead.id, updates);
-      
-      log(`✅ Updated: ${lead.business_name} (${aiResults.readiness_score} - ${aiResults.temperature})`);
-      
-      if (aiResults.is_hot_opportunity) {
-        log(`🔥 HOT LEAD: ${lead.business_name} - Score: ${aiResults.readiness_score}`);
-      }
-    }
-    
-    log("🎉 Cycle complete!");
-    
-  } catch (error) {
-    log(`❌ Agent error: ${error.message}`);
-  }
-}
-
-// Initialize
-async function initialize() {
-  log("🚀 Flowgent Agent Zero - PostgreSQL Direct");
-  log(`⏰ Polling every ${POLL_INTERVAL / 1000} seconds`);
-  
-  const connected = await testConnection();
-  
-  if (connected) {
-    await runAgent();
-    setInterval(runAgent, POLL_INTERVAL);
   } else {
-    log("⚠️ Connection failed, will retry");
-    setInterval(async () => {
-      const retry = await testConnection();
-      if (retry) await runAgent();
-    }, POLL_INTERVAL);
+    log("⚠️ Agent Zero will retry in 5 minutes");
+    setTimeout(main, POLL_INTERVAL);
   }
 }
 
-initialize().catch(error => {
-  log(`💥 Fatal: ${error.message}`);
+// Start the agent
+main().catch(error => {
+  console.error("💥 Fatal error:", error);
   process.exit(1);
-  import { GoogleGenerativeAI } from "@google/generative-ai";
-
-// Get API key from environment (Railway will provide this)
-const GEMINI_API_KEY = process.env.API_KEY;
-
-console.log("🤖 Agent Zero Starting...");
-console.log("✅ Gemini API Key loaded successfully");
-console.log("🚀 Starting Flowgent Agent Zero");
-
-// Your API key is right here - no changes needed!
-const API_KEY = "AIzaSyCGo2qrkdDn2_DMp5tUVVTzmfvgymuOYBw";
-
-console.log("✅ API Key ready:", API_KEY.substring(0, 10) + "...");
-
-// Rest of your existing code continues here...
-// (keep whatever agent.js you already have below this)  
-
-// Rest of your agent code continues...
 });
