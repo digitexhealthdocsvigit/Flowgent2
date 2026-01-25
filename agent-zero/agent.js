@@ -1,157 +1,179 @@
-import { createClient } from '@supabase/supabase-js';
+import pkg from 'pg';
+const { Pool } = pkg;
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://jsk8snxz.ap-southeast.insforge.app";
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || "ik_2ef615853868d11f26c1b6a8cd7550ad";
-const GEMINI_API_KEY = process.env.API_KEY || "AIzaSyBPs2T-1zpAo1q_huSx4dOt-CB-aPwPCmY";
-const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300") * 1000;
+// PostgreSQL Connection for InsForge
+const PG_CONFIG = {
+  host: 'jsk8snxz.ap-southeast.insforge.app',
+  port: 5432,
+  database: 'postgres',
+  user: 'postgres',
+  password: 'ik_2ef615853868d11f26c1b6a8cd7550ad',
+  ssl: { rejectUnauthorized: false }
+};
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: false }
-});
+const GEMINI_API_KEY = 'AIzaSyBPs2T-1zpAo1q_huSx4dOt-CB-aPwPCmY';
+const POLL_INTERVAL = 300000; // 5 minutes
 
 const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
 
+// Create PostgreSQL connection pool
+const pool = new Pool(PG_CONFIG);
+
+// Test connection
 async function testConnection() {
   try {
-    log("🔧 Testing database connection...");
-    const { count, error } = await supabase
-      .from('leads')
-      .select('*', { count: 'exact', head: true });
-    
-    if (error) {
-      log("❌ Connection test failed:", error.message);
-      return false;
-    }
-    
-    log(`✅ Connection successful - ${count} total leads in database`);
+    log("🔧 Testing PostgreSQL connection...");
+    const client = await pool.connect();
+    const result = await client.query('SELECT NOW() as time');
+    client.release();
+    log(`✅ PostgreSQL connected at ${result.rows[0].time}`);
     return true;
-  } catch (err) {
-    log("❌ Connection error:", err.message);
+  } catch (error) {
+    log(`❌ PostgreSQL connection failed: ${error.message}`);
     return false;
   }
 }
 
-async function runAgent() {
+// Get unprocessed leads
+async function getUnprocessedLeads() {
   try {
-    log("🔍 Querying unprocessed leads...");
+    const query = `
+      SELECT id, business_name, city, category, has_website 
+      FROM leads 
+      WHERE ai_audit_completed = false
+      LIMIT 5
+    `;
     
-    const { data: leads, error } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('ai_audit_completed', false)
-      .limit(5);
-    
-    if (error) {
-      log("❌ Query error:", error.message);
-      return;
-    }
-    
-    if (!leads || leads.length === 0) {
-      log("✅ No new leads to process");
-      return;
-    }
-    
-    log(`📊 Found ${leads.length} leads to process`);
-    
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    
-    for (const lead of leads) {
-      log(`📝 Processing: ${lead.business_name} (${lead.city || 'Unknown'})`);
-      
-      let readiness_score = 50;
-      let ai_insights = "";
-      
-      try {
-        const prompt = `Rate this business's digital readiness on a scale of 0-100:
-Business: ${lead.business_name}
-Category: ${lead.category || 'Unknown'}
-City: ${lead.city || 'Unknown'}
-Has Website: ${lead.has_website ? 'Yes' : 'No'}
-
-Provide ONLY a number between 0-100 and a brief 1-sentence insight.`;
-        
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
-        
-        const match = text.match(/\b(\d{1,3})\b/);
-        readiness_score = match ? parseInt(match[1], 10) : 50;
-        readiness_score = Math.min(100, Math.max(0, readiness_score));
-        ai_insights = text.substring(0, 300).trim() || "Analysis completed.";
-        
-        log(`🤖 AI Score: ${readiness_score}/100`);
-      } catch (err) {
-        log(`⚠️ AI error for ${lead.business_name}:`, err.message);
-        ai_insights = "AI analysis temporarily unavailable.";
-      }
-      
-      const temperature = readiness_score >= 80 ? "hot" : 
-                         readiness_score >= 50 ? "warm" : "cold";
-      const is_hot_opportunity = readiness_score >= 80;
-      
-      const projected_roi_lift = Math.floor(readiness_score * 1.2);
-      const est_contract_value = temperature === "hot" ? 10000 : 
-                                 temperature === "warm" ? 5000 : 2000;
-      
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({
-          ai_audit_completed: true,
-          readiness_score: readiness_score,
-          is_hot_opportunity: is_hot_opportunity,
-          temperature: temperature,
-          ai_insights: ai_insights,
-          projected_roi_lift: projected_roi_lift,
-          est_contract_value: est_contract_value,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', lead.id);
-      
-      if (updateError) {
-        log(`❌ Failed to update ${lead.business_name}:`, updateError.message);
-      } else {
-        log(`✅ Updated: ${lead.business_name} → ${readiness_score}/100 (${temperature})`);
-        
-        if (is_hot_opportunity) {
-          log(`🔥 HOT LEAD ALERT! ${lead.business_name} - Score: ${readiness_score}`);
-          log(`   💰 Estimated Monthly Value: ₹${est_contract_value}`);
-        }
-      }
-    }
-    
-    log("🎉 Processing cycle complete");
-    
-  } catch (err) {
-    log("❌ System error:", err.message);
+    log("🔍 Querying leads from PostgreSQL...");
+    const result = await pool.query(query);
+    log(`📊 Found ${result.rows.length} unprocessed leads`);
+    return result.rows;
+  } catch (error) {
+    log(`❌ Query error: ${error.message}`);
+    return [];
   }
 }
 
+// Update lead
+async function updateLead(leadId, updates) {
+  const fields = Object.keys(updates);
+  const values = Object.values(updates);
+  
+  const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ');
+  
+  const query = `
+    UPDATE leads 
+    SET ${setClause}
+    WHERE id = $1
+  `;
+  
+  const queryValues = [leadId, ...values];
+  
+  try {
+    await pool.query(query, queryValues);
+    log(`✅ Updated lead ID ${leadId}`);
+  } catch (error) {
+    log(`❌ Update error: ${error.message}`);
+  }
+}
+
+// AI processing
+async function processLeadWithAI(lead) {
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  
+  try {
+    const prompt = `Rate this business digital readiness 0-100: ${lead.business_name}, ${lead.category}, ${lead.city}, Has website: ${lead.has_website}`;
+    
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    
+    const match = text.match(/\b(\d{1,3})\b/);
+    const score = match ? parseInt(match[1], 10) : 50;
+    const finalScore = Math.min(100, Math.max(0, score));
+    
+    log(`🤖 AI Score: ${lead.business_name} → ${finalScore}/100`);
+    
+    return {
+      readiness_score: finalScore,
+      ai_insights: text.substring(0, 300),
+      temperature: finalScore >= 80 ? "hot" : finalScore >= 50 ? "warm" : "cold",
+      is_hot_opportunity: finalScore >= 80
+    };
+  } catch (error) {
+    log(`⚠️ AI error: ${error.message}`);
+    return {
+      readiness_score: 50,
+      ai_insights: "AI analysis unavailable",
+      temperature: "cold",
+      is_hot_opportunity: false
+    };
+  }
+}
+
+// Main agent
+async function runAgent() {
+  try {
+    log("🚀 Starting agent cycle...");
+    
+    const leads = await getUnprocessedLeads();
+    
+    if (leads.length === 0) {
+      log("✅ No leads to process");
+      return;
+    }
+    
+    for (const lead of leads) {
+      log(`📝 Processing: ${lead.business_name}`);
+      
+      const aiResults = await processLeadWithAI(lead);
+      
+      const updates = {
+        ai_audit_completed: true,
+        readiness_score: aiResults.readiness_score,
+        is_hot_opportunity: aiResults.is_hot_opportunity,
+        temperature: aiResults.temperature,
+        ai_insights: aiResults.ai_insights,
+        updated_at: new Date()
+      };
+      
+      await updateLead(lead.id, updates);
+      
+      log(`✅ Updated: ${lead.business_name} (${aiResults.readiness_score} - ${aiResults.temperature})`);
+      
+      if (aiResults.is_hot_opportunity) {
+        log(`🔥 HOT LEAD: ${lead.business_name} - Score: ${aiResults.readiness_score}`);
+      }
+    }
+    
+    log("🎉 Cycle complete!");
+    
+  } catch (error) {
+    log(`❌ Agent error: ${error.message}`);
+  }
+}
+
+// Initialize
 async function initialize() {
-  log("🚀 Flowgent Agent Zero - Supabase Edition");
-  log(`⏰ Polling interval: ${POLL_INTERVAL / 1000} seconds`);
-  log(`🔑 Gemini API Key: ${GEMINI_API_KEY.substring(0, 10)}...`);
-  log(`🗄️ Database URL: ${SUPABASE_URL}`);
+  log("🚀 Flowgent Agent Zero - PostgreSQL Direct");
+  log(`⏰ Polling every ${POLL_INTERVAL / 1000} seconds`);
   
   const connected = await testConnection();
   
   if (connected) {
-    log("▶️ Running initial scan...");
     await runAgent();
-    log(`⏱️ Next scan in ${POLL_INTERVAL / 1000} seconds`);
     setInterval(runAgent, POLL_INTERVAL);
   } else {
-    log("⚠️ Initial connection failed. Retrying every 5 minutes...");
+    log("⚠️ Connection failed, will retry");
     setInterval(async () => {
-      const retryConnected = await testConnection();
-      if (retryConnected) {
-        await runAgent();
-      }
+      const retry = await testConnection();
+      if (retry) await runAgent();
     }, POLL_INTERVAL);
   }
 }
 
 initialize().catch(error => {
-  log("💥 Fatal initialization error:", error.message);
+  log(`💥 Fatal: ${error.message}`);
   process.exit(1);
 });
