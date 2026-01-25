@@ -1,10 +1,10 @@
-// ================= FIXED AGENT ZERO =================
+// ================= FLOWGENT AGENT ZERO - PRODUCTION =================
 console.log("🚀 Flowgent Agent Zero - Production v2");
 console.log("✅ Starting at:", new Date().toISOString());
 
 // Configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const POLL_INTERVAL = process.env.POLL_INTERVAL || 300000;
+const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300000");
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
@@ -87,7 +87,7 @@ async function updateLead(leadId, data) {
   }
 }
 
-// AI Analysis - FIXED JSON PARSING
+// AI Analysis
 async function analyzeWithAI(business) {
   try {
     console.log(`🤖 Analyzing: ${business.business_name}`);
@@ -127,7 +127,7 @@ VALUE: [number 2000-15000]`;
     const data = await response.json();
     const text = data.choices[0]?.message?.content || "";
     
-    // Parse simple text format instead of JSON
+    // Parse text format
     const scoreMatch = text.match(/SCORE:\s*(\d+)/i);
     const tempMatch = text.match(/TEMP:\s*(\w+)/i);
     const insightMatch = text.match(/INSIGHT:\s*(.+)/i);
@@ -166,6 +166,8 @@ async function runCycle() {
     
     if (leads.length === 0) {
       console.log("✅ No leads to process");
+      console.log("⏰ Next cycle in", POLL_INTERVAL / 60000, "minutes");
+      console.log("=".repeat(50));
       return;
     }
     
@@ -195,11 +197,13 @@ async function runCycle() {
     console.log("\n📊 SUMMARY");
     console.log(`✅ Processed: ${processed}/${leads.length}`);
     console.log(`🔥 Hot leads: ${hotLeads}`);
-    console.log(`⏰ Next: ${new Date(Date.now() + POLL_INTERVAL).toISOString()}`);
+    console.log(`⏰ Next cycle in ${POLL_INTERVAL / 60000} minutes`);
     console.log("=".repeat(50));
     
   } catch (error) {
     console.log("❌ Cycle error:", error.message);
+    console.log("⏰ Will retry in", POLL_INTERVAL / 60000, "minutes");
+    console.log("=".repeat(50));
   }
 }
 
