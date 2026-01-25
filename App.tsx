@@ -5,8 +5,8 @@ import LandingPage from './components/LandingPage';
 import LoginScreen from './components/LoginScreen';
 import AdminInfographic from './components/AdminInfographic';
 import { SignalLog } from './components/AppContent';
-import { Lead, User, AuditLog } from './types';
-import { leadOperations, logOperations, testInsForgeConnection, activeProjectRef } from './lib/supabase';
+import { Lead, User, AuditLog, Subscription } from './types';
+import { leadOperations, logOperations, subscriptionOperations, testInsForgeConnection, activeProjectRef } from './lib/supabase';
 
 // Lazy Loaded Views
 const ContactsView = lazy(() => import('./components/ContactsView'));
@@ -31,21 +31,25 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [signals, setSignals] = useState<AuditLog[]>([]);
   const [isNodeOnline, setIsNodeOnline] = useState(false);
   const [isHydrating, setIsHydrating] = useState(true);
 
+  // Sync state with infrastructure node JSK8SNXZ
   const refreshData = async () => {
     const isOnline = await testInsForgeConnection();
     setIsNodeOnline(isOnline);
     
     if (isOnline) {
-      const [leadsData, logsData] = await Promise.all([
+      const [leadsData, logsData, subsData] = await Promise.all([
         leadOperations.getAll(),
-        logOperations.getRecent()
+        logOperations.getRecent(),
+        subscriptionOperations.getAll()
       ]);
       if (leadsData) setLeads(leadsData);
       if (logsData) setSignals(logsData);
+      if (subsData) setSubscriptions(subsData);
     }
     setIsHydrating(false);
   };
@@ -54,6 +58,7 @@ const App: React.FC = () => {
     let interval: any;
     if (viewState === 'dashboard') {
       refreshData();
+      // Polling for live updates from Agent Zero
       interval = setInterval(refreshData, 10000);
     }
     return () => clearInterval(interval);
@@ -81,7 +86,7 @@ const App: React.FC = () => {
                    <div className="bg-blue-600/10 border border-blue-500/20 px-8 py-4 rounded-3xl flex items-center gap-6 shadow-2xl">
                       <div className={`w-3 h-3 ${isNodeOnline ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)]'} rounded-full animate-pulse`}></div>
                       <span className="text-[10px] font-black uppercase text-blue-400 italic tracking-widest">
-                        Handshake: {isNodeOnline ? 'SYNCHRONIZED' : 'CONNECTION ERROR'}
+                        CLUSTER STATUS: {isNodeOnline ? 'SYNCHRONIZED' : 'CONNECTION ERROR'}
                       </span>
                    </div>
                 </div>
@@ -96,7 +101,7 @@ const App: React.FC = () => {
                         <div key={l.id} className="p-6 bg-white/5 border border-white/5 rounded-3xl flex items-center justify-between hover:bg-white/10 transition-all group">
                            <div className="flex items-center gap-6">
                               <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center font-black border border-white/10 group-hover:bg-blue-600 transition-colors">
-                                {l.business_name.charAt(0)}
+                                {l.business_name ? l.business_name.charAt(0) : 'L'}
                               </div>
                               <div>
                                 <p className="font-black text-white text-lg tracking-tight">{l.business_name}</p>
@@ -104,13 +109,15 @@ const App: React.FC = () => {
                               </div>
                            </div>
                            <div className="text-right">
-                              <p className={`text-2xl font-black italic tracking-tighter ${l.readiness_score! > 75 ? 'text-green-500' : 'text-blue-500'}`}>{l.readiness_score || 0}%</p>
-                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Readiness</p>
+                              <p className={`text-2xl font-black italic tracking-tighter ${l.readiness_score! >= 80 ? 'text-red-500' : 'text-blue-500'}`}>
+                                {l.readiness_score || 0}%
+                              </p>
+                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Neural Score</p>
                            </div>
                         </div>
                       )) : (
                         <div className="py-24 text-center text-slate-600 font-black text-[10px] tracking-[0.4em] bg-white/5 rounded-[40px] border border-dashed border-white/10">
-                          AWAITING NEURAL PROPAGATION...
+                          AWAITING AGENT ZERO PROPAGATION...
                         </div>
                       )}
                     </div>
@@ -127,7 +134,10 @@ const App: React.FC = () => {
           case 'settings': return <SettingsView />;
           case 'deal_pipeline': return <CrmView deals={[]} />;
           case 'strategy_room': return <StrategyRoom />;
-          case 'revenue_amc': return <SubscriptionsView subscriptions={[]} isAdmin={currentUser?.role === 'admin'} onRefresh={refreshData} />;
+          case 'revenue_amc': return <SubscriptionsView subscriptions={subscriptions} isAdmin={currentUser?.role === 'admin'} onRefresh={refreshData} />;
+          case 'funnel_view': return <FunnelView leads={leads} />;
+          case 'service_catalog': return <ServicesCatalog isPublic={false} />;
+          case 'reports': return <ReportsView />;
           default: return <ViewLoader />;
         }
       })()}
@@ -144,15 +154,17 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 bg-[#0f172a]/50 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-12 z-40">
            <div className="flex items-center gap-4">
-              <div className={`w-2.5 h-2.5 rounded-full ${isNodeOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Node Status: {isNodeOnline ? 'Live' : 'Handshake Pending'}</p>
+              <div className={`w-2.5 h-2.5 rounded-full ${isNodeOnline ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]' : 'bg-red-500'} animate-pulse`}></div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
+                Node {activeProjectRef}: {isNodeOnline ? 'ONLINE' : 'HANDSHAKE PENDING'}
+              </p>
            </div>
            <div className="flex items-center gap-6">
               <div className="text-right">
                 <p className="text-xs font-black text-white italic">{currentUser.name}</p>
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{currentUser.role}</p>
               </div>
-              <button onClick={() => setViewState('public')} className="text-[10px] font-black uppercase px-6 py-2 bg-white text-slate-900 rounded-xl hover:bg-slate-200 transition-all">Exit</button>
+              <button onClick={() => setViewState('public')} className="text-[10px] font-black uppercase px-6 py-2 bg-white text-slate-900 rounded-xl hover:bg-slate-200 transition-all">Sign Out</button>
            </div>
         </header>
         <main className="flex-1 p-12 overflow-y-auto custom-scrollbar bg-slate-950/20">

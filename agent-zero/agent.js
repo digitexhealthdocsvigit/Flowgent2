@@ -1,244 +1,166 @@
-// ================= FLOWGENT AGENT ZERO - PRODUCTION =================
-console.log("🚀 Flowgent Agent Zero - Production v2");
-console.log("✅ Starting at:", new Date().toISOString());
 
-// Configuration
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300000");
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+import fetch from "node-fetch";
+import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js";
+import { GoogleGenAI } from "@google/genai";
 
-if (!OPENAI_API_KEY) {
-  console.error("❌ OPENAI_API_KEY missing");
-  process.exit(1);
+dotenv.config();
+
+/**
+ * FLOWGENT AGENT ZERO: AUTONOMOUS BACKEND NODE
+ * Project Node: JSK8SNXZ
+ * Resolves 404 errors by sanitizing the API endpoint URL.
+ */
+
+// Resilient variable mapping to handle Railway naming variations
+const rawUrl = process.env.SUPABASE_URL || process.env.INSFORGE_URL || "https://jsk8snxz.ap-southeast.insforge.app";
+const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, ''); // Strip rest/v1 to prevent SDK doubling
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.INSFORGE_API_KEY || process.env.INSFORGE_APT_KEY || "ik_2ef615853868d11f26c1b6a8cd7550ad";
+const geminiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GEMTNT_APT_KEY;
+
+const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
+
+// Validation Check before initialization
+if (!supabaseUrl || !supabaseKey) {
+  log("❌ CRITICAL: Database credentials missing.");
+  log("Ensure SUPABASE_URL and SUPABASE_SERVICE_KEY are set in Railway.");
+  process.exit(1); 
 }
 
-console.log("✅ Config loaded");
-console.log("🔑 OpenAI:", OPENAI_API_KEY ? "Present" : "Missing");
-console.log("🗄️ Database:", SUPABASE_URL ? "Connected" : "Test Mode");
-console.log("⏰ Interval:", POLL_INTERVAL / 60000, "minutes");
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Database functions
-async function getUnprocessedLeads() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return [
-      { id: 1, business_name: "Perfect Gym Mumbai", category: "Fitness", city: "Mumbai", has_website: false },
-      { id: 2, business_name: "Spice Route Delhi", category: "Restaurant", city: "Delhi", has_website: true }
-    ];
-  }
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || process.env.NBN_WEBHOOK_URL;
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300") * 1000;
 
+/**
+ * Dispatches high-priority Telegram alerts
+ */
+async function sendTelegramAlert(message) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
   try {
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/leads?select=*&ai_audit_completed=eq.false&limit=5`,
-      {
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    if (!response.ok) throw new Error(`DB error: ${response.status}`);
-    
-    const leads = await response.json();
-    console.log(`📊 Found ${leads.length} unprocessed leads`);
-    return leads;
-  } catch (error) {
-    console.log("⚠️ Database error:", error.message);
-    return [];
-  }
-}
-
-async function updateLead(leadId, data) {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.log(`✅ [TEST] Would update lead ${leadId}:`, data);
-    return true;
-  }
-
-  try {
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          ai_audit_completed: true,
-          readiness_score: data.score,
-          temperature: data.temperature,
-          is_hot_opportunity: data.score >= 80,
-          ai_insights: data.insights,
-          projected_roi_lift: data.roi,
-          est_contract_value: data.value,
-          updated_at: new Date().toISOString()
-        })
-      }
-    );
-
-    return response.ok;
-  } catch (error) {
-    console.log("⚠️ Update failed:", error.message);
-    return false;
-  }
-}
-
-// AI Analysis
-async function analyzeWithAI(business) {
-  try {
-    console.log(`🤖 Analyzing: ${business.business_name}`);
-    
-    const prompt = `You are a business analyst. Score this business for digital readiness.
-
-Business: ${business.business_name}
-Category: ${business.category || 'Unknown'}
-Location: ${business.city || 'Unknown'}
-Has Website: ${business.has_website ? 'Yes' : 'No'}
-
-Respond with ONLY this exact format (no extra text):
-SCORE: [number 0-100]
-TEMP: [hot/warm/cold]
-INSIGHT: [one sentence]
-ROI: [number 0-150]
-VALUE: [number 2000-15000]`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 150,
-        temperature: 0.7
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message,
+        parse_mode: 'HTML'
       })
     });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.choices[0]?.message?.content || "";
-    
-    // Parse text format
-    const scoreMatch = text.match(/SCORE:\s*(\d+)/i);
-    const tempMatch = text.match(/TEMP:\s*(\w+)/i);
-    const insightMatch = text.match(/INSIGHT:\s*(.+)/i);
-    const roiMatch = text.match(/ROI:\s*(\d+)/i);
-    const valueMatch = text.match(/VALUE:\s*(\d+)/i);
-    
-    const score = scoreMatch ? parseInt(scoreMatch[1]) : 50;
-    const temperature = tempMatch ? tempMatch[1].toLowerCase() : 'warm';
-    const insights = insightMatch ? insightMatch[1].trim() : 'Digital readiness assessed';
-    const roi = roiMatch ? parseInt(roiMatch[1]) : 75;
-    const value = valueMatch ? parseInt(valueMatch[1]) : 5000;
-    
-    console.log(`✅ Score: ${score}/100 (${temperature})`);
-    
-    return { score, temperature, insights, roi, value };
-    
-  } catch (error) {
-    console.log("⚠️ AI error:", error.message);
-    return {
-      score: 50,
-      temperature: 'warm',
-      insights: 'AI analysis unavailable',
-      roi: 75,
-      value: 5000
-    };
+  } catch (err) {
+    log('Telegram alert failed:', err.message);
   }
 }
 
-// Main cycle
-async function runCycle() {
-  console.log("\n" + "=".repeat(50));
-  console.log("🔄 Cycle started:", new Date().toISOString());
-  
+async function runAgent() {
   try {
-    const leads = await getUnprocessedLeads();
+    log("🔍 Polling leads from InsForge Node JSK8SNXZ...");
     
-    if (leads.length === 0) {
-      console.log("✅ No leads to process");
-      console.log("⏰ Next cycle in", POLL_INTERVAL / 60000, "minutes");
-      console.log("=".repeat(50));
+    const { data: leads, error } = await supabase
+      .from("leads")
+      .select("*")
+      .eq("ai_audit_completed", false)
+      .limit(5);
+
+    if (error) {
+      log("❌ Query Error:", error.message);
+      if (error.message.includes('leads')) {
+        log("💡 Recommendation: Run the leads table migration SQL in InsForge Dashboard.");
+      }
       return;
     }
     
-    console.log(`📊 Processing ${leads.length} leads...`);
-    
-    let processed = 0;
-    let hotLeads = 0;
-    
+    if (!leads?.length) {
+      log("✅ Neural Queue Clear.");
+      return;
+    }
+
+    if (!geminiKey) {
+      log("⚠️ AI Scoring skipped: GEMINI_API_KEY not found.");
+      return;
+    }
+
+    const ai = new GoogleGenAI({ apiKey: geminiKey });
+
     for (const lead of leads) {
-      const result = await analyzeWithAI(lead);
-      const updated = await updateLead(lead.id, result);
+      log(`📝 Processing Node: ${lead.business_name}`);
       
-      if (updated) {
-        processed++;
-        console.log(`✅ ${lead.business_name}: ${result.score}/100`);
+      // Neural Readiness Scoring
+      let readiness_score = 50;
+      let ai_insights = "";
+      try {
+        const prompt = `Perform a Digital Readiness Audit for this business:
+        Business: ${lead.business_name}
+        Website: ${lead.website || 'No website detected'}
+        Category: ${lead.category || 'Unknown'}
         
-        if (result.score >= 80) {
-          hotLeads++;
-          console.log(`🔥 HOT LEAD! Value: ₹${result.value}`);
+        Rate 0-100 on their potential for ROI through automation. 
+        High scores (>80) are reserved for businesses with NO website or BROKEN automation.
+        
+        Format:
+        SCORE: [number]
+        INSIGHTS: [short strategic summary]`;
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: prompt,
+        });
+        
+        const text = response.text || "";
+        ai_insights = text;
+        readiness_score = parseInt(text.match(/SCORE:\s*(\d+)/i)?.[1] || "50", 10);
+        log(`🤖 Neural Score finalized: ${readiness_score}`);
+      } catch (err) {
+        log("⚠️ AI Scoring error:", err.message);
+      }
+
+      // Persistent State Update
+      const { error: updateError } = await supabase.from("leads").update({
+        ai_audit_completed: true,
+        readiness_score,
+        is_hot_opportunity: readiness_score >= 80,
+        temperature: readiness_score >= 80 ? 'hot' : (readiness_score >= 50 ? 'warm' : 'cold'),
+        ai_insights,
+        updated_at: new Date().toISOString()
+      }).eq("id", lead.id);
+
+      if (updateError) {
+        log("❌ DB Update Error:", updateError.message);
+        continue;
+      }
+
+      // Hot Opportunity Signaling
+      if (readiness_score >= 80) {
+        const alert = `🔥 <b>HOT LEAD DETECTED!</b>\n\n<b>Business:</b> ${lead.business_name}\n<b>Score:</b> ${readiness_score}/100\n<b>Website:</b> ${lead.website || 'None'}`;
+        await sendTelegramAlert(alert);
+
+        if (N8N_WEBHOOK_URL) {
+          try {
+            await fetch(N8N_WEBHOOK_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                event: 'agent_zero_synced',
+                lead_id: lead.id, 
+                readiness_score, 
+                business_name: lead.business_name,
+                node_id: 'JSK8SNXZ'
+              })
+            });
+            log("📡 n8n Handshake Successful.");
+          } catch (err) {
+            log("⚠️ Webhook sync failed:", err.message);
+          }
         }
       }
-      
-      // Rate limit protection
-      await new Promise(r => setTimeout(r, 1000));
     }
-    
-    console.log("\n📊 SUMMARY");
-    console.log(`✅ Processed: ${processed}/${leads.length}`);
-    console.log(`🔥 Hot leads: ${hotLeads}`);
-    console.log(`⏰ Next cycle in ${POLL_INTERVAL / 60000} minutes`);
-    console.log("=".repeat(50));
-    
-  } catch (error) {
-    console.log("❌ Cycle error:", error.message);
-    console.log("⏰ Will retry in", POLL_INTERVAL / 60000, "minutes");
-    console.log("=".repeat(50));
+  } catch (err) {
+    log("❌ Critical Infrastructure Loop Error:", err.message);
   }
 }
 
-// Initialize
-async function init() {
-  console.log("🔧 Testing OpenAI...");
-  
-  try {
-    const test = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: "Say OK" }],
-        max_tokens: 5
-      })
-    });
-    
-    if (!test.ok) throw new Error("OpenAI test failed");
-    console.log("✅ OpenAI ready");
-  } catch (error) {
-    console.log("❌ OpenAI failed:", error.message);
-    setTimeout(init, 300000);
-    return;
-  }
-  
-  console.log("🎉 Agent initialized!");
-  await runCycle();
-  setInterval(runCycle, POLL_INTERVAL);
-}
-
-init().catch(e => {
-  console.error("💥 Fatal:", e);
-  process.exit(1);
-});
+log(`🚀 Agent Zero operational on Node JSK8SNXZ (URL: ${supabaseUrl})`);
+setInterval(runAgent, POLL_INTERVAL);
+runAgent();

@@ -20,8 +20,8 @@ const SettingsView: React.FC = () => {
   useEffect(() => { probeInfrastructure(); }, []);
 
   const healthScore = () => {
-    let score = 15;
-    if (dbStatus === 'ok') score += 45;
+    let score = 0;
+    if (dbStatus === 'ok') score += 60;
     if (aiStatus === 'ok') score += 40;
     return score;
   };
@@ -29,7 +29,7 @@ const SettingsView: React.FC = () => {
   return (
     <div className="space-y-12 p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div>
-        <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none">Bridge Diagnostics</h2>
+        <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none">Cluster Diagnostics</h2>
         <p className="text-slate-500 font-bold mt-4 uppercase tracking-[0.2em] text-[10px]">Infrastructure Node: {activeProjectRef} Production Cluster</p>
       </div>
 
@@ -39,21 +39,25 @@ const SettingsView: React.FC = () => {
               <svg width="120" height="120" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="white" strokeWidth="1" strokeDasharray="5 5"/></svg>
            </div>
            
-           <h3 className="text-xl font-black text-white italic">Node Matrix Connectivity</h3>
+           <h3 className="text-xl font-black text-white italic">Neural Link Integrity</h3>
            <div className="space-y-6">
               {[
-                { label: 'Database Node', desc: 'JSK8SNXZ PostgreSQL Protocol', status: dbStatus },
-                { label: 'Neural Provider', desc: 'Gemini 3 Pro AI Fabric', status: aiStatus },
+                { label: 'InsForge Node', desc: 'JSK8SNXZ PostgreSQL Protocol', status: dbStatus },
+                { label: 'Gemini 3 Fabric', desc: 'Neural Scorer Pipeline', status: aiStatus },
               ].map((node, i) => (
                 <div key={i} className="flex items-center justify-between p-6 bg-white/5 rounded-[32px] border border-white/10 hover:border-blue-500/30 transition-all">
                    <div className="flex items-center gap-6">
-                      <div className={`w-3 h-3 rounded-full ${node.status === 'ok' ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : node.status === 'testing' ? 'bg-slate-600' : 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]'} animate-pulse`}></div>
+                      <div className={`w-3 h-3 rounded-full ${node.status === 'ok' ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : node.status === 'testing' ? 'bg-slate-600 animate-pulse' : 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]'} `}></div>
                       <div>
                          <p className="text-xs font-black text-white uppercase tracking-widest">{node.label}</p>
                          <p className="text-[10px] text-slate-500 uppercase italic mt-1">{node.desc}</p>
                       </div>
                    </div>
-                   {node.status === 'ok' && <span className="text-green-500 font-black text-[10px] tracking-widest">ACTIVE</span>}
+                   {node.status === 'ok' ? (
+                     <span className="text-green-500 font-black text-[10px] tracking-widest bg-green-500/10 px-3 py-1 rounded-full">CONNECTED</span>
+                   ) : (
+                     <span className="text-slate-600 font-black text-[10px] tracking-widest">PROBING...</span>
+                   )}
                 </div>
               ))}
            </div>
@@ -74,7 +78,7 @@ const SettingsView: React.FC = () => {
               </div>
            </div>
            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] italic">
-             {healthScore() > 80 ? 'INFRASTRUCTURE FULLY PERSISTENT' : 'AWAITING NODE INITIALIZATION'}
+             {healthScore() >= 100 ? 'INFRASTRUCTURE FULLY PERSISTENT' : 'AWAITING NODE INITIALIZATION'}
            </p>
         </div>
       </div>
