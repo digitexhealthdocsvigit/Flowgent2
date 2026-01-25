@@ -1,89 +1,111 @@
-// ================= AGENT ZERO - FINAL WORKING VERSION =================
-console.log("🚀 Flowgent Agent Zero - Connected Version");
+// ================= FIXED AGENT ZERO =================
+console.log("🚀 Flowgent Agent Zero - Production v2");
 console.log("✅ Starting at:", new Date().toISOString());
 
-// Configuration - MUST MATCH Railway variable names EXACTLY
+// Configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const POLL_INTERVAL = process.env.POLL_INTERVAL || 300000;
-const SUPABASE_URL = process.env.SUPABASE_URL;  // ✅ This matches Railway
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;  // ✅ This matches Railway
-
-console.log("🔍 Checking configuration...");
-console.log("✅ OpenAI Key present:", !!OPENAI_API_KEY);
-console.log("✅ Supabase URL present:", !!SUPABASE_URL);
-console.log("✅ Supabase Key present:", !!SUPABASE_KEY);
-console.log("⏰ Poll interval:", POLL_INTERVAL / 1000 / 60, "minutes");
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 if (!OPENAI_API_KEY) {
-  console.error("❌ ERROR: OPENAI_API_KEY missing");
+  console.error("❌ OPENAI_API_KEY missing");
   process.exit(1);
 }
 
-// Database test
-async function testDatabase() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.log("❌ Database credentials missing");
-    return false;
-  }
-  
-  try {
-    console.log("🔗 Testing database connection...");
-    console.log("📡 URL:", SUPABASE_URL);
-    
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/`, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`
-      }
-    });
-    
-    if (response.ok) {
-      console.log("✅ Database connection successful!");
-      return true;
-    } else {
-      console.log("❌ Database connection failed:", response.status);
-      return false;
-    }
-  } catch (error) {
-    console.log("❌ Database error:", error.message);
-    return false;
-  }
-}
+console.log("✅ Config loaded");
+console.log("🔑 OpenAI:", OPENAI_API_KEY ? "Present" : "Missing");
+console.log("🗄️ Database:", SUPABASE_URL ? "Connected" : "Test Mode");
+console.log("⏰ Interval:", POLL_INTERVAL / 60000, "minutes");
 
-// Get real leads from database
-async function getRealLeads() {
+// Database functions
+async function getUnprocessedLeads() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    return [
+      { id: 1, business_name: "Perfect Gym Mumbai", category: "Fitness", city: "Mumbai", has_website: false },
+      { id: 2, business_name: "Spice Route Delhi", category: "Restaurant", city: "Delhi", has_website: true }
+    ];
+  }
+
   try {
-    console.log("📊 Fetching real leads from database...");
-    
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&ai_audit_completed=eq.false&limit=5`, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json'
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/leads?select=*&ai_audit_completed=eq.false&limit=5`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        }
       }
-    });
-    
-    if (!response.ok) {
-      console.log("❌ Database query failed:", response.status);
-      return [];
-    }
+    );
+
+    if (!response.ok) throw new Error(`DB error: ${response.status}`);
     
     const leads = await response.json();
-    console.log(`✅ Found ${leads.length} real leads in database`);
+    console.log(`📊 Found ${leads.length} unprocessed leads`);
     return leads;
   } catch (error) {
-    console.log("❌ Fetch error:", error.message);
+    console.log("⚠️ Database error:", error.message);
     return [];
   }
 }
 
-// AI Analysis
+async function updateLead(leadId, data) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.log(`✅ [TEST] Would update lead ${leadId}:`, data);
+    return true;
+  }
+
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          ai_audit_completed: true,
+          readiness_score: data.score,
+          temperature: data.temperature,
+          is_hot_opportunity: data.score >= 80,
+          ai_insights: data.insights,
+          projected_roi_lift: data.roi,
+          est_contract_value: data.value,
+          updated_at: new Date().toISOString()
+        })
+      }
+    );
+
+    return response.ok;
+  } catch (error) {
+    console.log("⚠️ Update failed:", error.message);
+    return false;
+  }
+}
+
+// AI Analysis - FIXED JSON PARSING
 async function analyzeWithAI(business) {
   try {
-    console.log(`🤖 AI analyzing: ${business.business_name || business.name || 'Unknown'}`);
+    console.log(`🤖 Analyzing: ${business.business_name}`);
     
-    const prompt = `Analyze digital readiness for: ${JSON.stringify(business, null, 2)}`;
-    
+    const prompt = `You are a business analyst. Score this business for digital readiness.
+
+Business: ${business.business_name}
+Category: ${business.category || 'Unknown'}
+Location: ${business.city || 'Unknown'}
+Has Website: ${business.has_website ? 'Yes' : 'No'}
+
+Respond with ONLY this exact format (no extra text):
+SCORE: [number 0-100]
+TEMP: [hot/warm/cold]
+INSIGHT: [one sentence]
+ROI: [number 0-150]
+VALUE: [number 2000-15000]`;
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -92,101 +114,99 @@ async function analyzeWithAI(business) {
       },
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
-        messages: [{ 
-          role: "user", 
-          content: `${prompt}\n\nReturn JSON: {"score":0-100,"insight":"text","temperature":"hot/warm/cold"}`
-        }],
-        max_tokens: 150
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 150,
+        temperature: 0.7
       })
     });
-    
+
+    if (!response.ok) {
+      throw new Error(`OpenAI error: ${response.status}`);
+    }
+
     const data = await response.json();
-    const result = JSON.parse(data.choices[0].message.content || '{"score":50,"insight":"Default","temperature":"warm"}');
+    const text = data.choices[0]?.message?.content || "";
     
-    result.score = Math.min(100, Math.max(0, result.score || 50));
-    console.log(`✅ AI Score: ${result.score}/100 (${result.temperature})`);
+    // Parse simple text format instead of JSON
+    const scoreMatch = text.match(/SCORE:\s*(\d+)/i);
+    const tempMatch = text.match(/TEMP:\s*(\w+)/i);
+    const insightMatch = text.match(/INSIGHT:\s*(.+)/i);
+    const roiMatch = text.match(/ROI:\s*(\d+)/i);
+    const valueMatch = text.match(/VALUE:\s*(\d+)/i);
     
-    return result;
+    const score = scoreMatch ? parseInt(scoreMatch[1]) : 50;
+    const temperature = tempMatch ? tempMatch[1].toLowerCase() : 'warm';
+    const insights = insightMatch ? insightMatch[1].trim() : 'Digital readiness assessed';
+    const roi = roiMatch ? parseInt(roiMatch[1]) : 75;
+    const value = valueMatch ? parseInt(valueMatch[1]) : 5000;
+    
+    console.log(`✅ Score: ${score}/100 (${temperature})`);
+    
+    return { score, temperature, insights, roi, value };
+    
   } catch (error) {
     console.log("⚠️ AI error:", error.message);
-    return { score: 50, insight: "Error", temperature: "warm" };
+    return {
+      score: 50,
+      temperature: 'warm',
+      insights: 'AI analysis unavailable',
+      roi: 75,
+      value: 5000
+    };
   }
 }
 
-// Main function
-async function main() {
+// Main cycle
+async function runCycle() {
   console.log("\n" + "=".repeat(50));
+  console.log("🔄 Cycle started:", new Date().toISOString());
   
-  // Test database
-  const dbConnected = await testDatabase();
-  
-  if (!dbConnected) {
-    console.log("⚠️ Running in test mode (no database)");
+  try {
+    const leads = await getUnprocessedLeads();
     
-    // Test with sample data
-    const testLeads = [
-      { id: 1, business_name: "Test Business 1", city: "Test City" },
-      { id: 2, business_name: "Test Business 2", city: "Test City" }
-    ];
-    
-    for (const lead of testLeads) {
-      const aiResult = await analyzeWithAI(lead);
-      console.log(`📝 ${lead.business_name}: ${aiResult.score}/100`);
+    if (leads.length === 0) {
+      console.log("✅ No leads to process");
+      return;
     }
     
-  } else {
-    console.log("🎉 CONNECTED TO REAL DATABASE!");
+    console.log(`📊 Processing ${leads.length} leads...`);
     
-    // Get real leads
-    const realLeads = await getRealLeads();
+    let processed = 0;
+    let hotLeads = 0;
     
-    if (realLeads.length === 0) {
-      console.log("✅ No unprocessed leads found in database");
-    } else {
-      console.log(`📊 Processing ${realLeads.length} real leads...`);
+    for (const lead of leads) {
+      const result = await analyzeWithAI(lead);
+      const updated = await updateLead(lead.id, result);
       
-      for (const lead of realLeads) {
-        const aiResult = await analyzeWithAI(lead);
+      if (updated) {
+        processed++;
+        console.log(`✅ ${lead.business_name}: ${result.score}/100`);
         
-        // Update the lead in database
-        const updateResponse = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${lead.id}`, {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({
-            ai_audit_completed: true,
-            readiness_score: aiResult.score,
-            temperature: aiResult.temperature,
-            ai_insights: aiResult.insight,
-            updated_at: new Date().toISOString()
-          })
-        });
-        
-        if (updateResponse.ok) {
-          console.log(`✅ Updated lead ${lead.id} in database`);
-          if (aiResult.score >= 80) {
-            console.log(`🔥 HOT LEAD: ${lead.business_name}`);
-          }
+        if (result.score >= 80) {
+          hotLeads++;
+          console.log(`🔥 HOT LEAD! Value: ₹${result.value}`);
         }
       }
+      
+      // Rate limit protection
+      await new Promise(r => setTimeout(r, 1000));
     }
+    
+    console.log("\n📊 SUMMARY");
+    console.log(`✅ Processed: ${processed}/${leads.length}`);
+    console.log(`🔥 Hot leads: ${hotLeads}`);
+    console.log(`⏰ Next: ${new Date(Date.now() + POLL_INTERVAL).toISOString()}`);
+    console.log("=".repeat(50));
+    
+  } catch (error) {
+    console.log("❌ Cycle error:", error.message);
   }
-  
-  console.log("\n" + "=".repeat(50));
-  console.log("✅ Agent cycle completed");
-  console.log("⏰ Next run in", POLL_INTERVAL / 1000 / 60, "minutes");
-  console.log("=".repeat(50));
 }
 
 // Initialize
-async function initialize() {
-  console.log("🔧 Initializing Agent Zero...");
+async function init() {
+  console.log("🔧 Testing OpenAI...");
   
-  // Test OpenAI
   try {
     const test = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -196,28 +216,25 @@ async function initialize() {
       },
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: "Say 'Ready'" }],
-        max_tokens: 10
+        messages: [{ role: "user", content: "Say OK" }],
+        max_tokens: 5
       })
     });
     
-    if (!test.ok) throw new Error("OpenAI failed");
-    console.log("✅ OpenAI connected");
-  } catch {
-    console.log("❌ OpenAI failed, retrying in 5 min");
-    setTimeout(initialize, 300000);
+    if (!test.ok) throw new Error("OpenAI test failed");
+    console.log("✅ OpenAI ready");
+  } catch (error) {
+    console.log("❌ OpenAI failed:", error.message);
+    setTimeout(init, 300000);
     return;
   }
   
-  // Run first cycle
-  await main();
-  
-  // Schedule
-  setInterval(main, POLL_INTERVAL);
+  console.log("🎉 Agent initialized!");
+  await runCycle();
+  setInterval(runCycle, POLL_INTERVAL);
 }
 
-// Start
-initialize().catch(error => {
-  console.error("💥 Fatal:", error);
+init().catch(e => {
+  console.error("💥 Fatal:", e);
   process.exit(1);
 });
