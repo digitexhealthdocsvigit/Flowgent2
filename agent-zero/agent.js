@@ -1,55 +1,60 @@
-// ================= COMPLETE WORKING AGENT ZERO =================
-console.log("🚀 Flowgent Agent Zero - Production Ready");
+// ================= AGENT ZERO - FINAL WORKING VERSION =================
+console.log("🚀 Flowgent Agent Zero - Connected Version");
 console.log("✅ Starting at:", new Date().toISOString());
 
-// Configuration
+// Configuration - MUST MATCH Railway variable names EXACTLY
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const POLL_INTERVAL = process.env.POLL_INTERVAL || 300000;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;  // ✅ This matches Railway
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;  // ✅ This matches Railway
 
-// Validate config
+console.log("🔍 Checking configuration...");
+console.log("✅ OpenAI Key present:", !!OPENAI_API_KEY);
+console.log("✅ Supabase URL present:", !!SUPABASE_URL);
+console.log("✅ Supabase Key present:", !!SUPABASE_KEY);
+console.log("⏰ Poll interval:", POLL_INTERVAL / 1000 / 60, "minutes");
+
 if (!OPENAI_API_KEY) {
-  console.error("❌ ERROR: OPENAI_API_KEY missing in Railway Variables");
+  console.error("❌ ERROR: OPENAI_API_KEY missing");
   process.exit(1);
 }
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.log("⚠️ Database credentials missing, running in test mode only");
+// Database test
+async function testDatabase() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.log("❌ Database credentials missing");
+    return false;
+  }
+  
+  try {
+    console.log("🔗 Testing database connection...");
+    console.log("📡 URL:", SUPABASE_URL);
+    
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    
+    if (response.ok) {
+      console.log("✅ Database connection successful!");
+      return true;
+    } else {
+      console.log("❌ Database connection failed:", response.status);
+      return false;
+    }
+  } catch (error) {
+    console.log("❌ Database error:", error.message);
+    return false;
+  }
 }
 
-console.log("✅ Configuration loaded");
-console.log("🔑 OpenAI Key:", OPENAI_API_KEY.substring(0, 10) + "...");
-console.log("⏰ Poll interval:", POLL_INTERVAL / 1000 / 60, "minutes");
-
-// Database functions
-async function getUnprocessedLeads() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.log("📊 Running in test mode - no database connection");
-    return [
-      {
-        id: 1,
-        business_name: "Perfect Gym Mumbai",
-        category: "Fitness",
-        city: "Mumbai",
-        has_website: false,
-        rating: 4.5,
-        review_count: 120
-      },
-      {
-        id: 2,
-        business_name: "Spice Route Delhi",
-        category: "Restaurant",
-        city: "Delhi",
-        has_website: true,
-        rating: 4.2,
-        review_count: 85
-      }
-    ];
-  }
-
+// Get real leads from database
+async function getRealLeads() {
   try {
-    // Using fetch to avoid library dependencies
+    console.log("📊 Fetching real leads from database...");
+    
     const response = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&ai_audit_completed=eq.false&limit=5`, {
       headers: {
         'apikey': SUPABASE_KEY,
@@ -57,77 +62,28 @@ async function getUnprocessedLeads() {
         'Content-Type': 'application/json'
       }
     });
-
+    
     if (!response.ok) {
-      throw new Error(`Database error: ${response.status}`);
+      console.log("❌ Database query failed:", response.status);
+      return [];
     }
-
+    
     const leads = await response.json();
-    console.log(`📊 Found ${leads.length} unprocessed leads`);
+    console.log(`✅ Found ${leads.length} real leads in database`);
     return leads;
   } catch (error) {
-    console.log("⚠️ Database error:", error.message);
-    return []; // Return empty array instead of failing
+    console.log("❌ Fetch error:", error.message);
+    return [];
   }
 }
 
-async function updateLead(leadId, aiData) {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.log(`✅ [TEST] Would update lead ${leadId}:`, aiData);
-    return true;
-  }
-
+// AI Analysis
+async function analyzeWithAI(business) {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}`, {
-      method: 'PATCH',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({
-        ai_audit_completed: true,
-        readiness_score: aiData.readiness_score,
-        temperature: aiData.temperature,
-        is_hot_opportunity: aiData.readiness_score >= 80,
-        ai_insights: aiData.ai_insights,
-        projected_roi_lift: aiData.projected_roi_lift,
-        est_contract_value: aiData.est_contract_value,
-        updated_at: new Date().toISOString()
-      })
-    });
-
-    return response.ok;
-  } catch (error) {
-    console.log("⚠️ Update error:", error.message);
-    return false;
-  }
-}
-
-// AI Processing
-async function analyzeBusinessWithAI(business) {
-  try {
-    console.log(`🤖 Analyzing: ${business.business_name}`);
+    console.log(`🤖 AI analyzing: ${business.business_name || business.name || 'Unknown'}`);
     
-    const prompt = `Analyze this business for digital readiness:
-
-BUSINESS:
-- Name: ${business.business_name}
-- Category: ${business.category || 'Unknown'}
-- Location: ${business.city || 'Unknown'}
-- Has Website: ${business.has_website ? 'Yes' : 'No'}
-- Rating: ${business.rating || 'Not rated'} (${business.review_count || 0} reviews)
-
-Provide ONLY a JSON response:
-{
-  "readiness_score": 0-100,
-  "temperature": "hot/warm/cold",
-  "ai_insights": "Brief 1-2 sentence insight",
-  "projected_roi_lift": 0-150,
-  "est_contract_value": 1000-20000
-}`;
-
+    const prompt = `Analyze digital readiness for: ${JSON.stringify(business, null, 2)}`;
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -136,114 +92,94 @@ Provide ONLY a JSON response:
       },
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 200,
-        temperature: 0.7
+        messages: [{ 
+          role: "user", 
+          content: `${prompt}\n\nReturn JSON: {"score":0-100,"insight":"text","temperature":"hot/warm/cold"}`
+        }],
+        max_tokens: 150
       })
     });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
+    
     const data = await response.json();
-    const aiText = data.choices[0]?.message?.content || "{}";
+    const result = JSON.parse(data.choices[0].message.content || '{"score":50,"insight":"Default","temperature":"warm"}');
     
-    // Parse JSON response
-    let aiData;
-    try {
-      aiData = JSON.parse(aiText);
-    } catch {
-      aiData = {
-        readiness_score: 50,
-        temperature: "warm",
-        ai_insights: "Analysis completed",
-        projected_roi_lift: 75,
-        est_contract_value: 5000
-      };
-    }
-
-    // Validate scores
-    aiData.readiness_score = Math.min(100, Math.max(0, aiData.readiness_score || 50));
-    aiData.projected_roi_lift = Math.min(150, Math.max(0, aiData.projected_roi_lift || 75));
-    aiData.est_contract_value = Math.min(20000, Math.max(1000, aiData.est_contract_value || 5000));
+    result.score = Math.min(100, Math.max(0, result.score || 50));
+    console.log(`✅ AI Score: ${result.score}/100 (${result.temperature})`);
     
-    console.log(`✅ Analysis: ${aiData.readiness_score}/100 (${aiData.temperature})`);
-    
-    return aiData;
+    return result;
   } catch (error) {
-    console.log("⚠️ AI analysis error:", error.message);
-    return {
-      readiness_score: 50,
-      temperature: "warm",
-      ai_insights: "AI analysis temporarily unavailable",
-      projected_roi_lift: 75,
-      est_contract_value: 5000
-    };
+    console.log("⚠️ AI error:", error.message);
+    return { score: 50, insight: "Error", temperature: "warm" };
   }
 }
 
-// Main agent cycle
-async function runAgentCycle() {
+// Main function
+async function main() {
   console.log("\n" + "=".repeat(50));
-  console.log("🔄 Starting agent cycle at:", new Date().toISOString());
   
-  try {
-    // Get leads to process
-    const leads = await getUnprocessedLeads();
+  // Test database
+  const dbConnected = await testDatabase();
+  
+  if (!dbConnected) {
+    console.log("⚠️ Running in test mode (no database)");
     
-    if (leads.length === 0) {
-      console.log("✅ No leads to process. Sleeping...");
-      return;
+    // Test with sample data
+    const testLeads = [
+      { id: 1, business_name: "Test Business 1", city: "Test City" },
+      { id: 2, business_name: "Test Business 2", city: "Test City" }
+    ];
+    
+    for (const lead of testLeads) {
+      const aiResult = await analyzeWithAI(lead);
+      console.log(`📝 ${lead.business_name}: ${aiResult.score}/100`);
     }
     
-    console.log(`📊 Processing ${leads.length} lead(s)...`);
+  } else {
+    console.log("🎉 CONNECTED TO REAL DATABASE!");
     
-    let processedCount = 0;
-    let hotLeadsCount = 0;
+    // Get real leads
+    const realLeads = await getRealLeads();
     
-    // Process each lead
-    for (const lead of leads) {
-      console.log(`\n📝 [${processedCount + 1}/${leads.length}] ${lead.business_name}`);
+    if (realLeads.length === 0) {
+      console.log("✅ No unprocessed leads found in database");
+    } else {
+      console.log(`📊 Processing ${realLeads.length} real leads...`);
       
-      // AI Analysis
-      const aiResult = await analyzeBusinessWithAI(lead);
-      
-      // Update database
-      const updated = await updateLead(lead.id, aiResult);
-      
-      if (updated) {
-        processedCount++;
-        console.log(`✅ Updated: ${lead.business_name} → ${aiResult.readiness_score}/100`);
+      for (const lead of realLeads) {
+        const aiResult = await analyzeWithAI(lead);
         
-        // Check for hot lead
-        if (aiResult.readiness_score >= 80) {
-          hotLeadsCount++;
-          console.log(`🔥 HOT LEAD! ${lead.business_name} - Score: ${aiResult.readiness_score}`);
-          console.log(`   💰 Estimated Value: ₹${aiResult.est_contract_value}`);
-          console.log(`   📈 ROI Lift: ${aiResult.projected_roi_lift}%`);
+        // Update the lead in database
+        const updateResponse = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${lead.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            ai_audit_completed: true,
+            readiness_score: aiResult.score,
+            temperature: aiResult.temperature,
+            ai_insights: aiResult.insight,
+            updated_at: new Date().toISOString()
+          })
+        });
+        
+        if (updateResponse.ok) {
+          console.log(`✅ Updated lead ${lead.id} in database`);
+          if (aiResult.score >= 80) {
+            console.log(`🔥 HOT LEAD: ${lead.business_name}`);
+          }
         }
-      } else {
-        console.log(`❌ Failed to update ${lead.business_name}`);
-      }
-      
-      // Small delay to avoid rate limits
-      if (processedCount < leads.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
-    
-    // Summary
-    console.log("\n" + "=".repeat(50));
-    console.log("📊 CYCLE SUMMARY");
-    console.log(`✅ Processed: ${processedCount}/${leads.length} leads`);
-    console.log(`🔥 Hot leads found: ${hotLeadsCount}`);
-    console.log(`⏰ Next cycle in: ${POLL_INTERVAL / 1000 / 60} minutes`);
-    console.log("=".repeat(50));
-    
-  } catch (error) {
-    console.log("❌ Agent cycle error:", error.message);
   }
+  
+  console.log("\n" + "=".repeat(50));
+  console.log("✅ Agent cycle completed");
+  console.log("⏰ Next run in", POLL_INTERVAL / 1000 / 60, "minutes");
+  console.log("=".repeat(50));
 }
 
 // Initialize
@@ -252,7 +188,7 @@ async function initialize() {
   
   // Test OpenAI
   try {
-    const testResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const test = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -260,33 +196,28 @@ async function initialize() {
       },
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: "Say 'Ready' in one word." }],
-        max_tokens: 5
+        messages: [{ role: "user", content: "Say 'Ready'" }],
+        max_tokens: 10
       })
     });
     
-    if (!testResponse.ok) {
-      throw new Error("OpenAI test failed");
-    }
-    
-    console.log("✅ OpenAI connection verified");
-  } catch (error) {
-    console.log("❌ OpenAI test failed:", error.message);
-    console.log("⚠️ Will retry in 5 minutes");
+    if (!test.ok) throw new Error("OpenAI failed");
+    console.log("✅ OpenAI connected");
+  } catch {
+    console.log("❌ OpenAI failed, retrying in 5 min");
     setTimeout(initialize, 300000);
     return;
   }
   
-  // Start first cycle
-  console.log("🎉 Agent Zero initialized successfully!");
-  await runAgentCycle();
+  // Run first cycle
+  await main();
   
-  // Schedule regular cycles
-  setInterval(runAgentCycle, POLL_INTERVAL);
+  // Schedule
+  setInterval(main, POLL_INTERVAL);
 }
 
-// Start everything
+// Start
 initialize().catch(error => {
-  console.error("💥 Fatal initialization error:", error);
+  console.error("💥 Fatal:", error);
   process.exit(1);
 });
