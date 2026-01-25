@@ -12,7 +12,7 @@ const PG_CONFIG = {
   ssl: { rejectUnauthorized: false }
 };
 
-const GEMINI_API_KEY = 'AIzaSyBPs2T-1zpAo1q_huSx4dOt-CB-aPwPCmY';
+const GEMINI_API_KEY = 'AIzaSyCGo2qrkdDn2_DMp5tUVVTzmfvgymu0YBw';
 const POLL_INTERVAL = 300000; // 5 minutes
 
 const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
@@ -176,4 +176,22 @@ async function initialize() {
 initialize().catch(error => {
   log(`💥 Fatal: ${error.message}`);
   process.exit(1);
+  import { GoogleGenerativeAI } from "@google/generative-ai";
+
+// Get API key from environment (Railway will provide this)
+const GEMINI_API_KEY = process.env.API_KEY;
+
+console.log("🤖 Agent Zero Starting...");
+console.log("✅ Gemini API Key loaded successfully");
+console.log("🚀 Starting Flowgent Agent Zero");
+
+// Your API key is right here - no changes needed!
+const API_KEY = "AIzaSyCGo2qrkdDn2_DMp5tUVVTzmfvgymuOYBw";
+
+console.log("✅ API Key ready:", API_KEY.substring(0, 10) + "...");
+
+// Rest of your existing code continues here...
+// (keep whatever agent.js you already have below this)  
+
+// Rest of your agent code continues...
 });
