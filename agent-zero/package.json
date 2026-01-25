@@ -3,9 +3,6 @@
   "version": "1.0.0",
   "type": "module",
   "main": "agent.js",
-  "dependencies": {
-    "@google/generative-ai": "^0.21.0"
-  },
   "scripts": {
     "start": "node agent.js"
   }
