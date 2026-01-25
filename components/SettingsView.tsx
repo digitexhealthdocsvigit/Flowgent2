@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { testInsForgeConnection, activeProjectRef } from '../lib/supabase';
 
@@ -12,7 +11,6 @@ const SettingsView: React.FC = () => {
     setDbStatus(dbOk ? 'ok' : 'error');
 
     setAiStatus('testing');
-    // Direct check of injected API_KEY
     const keyExists = !!process.env.API_KEY;
     setTimeout(() => setAiStatus(keyExists ? 'ok' : 'error'), 1200);
   };
@@ -28,9 +26,18 @@ const SettingsView: React.FC = () => {
 
   return (
     <div className="space-y-12 p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
-      <div>
-        <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none">Cluster Diagnostics</h2>
-        <p className="text-slate-500 font-bold mt-4 uppercase tracking-[0.2em] text-[10px]">Infrastructure Node: {activeProjectRef} Production Cluster</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none">Cluster Diagnostics</h2>
+          <p className="text-slate-500 font-bold mt-4 uppercase tracking-[0.2em] text-[10px]">Infrastructure Node: {activeProjectRef} Production Cluster</p>
+        </div>
+        <div className="flex gap-4">
+           {dbStatus === 'ok' ? (
+             <span className="text-green-500 font-black text-xs">✅ DATABASE CONNECTED</span>
+           ) : (
+             <span className="text-red-500 font-black text-xs">❌ CONNECTION FAILED</span>
+           )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -55,8 +62,10 @@ const SettingsView: React.FC = () => {
                    </div>
                    {node.status === 'ok' ? (
                      <span className="text-green-500 font-black text-[10px] tracking-widest bg-green-500/10 px-3 py-1 rounded-full">CONNECTED</span>
-                   ) : (
+                   ) : node.status === 'testing' ? (
                      <span className="text-slate-600 font-black text-[10px] tracking-widest">PROBING...</span>
+                   ) : (
+                     <span className="text-red-500 font-black text-[10px] tracking-widest">ERROR</span>
                    )}
                 </div>
               ))}

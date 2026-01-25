@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { leadOperations } from '../lib/supabase';
 import { Lead } from '../types';
@@ -36,7 +35,7 @@ const ContactsView: React.FC = () => {
                 <th className="pb-8 text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Business Identity</th>
                 <th className="pb-8 text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Agent Temp</th>
                 <th className="pb-8 text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Neural Score</th>
-                <th className="pb-8 text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">AI Strategic Insights</th>
+                <th className="pb-8 text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Strategic Insight</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">

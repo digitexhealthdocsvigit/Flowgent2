@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import LandingPage from './components/LandingPage';
@@ -36,7 +35,6 @@ const App: React.FC = () => {
   const [isNodeOnline, setIsNodeOnline] = useState(false);
   const [isHydrating, setIsHydrating] = useState(true);
 
-  // Sync state with infrastructure node JSK8SNXZ
   const refreshData = async () => {
     const isOnline = await testInsForgeConnection();
     setIsNodeOnline(isOnline);
@@ -58,7 +56,6 @@ const App: React.FC = () => {
     let interval: any;
     if (viewState === 'dashboard') {
       refreshData();
-      // Polling for live updates from Agent Zero
       interval = setInterval(refreshData, 10000);
     }
     return () => clearInterval(interval);
@@ -112,7 +109,7 @@ const App: React.FC = () => {
                               <p className={`text-2xl font-black italic tracking-tighter ${l.readiness_score! >= 80 ? 'text-red-500' : 'text-blue-500'}`}>
                                 {l.readiness_score || 0}%
                               </p>
-                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Neural Score</p>
+                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">AI Neural Score</p>
                            </div>
                         </div>
                       )) : (
