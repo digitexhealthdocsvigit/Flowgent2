@@ -1,13 +1,12 @@
 {
-  "name": "flowgent-agent-zero",
+  "name": "agent-zero",
   "version": "1.0.0",
   "type": "module",
   "main": "agent.js",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0"
+  },
   "scripts": {
     "start": "node agent.js"
-  },
-  "dependencies": {
-    "@google/generative-ai": "^0.21.0",
-    "pg": "^8.11.3"
   }
 }
