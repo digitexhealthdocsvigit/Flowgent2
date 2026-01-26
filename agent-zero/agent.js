@@ -1,4 +1,6 @@
-// ================= AGENT ZERO - DEPENDENCY-FREE =================
+// ================= AGENT ZERO - ES MODULE COMPATIBLE =================
+import https from 'https';
+
 console.log("🚀 Flowgent Agent Zero - Production v2.0");
 console.log("✅ Starting at:", new Date().toISOString());
 
@@ -20,10 +22,9 @@ log("🔑 OpenAI:", OPENAI_API_KEY ? "Present" : "Missing");
 log("🗄️ Database:", SUPABASE_URL ? "Connected" : "Test Mode");
 log("⏰ Interval:", POLL_INTERVAL / 60000, "minutes");
 
-// Simple HTTP client (no external dependencies)
+// HTTP client using native https module
 async function fetchAPI(url, options = {}) {
   return new Promise((resolve, reject) => {
-    const https = require('https');
     const urlObj = new URL(url);
     
     const req = https.request({
@@ -78,10 +79,7 @@ async function getUnprocessedLeads() {
     );
 
     if (!response.ok) {
-      log("⚠️ Database query failed:", response.status, response.text);
-      if (response.text.includes('relation') || response.text.includes('does not exist')) {
-        log("💡 SOLUTION: Run the CREATE TABLE SQL in InsForge dashboard");
-      }
+      log("⚠️ Database query failed:", response.status, response.text.substring(0, 100));
       return [];
     }
     
