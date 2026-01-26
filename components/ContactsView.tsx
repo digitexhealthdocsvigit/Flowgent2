@@ -7,6 +7,7 @@ const ContactsView: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const loadContacts = async () => {
+    // Only fetch leads flagged as HOT by Agent Zero (score >= 80)
     const data = await leadOperations.getHotLeads();
     if (data) setContacts(data);
     setLoading(false);
@@ -22,9 +23,12 @@ const ContactsView: React.FC = () => {
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500">
-      <div>
-        <h2 className="text-5xl font-black text-white tracking-tighter italic">Hot Opportunities</h2>
-        <p className="text-slate-500 font-bold mt-2 uppercase tracking-widest text-[10px]">Neural Nodes Scored ≥ 80: {contacts.length}</p>
+      <div className="flex justify-between items-end">
+        <div>
+          <h2 className="text-5xl font-black text-white tracking-tighter italic">Hot Opportunities</h2>
+          <p className="text-slate-500 font-bold mt-2 uppercase tracking-widest text-[10px]">Neural Nodes Scored ≥ 80: {contacts.length}</p>
+        </div>
+        <button onClick={loadContacts} className="text-[10px] font-black uppercase text-blue-500 tracking-widest border border-blue-500/20 px-6 py-2 rounded-xl hover:bg-blue-600/10 transition-all">Refresh Node</button>
       </div>
 
       <div className="bg-slate-900 rounded-[56px] border border-white/5 p-12 shadow-2xl">

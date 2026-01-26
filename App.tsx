@@ -56,6 +56,7 @@ const App: React.FC = () => {
     let interval: any;
     if (viewState === 'dashboard') {
       refreshData();
+      // Fast polling to catch updates from Railway Agent Zero
       interval = setInterval(refreshData, 10000);
     }
     return () => clearInterval(interval);
@@ -92,7 +93,10 @@ const App: React.FC = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                   <section className="lg:col-span-2 bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
-                    <h3 className="font-black text-2xl text-white italic mb-10">Intelligence Feed</h3>
+                    <div className="flex justify-between items-center mb-10">
+                      <h3 className="font-black text-2xl text-white italic">Intelligence Feed</h3>
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Live Agent Updates</span>
+                    </div>
                     <div className="space-y-4">
                       {leads.length > 0 ? leads.map(l => (
                         <div key={l.id} className="p-6 bg-white/5 border border-white/5 rounded-3xl flex items-center justify-between hover:bg-white/10 transition-all group">
