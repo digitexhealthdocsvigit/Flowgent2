@@ -35,7 +35,7 @@ const SettingsView: React.FC = () => {
            {dbStatus === 'ok' ? (
              <span className="text-green-500 font-black text-xs">✅ DATABASE CONNECTED</span>
            ) : (
-             <span className="text-red-500 font-black text-xs">❌ CONNECTION FAILED</span>
+             <span className="text-red-500 font-black text-xs">❌ CONNECTION FAILED (404)</span>
            )}
         </div>
       </div>
@@ -49,8 +49,8 @@ const SettingsView: React.FC = () => {
            <h3 className="text-xl font-black text-white italic">Neural Link Integrity</h3>
            <div className="space-y-6">
               {[
-                { label: 'InsForge Node', desc: 'JSK8SNXZ PostgreSQL Protocol', status: dbStatus },
-                { label: 'Gemini 3 Fabric', desc: 'Neural Scorer Pipeline', status: aiStatus },
+                { label: 'InsForge Node', desc: 'JSK8SNXZ REST Protocol', status: dbStatus },
+                { label: 'Gemini AI Fabric', desc: 'Neural Scorer Pipeline', status: aiStatus },
               ].map((node, i) => (
                 <div key={i} className="flex items-center justify-between p-6 bg-white/5 rounded-[32px] border border-white/10 hover:border-blue-500/30 transition-all">
                    <div className="flex items-center gap-6">
@@ -65,11 +65,21 @@ const SettingsView: React.FC = () => {
                    ) : node.status === 'testing' ? (
                      <span className="text-slate-600 font-black text-[10px] tracking-widest">PROBING...</span>
                    ) : (
-                     <span className="text-red-500 font-black text-[10px] tracking-widest">ERROR</span>
+                     <span className="text-red-500 font-black text-[10px] tracking-widest">OFFLINE</span>
                    )}
                 </div>
               ))}
            </div>
+
+           {dbStatus === 'error' && (
+             <div className="p-6 bg-red-600/10 border border-red-500/20 rounded-[32px] space-y-4">
+                <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">Handshake Error (404)</p>
+                <p className="text-xs text-slate-400 leading-relaxed italic">
+                  The API is reachable, but the table "leads" is missing from the database. 
+                  Run the SQL migration in your InsForge dashboard to initialize the node.
+                </p>
+             </div>
+           )}
            
            <button onClick={probeInfrastructure} className="w-full bg-blue-600 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-blue-500 transition-all shadow-2xl active:scale-95">Re-Verify Neural Path</button>
         </div>

@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Lead, AuditLog, Subscription } from '../types';
 
@@ -17,11 +16,16 @@ const headers = {
 export const activeProjectRef = "JSK8SNXZ";
 
 /**
- * NEURAL HANDSHAKE: Direct Node Probe
+ * NEURAL HANDSHAKE: Connection probe
+ * Checks if the leads table exists to confirm handshake.
  */
 export async function testInsForgeConnection() {
   try {
     const response = await fetch(`${INSFORGE_URL}/rest/v1/leads?select=id&limit=1`, { headers });
+    if (response.status === 404) {
+      console.warn("Handshake Blocked: Table 'leads' not found in JSK8SNXZ cluster.");
+      return false;
+    }
     return response.ok;
   } catch {
     return false;
@@ -84,7 +88,7 @@ export const leadOperations = {
 };
 
 /**
- * LOG OPERATIONS: Neural Telemetry
+ * LOG OPERATIONS: Telemetry logs
  */
 export const logOperations = {
   async getRecent(): Promise<AuditLog[]> {
@@ -113,20 +117,15 @@ export const logOperations = {
   }
 };
 
-/**
- * REVENUE NODE OPERATIONS
- */
 export const subscriptionOperations = {
   async getAll(): Promise<Subscription[]> {
     try {
-      const response = await fetch(`${INSFORGE_URL}/rest/v1/subscriptions?select=*&order=nextBilling.desc`, { headers });
+      const response = await fetch(`${INSFORGE_URL}/rest/v1/subscriptions?select=*&order=created_at.desc`, { headers });
       return response.ok ? await response.json() : [];
     } catch {
       return [];
     }
   },
-
-  // Fix: Added verifyPayment method to support AMC settlement verification in SubscriptionsView.tsx
   async verifyPayment(id: string, paymentRef: string) {
     try {
       const response = await fetch(`${INSFORGE_URL}/rest/v1/subscriptions?id=eq.${id}`, {
@@ -138,13 +137,9 @@ export const subscriptionOperations = {
           updated_at: new Date().toISOString()
         })
       });
-      if (!response.ok) {
-        throw new Error('Failed to verify payment status on infrastructure node');
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('verifyPayment error:', error);
-      throw error;
+      return response.ok;
+    } catch {
+      return false;
     }
   }
 };
@@ -154,5 +149,5 @@ export const handleSupabaseError = (err: any): string => {
   return err.message || "Infrastructure Node Timeout: 0x82";
 };
 
-// Main SDK Client kept for Auth logic in LoginScreen.tsx
+// Main SDK Client kept for authentication logic
 export const supabase = createClient(INSFORGE_URL, INSFORGE_KEY);

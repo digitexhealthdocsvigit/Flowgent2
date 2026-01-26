@@ -48,6 +48,8 @@ const App: React.FC = () => {
       if (leadsData) setLeads(leadsData);
       if (logsData) setSignals(logsData);
       if (subsData) setSubscriptions(subsData);
+    } else {
+      console.warn("Cluster Sync Failed: Handshake Pending.");
     }
     setIsHydrating(false);
   };
@@ -56,7 +58,6 @@ const App: React.FC = () => {
     let interval: any;
     if (viewState === 'dashboard') {
       refreshData();
-      // Fast polling to catch updates from Railway Agent Zero
       interval = setInterval(refreshData, 10000);
     }
     return () => clearInterval(interval);
@@ -84,19 +85,26 @@ const App: React.FC = () => {
                    <div className="bg-blue-600/10 border border-blue-500/20 px-8 py-4 rounded-3xl flex items-center gap-6 shadow-2xl">
                       <div className={`w-3 h-3 ${isNodeOnline ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)]'} rounded-full animate-pulse`}></div>
                       <span className="text-[10px] font-black uppercase text-blue-400 italic tracking-widest">
-                        CLUSTER STATUS: {isNodeOnline ? 'SYNCHRONIZED' : 'CONNECTION ERROR'}
+                        CLUSTER STATUS: {isNodeOnline ? 'SYNCHRONIZED' : 'HANDSHAKE PENDING'}
                       </span>
                    </div>
                 </div>
                 
                 <AdminInfographic />
 
+                {!isNodeOnline && (
+                  <div className="p-12 bg-red-600/10 border border-red-500/20 rounded-[40px] text-center space-y-4">
+                    <h3 className="text-xl font-black text-red-500 uppercase tracking-widest italic">Database Setup Required</h3>
+                    <p className="text-slate-400 text-sm max-w-lg mx-auto leading-relaxed">
+                      The cluster is unreachable because the 'leads' table is missing. 
+                      Please run the initialization SQL in your InsForge dashboard to complete the handshake.
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                   <section className="lg:col-span-2 bg-slate-900/50 p-12 rounded-[56px] border border-white/5 shadow-2xl backdrop-blur-xl">
-                    <div className="flex justify-between items-center mb-10">
-                      <h3 className="font-black text-2xl text-white italic">Intelligence Feed</h3>
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Live Agent Updates</span>
-                    </div>
+                    <h3 className="font-black text-2xl text-white italic mb-10">Intelligence Feed</h3>
                     <div className="space-y-4">
                       {leads.length > 0 ? leads.map(l => (
                         <div key={l.id} className="p-6 bg-white/5 border border-white/5 rounded-3xl flex items-center justify-between hover:bg-white/10 transition-all group">
@@ -118,7 +126,7 @@ const App: React.FC = () => {
                         </div>
                       )) : (
                         <div className="py-24 text-center text-slate-600 font-black text-[10px] tracking-[0.4em] bg-white/5 rounded-[40px] border border-dashed border-white/10">
-                          AWAITING AGENT ZERO PROPAGATION...
+                          {isNodeOnline ? 'AWAITING AGENT ZERO PROPAGATION...' : 'SYNC WITH JSK8SNXZ PENDING...'}
                         </div>
                       )}
                     </div>
@@ -155,7 +163,7 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 bg-[#0f172a]/50 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-12 z-40">
            <div className="flex items-center gap-4">
-              <div className={`w-2.5 h-2.5 rounded-full ${isNodeOnline ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]' : 'bg-red-500'} animate-pulse`}></div>
+              <div className={`w-2.5 h-2.5 rounded-full ${isNodeOnline ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]'} animate-pulse`}></div>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
                 Node {activeProjectRef}: {isNodeOnline ? 'ONLINE' : 'HANDSHAKE PENDING'}
               </p>
