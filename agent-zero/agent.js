@@ -1,94 +1,258 @@
-import fetch from "node-fetch";
-import dotenv from "dotenv";
-import { createClient } from "@supabase/supabase-js";
-import { GoogleGenAI } from "@google/genai";
+// ================= AGENT ZERO - DEPENDENCY-FREE =================
+console.log("🚀 Flowgent Agent Zero - Production v2.0");
+console.log("✅ Starting at:", new Date().toISOString());
 
-dotenv.config();
-
-/**
- * FLOWGENT AGENT ZERO: AUTONOMOUS BACKEND NODE
- * Project Node: JSK8SNXZ
- * Handshake Layer for OpenAI/Gemini Intelligence
- */
-
-const supabaseUrl = process.env.SUPABASE_URL || "https://jsk8snxz.ap-southeast.insforge.app";
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || "ik_2ef615853868d11f26c1b6a8cd7550ad";
-const geminiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+// Configuration
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300000");
 
 const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
 
-if (!supabaseUrl || !supabaseKey) {
-  log("❌ CRITICAL: Infrastructure credentials missing.");
-  process.exit(1); 
+if (!OPENAI_API_KEY) {
+  log("❌ OPENAI_API_KEY missing");
+  process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
-const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300") * 1000;
+log("✅ Config loaded");
+log("🔑 OpenAI:", OPENAI_API_KEY ? "Present" : "Missing");
+log("🗄️ Database:", SUPABASE_URL ? "Connected" : "Test Mode");
+log("⏰ Interval:", POLL_INTERVAL / 60000, "minutes");
 
-async function runAgent() {
+// Simple HTTP client (no external dependencies)
+async function fetchAPI(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const https = require('https');
+    const urlObj = new URL(url);
+    
+    const req = https.request({
+      hostname: urlObj.hostname,
+      port: urlObj.port || 443,
+      path: urlObj.pathname + urlObj.search,
+      method: options.method || 'GET',
+      headers: options.headers || {}
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          resolve({ 
+            ok: res.statusCode < 400, 
+            status: res.statusCode,
+            json: () => JSON.parse(data), 
+            text: data 
+          });
+        } catch {
+          resolve({ ok: res.statusCode < 400, status: res.statusCode, text: data });
+        }
+      });
+    });
+    
+    req.on('error', reject);
+    if (options.body) req.write(options.body);
+    req.end();
+  });
+}
+
+// Database functions
+async function getUnprocessedLeads() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    log("⚠️ Running in test mode");
+    return [
+      { id: 1, business_name: "Perfect Gym Mumbai", category: "Fitness", has_website: false },
+      { id: 2, business_name: "Spice Route Delhi", category: "Restaurant", has_website: true }
+    ];
+  }
+
   try {
-    log("🔍 Syncing with JSK8SNXZ cluster...");
-    
-    const { data: leads, error } = await supabase
-      .from("leads")
-      .select("*")
-      .eq("ai_audit_completed", false)
-      .limit(5);
-
-    if (error) {
-      log("❌ Handshake Error:", error.message);
-      return;
-    }
-    
-    if (!leads?.length) {
-      log("✅ Node Queue Clear.");
-      return;
-    }
-
-    if (!geminiKey) {
-      log("⚠️ Neural Scorer Offline: API_KEY missing.");
-      return;
-    }
-
-    const ai = new GoogleGenAI({ apiKey: geminiKey });
-
-    for (const lead of leads) {
-      log(`📝 Analyzing Node: ${lead.business_name}`);
-      
-      let readiness_score = 50;
-      let ai_insights = "";
-      
-      try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: `Audit Business: ${lead.business_name}. Digital Readiness Score (0-100).`,
-          config: { thinkingConfig: { thinkingBudget: 0 } }
-        });
-        
-        const text = response.text || "Score: 50";
-        ai_insights = text;
-        readiness_score = parseInt(text.match(/\d+/)?.[0] || "50", 10);
-        log(`🤖 Score Optimized: ${readiness_score}`);
-      } catch (err) {
-        log("⚠️ AI Engine Error:", err.message);
+    const response = await fetchAPI(
+      `${SUPABASE_URL}/rest/v1/leads?select=*&ai_audit_completed=eq.false&limit=5`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        }
       }
+    );
 
-      const { error: updateError } = await supabase.from("leads").update({
-        ai_audit_completed: true,
-        readiness_score,
-        is_hot_opportunity: readiness_score >= 80,
-        temperature: readiness_score >= 80 ? 'hot' : 'warm',
-        ai_insights,
-        updated_at: new Date().toISOString()
-      }).eq("id", lead.id);
-
-      if (updateError) log("❌ Persistence Failure:", updateError.message);
+    if (!response.ok) {
+      log("⚠️ Database query failed:", response.status, response.text);
+      if (response.text.includes('relation') || response.text.includes('does not exist')) {
+        log("💡 SOLUTION: Run the CREATE TABLE SQL in InsForge dashboard");
+      }
+      return [];
     }
-  } catch (err) {
-    log("❌ Critical Infrastructure Loop Error:", err.message);
+    
+    const leads = response.json();
+    log(`📊 Found ${leads.length} unprocessed leads`);
+    return leads;
+  } catch (error) {
+    log("⚠️ Database error:", error.message);
+    return [];
   }
 }
 
-log(`🚀 Agent Zero operational on Node JSK8SNXZ`);
-runAgent();
-setInterval(runAgent, POLL_INTERVAL);
+async function updateLead(leadId, data) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    log(`✅ [TEST] Updated lead ${leadId}: Score ${data.score}/100`);
+    return true;
+  }
+
+  try {
+    const response = await fetchAPI(
+      `${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          ai_audit_completed: true,
+          readiness_score: data.score,
+          temperature: data.temperature,
+          is_hot_opportunity: data.score >= 80,
+          ai_insights: data.insights,
+          updated_at: new Date().toISOString()
+        })
+      }
+    );
+
+    return response.ok;
+  } catch (error) {
+    log("⚠️ Update failed:", error.message);
+    return false;
+  }
+}
+
+// OpenAI Analysis
+async function analyzeWithOpenAI(business) {
+  try {
+    log(`🤖 Analyzing: ${business.business_name}`);
+    
+    const prompt = `Rate digital readiness 0-100 for: ${business.business_name}, ${business.category || 'Unknown'}, Website: ${business.has_website ? 'Yes' : 'No'}. Format: SCORE:[number] TEMP:[hot/warm/cold] INSIGHT:[brief]`;
+
+    const response = await fetchAPI('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 150,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI error: ${response.status}`);
+    }
+
+    const data = response.json();
+    const text = data.choices[0]?.message?.content || "";
+    
+    const scoreMatch = text.match(/SCORE:\s*(\d+)/i) || text.match(/(\d+)\/100/i);
+    const tempMatch = text.match(/TEMP:\s*(\w+)/i);
+    const insightMatch = text.match(/INSIGHT:\s*(.+)/i);
+    
+    const score = scoreMatch ? parseInt(scoreMatch[1]) : 50;
+    const temperature = tempMatch ? tempMatch[1].toLowerCase() : (score >= 80 ? 'hot' : score >= 50 ? 'warm' : 'cold');
+    const insights = insightMatch ? insightMatch[1].trim() : text.substring(0, 200);
+    
+    log(`✅ Score: ${score}/100 (${temperature})`);
+    
+    return { score, temperature, insights };
+    
+  } catch (error) {
+    log("⚠️ OpenAI error:", error.message);
+    return { score: 50, temperature: 'warm', insights: 'Analysis unavailable' };
+  }
+}
+
+// Main cycle
+async function runCycle() {
+  console.log("\n" + "=".repeat(50));
+  log("🔄 Cycle started");
+  
+  try {
+    const leads = await getUnprocessedLeads();
+    
+    if (leads.length === 0) {
+      log("✅ Queue clear - no unprocessed leads");
+      return;
+    }
+    
+    log(`📊 Processing ${leads.length} leads...`);
+    
+    let processed = 0;
+    let hotLeads = 0;
+    
+    for (const lead of leads) {
+      const result = await analyzeWithOpenAI(lead);
+      const updated = await updateLead(lead.id, result);
+      
+      if (updated) {
+        processed++;
+        if (result.score >= 80) {
+          hotLeads++;
+          log(`🔥 HOT LEAD! ${lead.business_name}: ${result.score}/100`);
+        }
+      }
+      
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    
+    log("\n📊 SUMMARY");
+    log(`✅ Processed: ${processed}/${leads.length}`);
+    log(`🔥 Hot leads: ${hotLeads}`);
+    log(`⏰ Next cycle: ${new Date(Date.now() + POLL_INTERVAL).toISOString()}`);
+    
+  } catch (error) {
+    log("❌ Cycle error:", error.message);
+  }
+  
+  console.log("=".repeat(50));
+}
+
+// Initialize
+async function init() {
+  log("🔧 Testing OpenAI connection...");
+  
+  try {
+    const test = await fetchAPI('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: "Say OK" }],
+        max_tokens: 5
+      })
+    });
+    
+    if (!test.ok) throw new Error(`Test failed: ${test.status}`);
+    log("✅ OpenAI connection verified");
+  } catch (error) {
+    log("❌ OpenAI test failed:", error.message);
+    log("⏰ Retrying in 5 minutes...");
+    setTimeout(init, 300000);
+    return;
+  }
+  
+  log("🎉 Agent Zero initialized successfully!");
+  await runCycle();
+  setInterval(runCycle, POLL_INTERVAL);
+}
+
+init().catch(e => {
+  console.error("💥 Fatal error:", e);
+  process.exit(1);
+});
