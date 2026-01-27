@@ -1,14 +1,17 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@insforge/sdk';
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const url = process.env.INSFORGE_API_BASE_URL || process.env.VITE_INSFORGE_API_BASE_URL || '';
+const key = process.env.INSFORGE_API_KEY || process.env.VITE_INSFORGE_API_KEY || '';
 
-const supabase = createClient(url, key);
+const insforge = createClient({
+  baseUrl: url,
+  apiKey: key
+});
 
 export default async function handler(req: any, res: any) {
   try {
-    const { data, error } = await supabase.from('leads').select('id').limit(1);
+    const { data, error } = await insforge.database.from('leads').select('id').limit(1);
     if (error) {
       return res.status(500).json({ success: false, error: error.message, code: error.code });
     }

@@ -1,4 +1,5 @@
 // ================= AGENT ZERO - ES MODULE COMPATIBLE =================
+import 'dotenv/config';
 import https from 'https';
 
 console.log("🚀 Flowgent Agent Zero - Production v2.0");
@@ -6,60 +7,65 @@ console.log("✅ Starting at:", new Date().toISOString());
 
 // Configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+// Support both InsForge and Supabase variables, prioritizing InsForge
+const DB_URL = process.env.INSFORGE_API_BASE_URL || process.env.SUPABASE_URL;
+const DB_KEY = process.env.INSFORGE_API_KEY || process.env.SUPABASE_SERVICE_KEY;
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300000");
 
 const log = (...args) => console.log("[AgentZero]", new Date().toISOString(), ...args);
 
 if (!OPENAI_API_KEY) {
-  log("❌ OPENAI_API_KEY missing");
-  process.exit(1);
+  log("⚠️ OPENAI_API_KEY missing - AI features will be disabled");
+  // process.exit(1); // Don't exit, allow running without AI for testing DB connection
 }
 
 log("✅ Config loaded");
 log("🔑 OpenAI:", OPENAI_API_KEY ? "Present" : "Missing");
-log("🗄️ Database:", SUPABASE_URL ? "Connected" : "Test Mode");
+log("🗄️ Database:", DB_URL ? "Connected" : "Test Mode");
 log("⏰ Interval:", POLL_INTERVAL / 60000, "minutes");
 
 // HTTP client using native https module
 async function fetchAPI(url, options = {}) {
   return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    
-    const req = https.request({
-      hostname: urlObj.hostname,
-      port: urlObj.port || 443,
-      path: urlObj.pathname + urlObj.search,
-      method: options.method || 'GET',
-      headers: options.headers || {}
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          resolve({ 
-            ok: res.statusCode < 400, 
-            status: res.statusCode,
-            json: () => JSON.parse(data), 
-            text: data 
-          });
-        } catch {
-          resolve({ ok: res.statusCode < 400, status: res.statusCode, text: data });
-        }
+    try {
+      const urlObj = new URL(url);
+      
+      const req = https.request({
+        hostname: urlObj.hostname,
+        port: urlObj.port || 443,
+        path: urlObj.pathname + urlObj.search,
+        method: options.method || 'GET',
+        headers: options.headers || {}
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            resolve({ 
+              ok: res.statusCode < 400, 
+              status: res.statusCode,
+              json: () => JSON.parse(data), 
+              text: data 
+            });
+          } catch {
+            resolve({ ok: res.statusCode < 400, status: res.statusCode, text: data });
+          }
+        });
       });
-    });
-    
-    req.on('error', reject);
-    if (options.body) req.write(options.body);
-    req.end();
+      
+      req.on('error', reject);
+      if (options.body) req.write(options.body);
+      req.end();
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
 // Database functions
 async function getUnprocessedLeads() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    log("⚠️ Running in test mode");
+  if (!DB_URL || !DB_KEY) {
+    log("⚠️ Running in test mode (No DB credentials)");
     return [
       { id: 1, business_name: "Perfect Gym Mumbai", category: "Fitness", has_website: false },
       { id: 2, business_name: "Spice Route Delhi", category: "Restaurant", has_website: true }
@@ -68,18 +74,18 @@ async function getUnprocessedLeads() {
 
   try {
     const response = await fetchAPI(
-      `${SUPABASE_URL}/rest/v1/leads?select=*&ai_audit_completed=eq.false&limit=5`,
+      `${DB_URL}/rest/v1/leads?select=*&ai_audit_completed=eq.false&limit=5`,
       {
         headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'apikey': DB_KEY,
+          'Authorization': `Bearer ${DB_KEY}`,
           'Content-Type': 'application/json'
         }
       }
     );
 
     if (!response.ok) {
-      log("⚠️ Database query failed:", response.status, response.text.substring(0, 100));
+      log("⚠️ Database query failed:", response.status, response.text ? response.text.substring(0, 100) : '');
       return [];
     }
     
@@ -93,19 +99,19 @@ async function getUnprocessedLeads() {
 }
 
 async function updateLead(leadId, data) {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
+  if (!DB_URL || !DB_KEY) {
     log(`✅ [TEST] Updated lead ${leadId}: Score ${data.score}/100`);
     return true;
   }
 
   try {
     const response = await fetchAPI(
-      `${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}`,
+      `${DB_URL}/rest/v1/leads?id=eq.${leadId}`,
       {
         method: 'PATCH',
         headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'apikey': DB_KEY,
+          'Authorization': `Bearer ${DB_KEY}`,
           'Content-Type': 'application/json',
           'Prefer': 'return=minimal'
         },
@@ -220,29 +226,33 @@ async function runCycle() {
 
 // Initialize
 async function init() {
-  log("🔧 Testing OpenAI connection...");
-  
-  try {
-    const test = await fetchAPI('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: "Say OK" }],
-        max_tokens: 5
-      })
-    });
+  if (OPENAI_API_KEY) {
+    log("🔧 Testing OpenAI connection...");
     
-    if (!test.ok) throw new Error(`Test failed: ${test.status}`);
-    log("✅ OpenAI connection verified");
-  } catch (error) {
-    log("❌ OpenAI test failed:", error.message);
-    log("⏰ Retrying in 5 minutes...");
-    setTimeout(init, 300000);
-    return;
+    try {
+      const test = await fetchAPI('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [{ role: "user", content: "Say OK" }],
+          max_tokens: 5
+        })
+      });
+      
+      if (!test.ok) throw new Error(`Test failed: ${test.status}`);
+      log("✅ OpenAI connection verified");
+    } catch (error) {
+      log("❌ OpenAI test failed:", error.message);
+      log("⏰ Retrying in 5 minutes...");
+      setTimeout(init, 300000);
+      return;
+    }
+  } else {
+    log("⚠️ Skipping OpenAI test (Key missing)");
   }
   
   log("🎉 Agent Zero initialized successfully!");

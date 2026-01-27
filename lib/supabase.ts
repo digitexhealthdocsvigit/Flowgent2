@@ -1,20 +1,14 @@
-// Direct REST client for InsForge
-const INSFORGE_URL = 'https://jsk8snxz.ap-southeast.insforge.app';
-const INSFORGE_KEY = 'ik_2ef615853868d11f26c1b6a8cd7550ad';
-
-const headers = {
-  'apikey': INSFORGE_KEY,
-  'Authorization': `Bearer ${INSFORGE_KEY}`,
-  'Content-Type': 'application/json'
-};
+import { insforge } from './insforge';
 
 export const activeProjectRef = 'JSK8SNXZ';
 
 // Test connection
 export async function testConnection() {
   try {
-    const response = await fetch(`${INSFORGE_URL}/rest/v1/leads?select=count&limit=1`, { headers });
-    return response.ok;
+    const { data, error } = await insforge.database
+      .from('leads')
+      .select('count', { count: 'exact', head: true });
+    return !error;
   } catch {
     return false;
   }
@@ -23,9 +17,14 @@ export async function testConnection() {
 // Get all leads
 export async function getLeads() {
   try {
-    const response = await fetch(`${INSFORGE_URL}/rest/v1/leads?select=*&order=created_at.desc&limit=10`, { headers });
-    if (!response.ok) return [];
-    return await response.json();
+    const { data, error } = await insforge.database
+      .from('leads')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    if (error) return [];
+    return data || [];
   } catch {
     return [];
   }
@@ -34,12 +33,15 @@ export async function getLeads() {
 // Get hot leads
 export async function getHotLeads() {
   try {
-    const response = await fetch(
-      `${INSFORGE_URL}/rest/v1/leads?select=*&ai_audit_completed=eq.true&is_hot_opportunity=eq.true&order=readiness_score.desc`,
-      { headers }
-    );
-    if (!response.ok) return [];
-    return await response.json();
+    const { data, error } = await insforge.database
+      .from('leads')
+      .select('*')
+      .eq('ai_audit_completed', true)
+      .eq('is_hot_opportunity', true)
+      .order('readiness_score', { ascending: false });
+
+    if (error) return [];
+    return data || [];
   } catch {
     return [];
   }
@@ -48,14 +50,14 @@ export async function getHotLeads() {
 // Add new lead
 export async function addLead(leadData: any) {
   try {
-    const response = await fetch(`${INSFORGE_URL}/rest/v1/leads`, {
-      method: 'POST',
-      headers: { ...headers, 'Prefer': 'return=representation' },
-      body: JSON.stringify(leadData)
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data[0];
+    const { data, error } = await insforge.database
+      .from('leads')
+      .insert([leadData])
+      .select()
+      .single();
+
+    if (error) return null;
+    return data;
   } catch {
     return null;
   }
@@ -68,22 +70,11 @@ export const handleSupabaseError = (err: any): string => {
   return 'An error occurred';
 };
 
-// Dummy supabase object for compatibility
+// Export the InsForge client as 'supabase' for backward compatibility if needed,
+// but preferably we should use 'insforge' directly.
+// We keep the 'supabase' export structure to minimize breaking changes,
+// wrapping InsForge calls if necessary or just exposing the InsForge database client.
 export const supabase = {
-  from: () => ({
-    select: () => Promise.resolve({ data: [], error: null }),
-    insert: () => Promise.resolve({ data: null, error: null }),
-    update: () => Promise.resolve({ data: null, error: null }),
-    delete: () => Promise.resolve({ data: null, error: null })
-  })
+  from: (table: string) => insforge.database.from(table)
 };
-```
 
-### STEP 3: Update Railway Environment Variables
-
-Make sure these are set in Railway:
-```
-OPENAI_API_KEY=sk-proj-vovzQCT0Lt-4VvkaiOPY3tSI-1w54VPv3-OcCb4CCV_ihRsc-KSIWmGKFHNpbfed1ijUmjPK6qT3BlbkFJha8QpjdMJA......
-SUPABASE_URL=https://jsk8snxz.ap-southeast.insforge.app
-SUPABASE_SERVICE_KEY=ik_2ef615853868d11f26c1b6a8cd7550ad
-POLL_INTERVAL=300000
