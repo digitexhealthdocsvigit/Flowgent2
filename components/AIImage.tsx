@@ -62,7 +62,11 @@ const AIImage: React.FC<AIImageProps> = ({
     }
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+      const apiKey = import.meta.env.VITE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || '';
+      if (!apiKey) {
+        throw new Error('API key must be set when using the Gemini API.');
+      }
+      const ai = new GoogleGenAI({ apiKey });
       
       const modelName = forceModel || (currentQuality === 'high' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image');
       
