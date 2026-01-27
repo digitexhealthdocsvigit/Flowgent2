@@ -55,12 +55,8 @@ const StrategyRoom: React.FC = () => {
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Fix: Use Vite environment variables for GoogleGenAI initialization
-      const apiKey = import.meta.env.VITE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || '';
-      if (!apiKey) {
-        throw new Error('API key must be set when using the Gemini API.');
-      }
-      const ai = new GoogleGenAI({ apiKey });
+      // Fix: Use process.env.API_KEY exclusively for GoogleGenAI initialization
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',

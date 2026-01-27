@@ -1,7 +1,7 @@
 
 import fetch from "node-fetch";
 import dotenv from "dotenv";
-import { createClient } from "@insforge/sdk";
+import { createClient } from "@supabase/supabase-js";
 import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
@@ -11,14 +11,10 @@ dotenv.config();
  * Repository: digitexhealthdocsvigit/flowgent-agentzero
  */
 
-// Initialize InsForge client
-const insforge = createClient({
-  baseUrl: process.env.INSFORGE_API_BASE_URL || process.env.SUPABASE_URL || "",
-  apiKey: process.env.INSFORGE_API_KEY || process.env.SUPABASE_SERVICE_KEY || ""
-});
-
-// Alias database client for compatibility
-const db = insforge.database;
+const supabase = createClient(
+  process.env.SUPABASE_URL || "", 
+  process.env.SUPABASE_SERVICE_KEY || ""
+);
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "300") * 1000;
@@ -29,7 +25,7 @@ async function runAgent() {
   try {
     log("Polling new lead nodes for neural enrichment...");
     
-    const { data: leads, error } = await db
+    const { data: leads, error } = await supabase
       .from("leads")
       .select("*")
       .eq("enriched", false)
@@ -39,18 +35,7 @@ async function runAgent() {
     if (!leads?.length) return log("Infrastructure idle. Queue clear.");
 
     // Initialize AI right before use
-    const geminiKey = process.env.GEMINI_API_KEY;
-    const insforgeKey = process.env.INSFORGE_API_KEY || (process.env.API_KEY?.startsWith('ik_') ? process.env.API_KEY : null);
-    
-    let googleAI = null;
-
-    if (geminiKey) {
-      const ai = new GoogleGenAI({ apiKey: geminiKey });
-      googleAI = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
-    } else if (!insforgeKey) {
-      log("⚠️ AI Key missing. Skipping enrichment.");
-      return;
-    }
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 
     for (const lead of leads) {
       log(`Processing node: ${lead.business_name || lead.name}`);
@@ -70,40 +55,25 @@ async function runAgent() {
 
       let readiness_score = 50;
       try {
-        let text = "50";
-        const prompt = `Rate this business lead from 0–100 for digital automation readiness. 
+        const response = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: `Rate this business lead from 0–100 for digital automation readiness. 
           Return ONLY the numeric score.
           Business: ${lead.business_name}
           Website: ${lead.website || 'None'}
-          Category: ${lead.category || 'Unknown'}`;
-
-        if (googleAI) {
-          const response = await googleAI.generateContent({
-            contents: prompt,
-            config: {
-              thinkingConfig: { thinkingBudget: 0 }
-            }
-          });
-          text = response.text || "50";
-        } else {
-          // Use InsForge AI
-          const { data, error } = await insforge.ai.completion({
-            model: 'gpt-3.5-turbo',
-            prompt: prompt
-          });
-          if (error) throw error;
-          // Assuming InsForge returns { choices: [{ message: { content: "..." } }] } or similar
-          // If the SDK abstracts it to data.content, we might need to adjust.
-          // Based on typical OpenAI proxies:
-          text = data?.choices?.[0]?.message?.content || JSON.stringify(data);
-        }
+          Category: ${lead.category || 'Unknown'}`,
+          config: {
+            thinkingConfig: { thinkingBudget: 0 }
+          }
+        });
         
+        const text = response.text || "50";
         readiness_score = parseInt(text.match(/\d+/)?.[0] || "50", 10);
       } catch (err) {
         log("Neural scoring error:", err.message);
       }
 
-      await db.from("leads").update({
+      await supabase.from("leads").update({
         enriched: true,
         emails,
         readiness_score,
