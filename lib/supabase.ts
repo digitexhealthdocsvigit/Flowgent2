@@ -14,6 +14,100 @@ export async function testConnection() {
   }
 }
 
+// Export as testInsForgeConnection for compatibility
+export const testInsForgeConnection = testConnection;
+
+// Lead operations
+export const leadOperations = {
+  getAll: getLeads,
+  getHotLeads,
+  create: addLead,
+  update: async (id: string, updates: any) => {
+    try {
+      const { data, error } = await insforge.database
+        .from('leads')
+        .update(updates)
+        .eq('place_id', id)
+        .select()
+        .single();
+      return !error ? data : null;
+    } catch {
+      return null;
+    }
+  },
+  delete: async (id: string) => {
+    try {
+      const { error } = await insforge.database
+        .from('leads')
+        .delete()
+        .eq('place_id', id);
+      return !error;
+    } catch {
+      return false;
+    }
+  }
+};
+
+// Log operations
+export const logOperations = {
+  getRecent: async () => {
+    try {
+      const { data, error } = await insforge.database
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      return !error ? data : [];
+    } catch {
+      return [];
+    }
+  },
+  create: async (logData: any) => {
+    try {
+      const { data, error } = await insforge.database
+        .from('audit_logs')
+        .insert([logData])
+        .select()
+        .single();
+      return !error ? data : null;
+    } catch {
+      return null;
+    }
+  }
+};
+
+// Subscription operations
+export const subscriptionOperations = {
+  getAll: async () => {
+    try {
+      const { data, error } = await insforge.database
+        .from('subscriptions')
+        .select('*')
+        .order('created_at', { ascending: false });
+      return !error ? data : [];
+    } catch {
+      return [];
+    }
+  },
+  verifyPayment: async (id: string, paymentRef: string) => {
+    try {
+      const { data, error } = await insforge.database
+        .from('subscriptions')
+        .update({ 
+          status: 'active',
+          payment_reference: paymentRef,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      return !error ? data : null;
+    } catch {
+      return null;
+    }
+  }
+};
+
 // Get all leads
 export async function getLeads() {
   try {
