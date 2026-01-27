@@ -1,6 +1,5 @@
 
 import React, { useState } from 'react';
-import { searchLocalBusinesses } from '../services/geminiService';
 import { calculateLeadScore } from '../utils/scoring';
 import { Lead } from '../types';
 import { leadOperations } from '../lib/supabase';
@@ -24,9 +23,42 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onLeadsCaptured }) => {
     setSearching(true);
     setBusinesses([]);
     try {
-      const results = await searchLocalBusinesses(searchQuery);
-      const scored: Lead[] = results.map((r: any) => ({
-        place_id: r.mapsUrl || `pl_${Date.now()}_${Math.random()}`,
+      // Gemini API disabled per user request - using simulated search instead
+      console.warn("ScraperView: Gemini AI disabled per user request. Using simulated business search.");
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Generate simulated business results based on search query
+      const simulatedResults = [
+        {
+          business_name: `${searchQuery} Solutions Ltd.`,
+          city: 'Mumbai',
+          phone: '+91-22-1234-5678',
+          has_website: true,
+          website: `https://${searchQuery.toLowerCase().replace(/\s+/g, '-')}-solutions.com`,
+          type: searchQuery
+        },
+        {
+          business_name: `Premier ${searchQuery} Services`,
+          city: 'Delhi',
+          phone: '+91-11-9876-5432',
+          has_website: false,
+          website: '',
+          type: searchQuery
+        },
+        {
+          business_name: `${searchQuery} India Pvt. Ltd.`,
+          city: 'Bangalore',
+          phone: '+91-80-5555-1234',
+          has_website: true,
+          website: `https://www.${searchQuery.toLowerCase().replace(/\s+/g, '')}.in`,
+          type: searchQuery
+        }
+      ];
+      
+      const scored: Lead[] = simulatedResults.map((r: any) => ({
+        place_id: `sim_${Date.now()}_${Math.random()}`,
         business_name: r.business_name,
         city: r.city || 'India',
         phone: r.phone || 'N/A',
@@ -35,12 +67,12 @@ const ScraperView: React.FC<ScraperViewProps> = ({ onLeadsCaptured }) => {
         category: r.type || searchQuery,
         readiness_score: calculateLeadScore({ website: r.website }).score,
         status: 'discovered',
-        source: 'google_maps',
+        source: 'simulated_search',
         created_at: new Date().toISOString()
       }));
       setBusinesses(scored);
     } catch (e) {
-      alert('Neural Probing Error');
+      alert('Search Error: Simulated data only');
     } finally { setSearching(false); }
   };
 

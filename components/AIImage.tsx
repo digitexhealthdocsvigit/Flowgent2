@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
 
 interface AIImageProps {
   prompt: string;
@@ -23,6 +22,9 @@ const AIImage: React.FC<AIImageProps> = ({
   const [needsKeySelection, setNeedsKeySelection] = useState(false);
   const [currentQuality, setCurrentQuality] = useState(quality);
   const [hudText, setHudText] = useState("Initializing Neural Link...");
+
+  // Gemini AI disabled per user request - using OpenAI only
+  console.warn("AIImage Component: Gemini AI disabled per user request. Using placeholder images.");
 
   const hudPhrases = [
     "Scanning regional business clusters...",
@@ -49,64 +51,43 @@ const AIImage: React.FC<AIImageProps> = ({
     setIsQuotaExceeded(false);
     setNeedsKeySelection(false);
 
-    // Mandatory check for AI Studio Key Selection per system rules for premium models
-    const aistudio = (window as any).aistudio;
-    if (aistudio && currentQuality === 'high') {
-      const hasKey = await aistudio.hasSelectedApiKey();
-      if (!hasKey) {
-        setNeedsKeySelection(true);
-        setIsLoading(true); // Keep loading state until they click
-        setIsLoading(false);
-        return;
-      }
-    }
-
+    // Use placeholder images instead of Gemini AI
     try {
-      const apiKey = import.meta.env.VITE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || '';
-      if (!apiKey) {
-        throw new Error('API key must be set when using the Gemini API.');
-      }
-      const ai = new GoogleGenAI({ apiKey });
+      // Simulate loading delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const modelName = forceModel || (currentQuality === 'high' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image');
+      // Generate a simple placeholder image based on the prompt
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 800;
+      const ctx = canvas.getContext('2d');
       
-      const enhancedPrompt = `High-end commercial masterpiece photography: ${prompt}. Cinematic volumetric lighting, ultra-sharp 8k resolution, professional tech aesthetic, deep navy and emerald blue color grading.`;
-
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: {
-          parts: [{ text: enhancedPrompt }],
-        },
-        config: {
-          imageConfig: {
-            aspectRatio: aspectRatio,
-            ...(modelName === 'gemini-3-pro-image-preview' ? { imageSize: '1K' } : {})
-          }
-        }
-      });
-
-      const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-      
-      if (part?.inlineData) {
-        setImageUrl(`data:image/png;base64,${part.inlineData.data}`);
-        setIsLoading(false);
+      if (ctx) {
+        // Create a gradient background
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#1e40af'); // blue-700
+        gradient.addColorStop(1, '#065f46'); // emerald-800
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Add some text
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('AI Image Placeholder', canvas.width / 2, canvas.height / 2 - 20);
+        ctx.font = '16px Arial';
+        ctx.fillText(prompt.substring(0, 50) + '...', canvas.width / 2, canvas.height / 2 + 20);
+        
+        const dataUrl = canvas.toDataURL('image/png');
+        setImageUrl(dataUrl);
       } else {
-        throw new Error("Neural Buffer Timeout: Content Synthesis Failed.");
+        throw new Error('Canvas not supported');
       }
+      
+      setIsLoading(false);
     } catch (err: any) {
-      console.error("AI Image Gen Error:", err);
-      
-      const errorMessage = err.message || JSON.stringify(err);
-      const is429 = errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED');
-
-      if (is429) {
-        setIsQuotaExceeded(true);
-        setError("NEURAL_QUOTA_EXHAUSTED: System limits reached. Manual key injection required.");
-      } else if (errorMessage.includes('403') || errorMessage.includes('PERMISSION_DENIED')) {
-        setNeedsKeySelection(true);
-      } else {
-        setError(`Neural Link Failed: ${errorMessage.slice(0, 80)}...`);
-      }
+      console.error("Placeholder Image Error:", err);
+      setError(`Placeholder generation failed: ${err.message}`);
       setIsLoading(false);
     }
   };

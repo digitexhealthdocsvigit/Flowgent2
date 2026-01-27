@@ -2,12 +2,9 @@ import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { AuditResult, Lead } from "../types";
 
 const getAI = () => {
-  const apiKey = import.meta.env.VITE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn("AI System: No API Key detected. Using simulated logic.");
-    return null;
-  }
-  return new GoogleGenAI({ apiKey });
+  // Gemini API disabled per user request - using OpenAI only
+  console.warn("Gemini AI System: Disabled per user request. Using simulated logic.");
+  return null;
 };
 
 /**
