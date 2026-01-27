@@ -6,6 +6,7 @@ import AdminInfographic from './components/AdminInfographic';
 import { SignalLog } from './components/AppContent';
 import { Lead, User, AuditLog, Subscription } from './types';
 import { leadOperations, logOperations, subscriptionOperations, testInsForgeConnection, activeProjectRef } from './lib/supabase';
+import { useAuth, useUser, SignedIn, SignedOut, SignInButton, SignUpButton } from '@insforge/react';
 
 // Lazy Loaded Views
 const ContactsView = lazy(() => import('./components/ContactsView'));
@@ -15,7 +16,8 @@ const ScraperView = lazy(() => import('./components/ScraperView'));
 const SubscriptionsView = lazy(() => import('./components/SubscriptionsView'));
 const StrategyRoom = lazy(() => import('./components/StrategyRoom'));
 const SettingsView = lazy(() => import('./components/SettingsView'));
-const ServicesCatalog = lazy(() => import('./components/ServicesCatalog'));
+const EcommerceView = lazy(() => import('./components/EcommerceView'));
+
 const ReportsView = lazy(() => import('./components/ReportsView'));
 
 const ViewLoader = () => (
@@ -26,6 +28,8 @@ const ViewLoader = () => (
 );
 
 const App: React.FC = () => {
+  const { isSignedIn, isLoaded } = useAuth();
+  const { user: insforgeUser } = useUser();
   const [viewState, setViewState] = useState<'public' | 'login' | 'dashboard'>('public');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -34,6 +38,20 @@ const App: React.FC = () => {
   const [signals, setSignals] = useState<AuditLog[]>([]);
   const [isNodeOnline, setIsNodeOnline] = useState(false);
   const [isHydrating, setIsHydrating] = useState(true);
+
+  // Map InsForge user to our User type
+  useEffect(() => {
+    if (isLoaded && isSignedIn && insforgeUser) {
+      const mappedUser: User = {
+        id: insforgeUser.id,
+        email: insforgeUser.email || '',
+        name: insforgeUser.profile?.name || 'User',
+        role: 'admin', // Default role, you can customize this based on your needs
+      };
+      setCurrentUser(mappedUser);
+      setViewState('dashboard');
+    }
+  }, [isSignedIn, insforgeUser, isLoaded]);
 
   const refreshData = async () => {
     const isOnline = await testInsForgeConnection();
@@ -141,11 +159,11 @@ const App: React.FC = () => {
           case 'discovery': return <ScraperView onLeadsCaptured={refreshData} onPushToN8N={() => Promise.resolve()} />;
           case 'contacts': return <ContactsView />;
           case 'settings': return <SettingsView />;
-          case 'deal_pipeline': return <CrmView deals={[]} />;
+          case 'deal_pipeline': return <CrmView />;
           case 'strategy_room': return <StrategyRoom />;
           case 'revenue_amc': return <SubscriptionsView subscriptions={subscriptions} isAdmin={currentUser?.role === 'admin'} onRefresh={refreshData} />;
           case 'funnel_view': return <FunnelView leads={leads} />;
-          case 'service_catalog': return <ServicesCatalog isPublic={false} />;
+          case 'service_catalog': return <EcommerceView />;
           case 'reports': return <ReportsView />;
           default: return <ViewLoader />;
         }
@@ -159,27 +177,71 @@ const App: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-[#030712] font-sans text-white">
-      <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} userRole={currentUser.role} />
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="h-20 bg-[#0f172a]/50 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-12 z-40">
-           <div className="flex items-center gap-4">
-              <div className={`w-2.5 h-2.5 rounded-full ${isNodeOnline ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]'} animate-pulse`}></div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-                Node {activeProjectRef}: {isNodeOnline ? 'ONLINE' : 'HANDSHAKE PENDING'}
-              </p>
-           </div>
-           <div className="flex items-center gap-6">
-              <div className="text-right">
-                <p className="text-xs font-black text-white italic">{currentUser.name}</p>
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{currentUser.role}</p>
+      <SignedIn>
+        <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} userRole={currentUser?.role || 'admin'} />
+        <div className="flex-1 flex flex-col h-screen overflow-hidden">
+          <header className="h-20 bg-[#0f172a]/50 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-12 z-40">
+             <div className="flex items-center gap-4">
+                <div className={`w-2.5 h-2.5 rounded-full ${isNodeOnline ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]'} animate-pulse`}></div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
+                  Node {activeProjectRef}: {isNodeOnline ? 'ONLINE' : 'HANDSHAKE PENDING'}
+                </p>
+             </div>
+             <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <p className="text-xs font-black text-white italic">{currentUser?.name}</p>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{currentUser?.role}</p>
+                </div>
+                <button onClick={() => {
+                  // TODO: Implement sign out with InsForge
+                  setViewState('public');
+                  setCurrentUser(null);
+                }} className="text-[10px] font-black uppercase px-6 py-2 bg-white text-slate-900 rounded-xl hover:bg-slate-200 transition-all">Sign Out</button>
+             </div>
+          </header>
+          <main className="flex-1 p-12 overflow-y-auto custom-scrollbar bg-slate-950/20">
+            {renderTabContent()}
+          </main>
+        </div>
+      </SignedIn>
+      
+      <SignedOut>
+        <div className="flex flex-col items-center justify-center min-h-screen bg-[#030712] p-8">
+          <div className="max-w-md w-full space-y-8">
+            <div className="text-center">
+              <h1 className="text-4xl font-black text-white italic mb-4">Flowgent™</h1>
+              <p className="text-slate-400 mb-8">AI Business Intelligence Platform</p>
+            </div>
+            
+            <div className="bg-slate-900/50 p-8 rounded-3xl border border-white/5 shadow-2xl backdrop-blur-xl space-y-6">
+              <h2 className="text-2xl font-black text-white text-center">Sign In</h2>
+              
+              <div className="space-y-4">
+                <SignInButton className="w-full bg-blue-600 text-white py-4 rounded-xl font-black text-sm uppercase tracking-widest hover:bg-blue-500 transition-all">
+                  Sign In
+                </SignInButton>
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-slate-700"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-slate-900 text-slate-500">or</span>
+                  </div>
+                </div>
+                
+                <SignUpButton className="w-full bg-slate-800 text-white py-4 rounded-xl font-black text-sm uppercase tracking-widest hover:bg-slate-700 transition-all">
+                  Create Account
+                </SignUpButton>
               </div>
-              <button onClick={() => setViewState('public')} className="text-[10px] font-black uppercase px-6 py-2 bg-white text-slate-900 rounded-xl hover:bg-slate-200 transition-all">Sign Out</button>
-           </div>
-        </header>
-        <main className="flex-1 p-12 overflow-y-auto custom-scrollbar bg-slate-950/20">
-          {renderTabContent()}
-        </main>
-      </div>
+              
+              <div className="text-center text-slate-500 text-xs mt-6">
+                <p>By signing in, you agree to our Terms of Service and Privacy Policy</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </SignedOut>
     </div>
   );
 };

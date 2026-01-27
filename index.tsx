@@ -3,6 +3,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './src/index.css';
 import App from './App';
+import { InsforgeProvider } from '@insforge/react';
+import { insforge } from './lib/insforge';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,6 +14,8 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <InsforgeProvider client={insforge}>
+      <App />
+    </InsforgeProvider>
   </React.StrictMode>
 );
