@@ -1,25 +1,13 @@
-# Use Node.js 18 Alpine for smaller image size
 FROM node:18-alpine
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+RUN npm install --production
 
-# Copy source code
 COPY . .
 
-# Expose port
-EXPOSE 3001
+HEALTHCHECK --interval=60s --timeout=10s CMD node healthcheck.js || exit 1
 
-# Health check
-COPY healthcheck.js ./
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node healthcheck.js
-
-# Start the agent
-CMD ["npm", "start"]
+CMD ["node", "agent.js"]
