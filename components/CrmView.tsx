@@ -1,8 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Deal, DealNote, DealTask } from '../types';
 import { ICONS } from '../constants';
-import { dealOperations, noteOperations, taskOperations } from '../services/crmService';
 
 interface CrmViewProps {
   deals: Deal[];
@@ -10,99 +9,40 @@ interface CrmViewProps {
   onUpdateDeal?: (deal: Deal) => void;
 }
 
-// Remove the props since we'll fetch data directly from InsForge
-const CrmView: React.FC = () => {
-  const [deals, setDeals] = useState<Deal[]>([]);
+const CrmView: React.FC<CrmViewProps> = ({ deals, onMoveDeal, onUpdateDeal }) => {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
-  const [loading, setLoading] = useState(true);
-
-useEffect(() => {
-    loadDeals();
-  }, []);
-
-  const loadDeals = async () => {
-    setLoading(true);
-    try {
-      const fetchedDeals = await dealOperations.getAll();
-      setDeals(fetchedDeals);
-    } catch (error) {
-      console.error('Error loading deals:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const stages: Deal['stage'][] = ['Discovered', 'Contacted', 'Engaged', 'Qualified', 'Converted'];
   
   const getStageDeals = (stage: Deal['stage']) => deals.filter(d => d.stage === stage);
   const getStageValue = (stage: Deal['stage']) => getStageDeals(stage).reduce((acc, d) => acc + d.value, 0);
 
-  const handleAddNote = async (deal: Deal) => {
+  const handleAddNote = (deal: Deal) => {
     const text = prompt("Enter Note Text:");
     if (!text) return;
-    
-    try {
-      const newNote = await noteOperations.create(deal.id, text, "Founder");
-      if (newNote) {
-        // Refresh the selected deal with the new note
-        const updatedDeal = await dealOperations.getById(deal.id);
-        if (updatedDeal) {
-          setSelectedDeal(updatedDeal);
-          // Also refresh the deals list
-          loadDeals();
-        }
-      }
-    } catch (error) {
-      console.error('Error adding note:', error);
-    }
+    const newNote: DealNote = {
+      id: Math.random().toString(36).substr(2, 9),
+      text,
+      created_at: new Date().toISOString(),
+      author: "Founder"
+    };
+    const updatedDeal = { ...deal, notes: [...(deal.notes || []), newNote] };
+    setSelectedDeal(updatedDeal);
+    if (onUpdateDeal) onUpdateDeal(updatedDeal);
   };
 
-  const handleAddTask = async (deal: Deal) => {
+  const handleAddTask = (deal: Deal) => {
     const title = prompt("Task Title:");
     if (!title) return;
-    
-    try {
-      const newTask = await taskOperations.create(deal.id, title);
-      if (newTask) {
-        // Refresh the selected deal with the new task
-        const updatedDeal = await dealOperations.getById(deal.id);
-        if (updatedDeal) {
-          setSelectedDeal(updatedDeal);
-          // Also refresh the deals list
-          loadDeals();
-        }
-      }
-    } catch (error) {
-      console.error('Error adding task:', error);
-    }
+    const newTask: DealTask = {
+      id: Math.random().toString(36).substr(2, 9),
+      title,
+      due_date: new Date(Date.now() + 86400000).toISOString(),
+      is_completed: false
+    };
+    const updatedDeal = { ...deal, tasks: [...(deal.tasks || []), newTask] };
+    setSelectedDeal(updatedDeal);
+    if (onUpdateDeal) onUpdateDeal(updatedDeal);
   };
-
-  const handleMoveDeal = async (id: string, direction: 'forward' | 'backward') => {
-    try {
-      const success = await dealOperations.moveStage(id, direction);
-      if (success) {
-        // Refresh the deals list
-        loadDeals();
-        // If we're viewing this deal, refresh it too
-        if (selectedDeal && selectedDeal.id === id) {
-          const updatedDeal = await dealOperations.getById(id);
-          if (updatedDeal) {
-            setSelectedDeal(updatedDeal);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error moving deal:', error);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
@@ -118,26 +58,7 @@ useEffect(() => {
               <p className="text-2xl font-black text-slate-900 tracking-tighter">₹{deals.reduce((acc, d) => acc + d.value, 0).toLocaleString('en-IN')}</p>
             </div>
           </div>
-          <button 
-            onClick={async () => {
-              // Simple deal creation for demo
-              const businessName = prompt("Business Name:");
-              if (!businessName) return;
-              
-              const newDeal = await dealOperations.create({
-                businessName,
-                value: 10000,
-                stage: 'Discovered'
-              });
-              
-              if (newDeal) {
-                loadDeals(); // Refresh the list
-              }
-            }}
-            className="bg-blue-600 text-white px-8 py-4 rounded-[20px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all"
-          >
-            + Manual Deal
-          </button>
+          <button className="bg-blue-600 text-white px-8 py-4 rounded-[20px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all">+ Manual Deal</button>
         </div>
       </div>
 
@@ -179,13 +100,15 @@ useEffect(() => {
                     <div className="flex justify-between items-end mt-4">
                       <div className="text-2xl font-black text-slate-900 tracking-tighter">₹{deal.value.toLocaleString('en-IN')}</div>
                       <div className="flex gap-1">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleMoveDeal(deal.id, 'forward'); }}
-                          disabled={stage === stages[stages.length - 1]}
-                          className="w-8 h-8 flex items-center justify-center rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-30 shadow-sm transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                        </button>
+                        {onMoveDeal && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); onMoveDeal(deal.id, 'forward'); }}
+                            disabled={stage === stages[stages.length - 1]}
+                            className="w-8 h-8 flex items-center justify-center rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-30 shadow-sm transition-colors"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -241,20 +164,7 @@ useEffect(() => {
                     {(selectedDeal.tasks || []).map(task => (
                       <div key={task.id} className="flex items-center justify-between p-6 bg-white border border-slate-200 rounded-[28px] hover:border-blue-200 transition-all">
                         <div className="flex items-center gap-4">
-                           <input 
-                             type="checkbox" 
-                             checked={task.is_completed} 
-                             onChange={async (e) => {
-                               // Update task completion status
-                               await taskOperations.update(task.id, { is_completed: e.target.checked });
-                               // Refresh the selected deal
-                               const updatedDeal = await dealOperations.getById(selectedDeal.id);
-                               if (updatedDeal) {
-                                 setSelectedDeal(updatedDeal);
-                               }
-                             }}
-                             className="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-600" 
-                           />
+                           <input type="checkbox" checked={task.is_completed} className="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-600" />
                            <span className={`text-sm font-bold ${task.is_completed ? 'line-through text-slate-400' : 'text-slate-900'}`}>{task.title}</span>
                         </div>
                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(task.due_date).toLocaleDateString()}</span>

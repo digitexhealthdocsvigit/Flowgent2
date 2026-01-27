@@ -33,6 +33,9 @@
     <!-- Preconnect & Preload -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <!-- Structured Data (JSON-LD) -->
@@ -63,7 +66,68 @@
     }
     </script>
 
-    
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        @keyframes progress-indefinite {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .animate-progress-indefinite {
+            animation: progress-indefinite 2s infinite linear;
+        }
+
+        /* Accessibility: High Contrast Overrides (WCAG AA) */
+        .bg-\[\#0f172a\] .text-slate-400, .bg-\[\#030712\] .text-slate-400 {
+            color: #cbd5e1 !important;
+        }
+        .bg-\[\#0f172a\] .text-slate-500, .bg-\[\#030712\] .text-slate-500 {
+            color: #94a3b8 !important;
+        }
+        
+        .bg-white .text-slate-400 {
+            color: #4b5563 !important;
+        }
+        .bg-white .text-slate-500 {
+            color: #374151 !important;
+        }
+        
+        :focus-visible {
+          outline: 3px solid #2563eb;
+          outline-offset: 2px;
+        }
+
+        .skip-link {
+          position: absolute;
+          top: -100px;
+          left: 10px;
+          background: #2563eb;
+          color: white;
+          padding: 8px 16px;
+          z-index: 1000;
+          transition: top 0.3s;
+          font-weight: bold;
+          border-radius: 4px;
+        }
+        .skip-link:focus {
+          top: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border-width: 0;
+        }
+    </style>
 <script type="importmap">
 {
   "imports": {

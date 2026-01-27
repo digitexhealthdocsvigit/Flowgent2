@@ -11,7 +11,7 @@ const SettingsView: React.FC = () => {
     setDbStatus(dbOk ? 'ok' : 'error');
 
     setAiStatus('testing');
-    const keyExists = !!(import.meta.env.VITE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY);
+    const keyExists = !!process.env.API_KEY;
     setTimeout(() => setAiStatus(keyExists ? 'ok' : 'error'), 1200);
   };
 

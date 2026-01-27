@@ -2,7 +2,7 @@ import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { AuditResult, Lead } from "../types";
 
 const getAI = () => {
-  const apiKey = import.meta.env.VITE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+  const apiKey = process.env.API_KEY;
   if (!apiKey) {
     console.warn("AI System: No API Key detected. Using simulated logic.");
     return null;

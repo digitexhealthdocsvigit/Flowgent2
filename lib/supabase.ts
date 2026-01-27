@@ -1,174 +1,152 @@
-import { insforge } from './insforge';
+import { createClient } from '@supabase/supabase-js';
+import { Lead, AuditLog, Subscription } from '../types';
 
-export const activeProjectRef = 'JSK8SNXZ';
+/**
+ * INSFORGE NODE JSK8SNXZ - PRODUCTION REST CONFIGURATION
+ */
+const INSFORGE_URL = 'https://jsk8snxz.ap-southeast.insforge.app';
+const INSFORGE_KEY = 'ik_2ef615853868d11f26c1b6a8cd7550ad';
 
-// Test connection
-export async function testConnection() {
+const headers = {
+  'apikey': INSFORGE_KEY,
+  'Authorization': `Bearer ${INSFORGE_KEY}`,
+  'Content-Type': 'application/json'
+};
+
+export const activeProjectRef = "JSK8SNXZ";
+
+/**
+ * NEURAL HANDSHAKE: Connection probe
+ */
+export async function testInsForgeConnection() {
   try {
-    const { data, error } = await insforge.database
-      .from('leads')
-      .select('count', { count: 'exact', head: true });
-    return !error;
+    const response = await fetch(`${INSFORGE_URL}/rest/v1/leads?select=id&limit=1`, { headers });
+    // If it's 404, it means the table doesn't exist yet, but the connection to the cluster works.
+    if (response.status === 404) {
+      console.warn("Cluster Sync Check: Connection OK, but 'leads' table missing.");
+      return false;
+    }
+    return response.ok;
   } catch {
     return false;
   }
 }
 
-// Export as testInsForgeConnection for compatibility
-export const testInsForgeConnection = testConnection;
-
-// Lead operations
+/**
+ * LEAD OPERATIONS: Direct REST Protocol
+ */
 export const leadOperations = {
-  getAll: getLeads,
-  getHotLeads,
-  create: addLead,
-  update: async (id: string, updates: any) => {
+  async getAll(): Promise<Lead[]> {
     try {
-      const { data, error } = await insforge.database
-        .from('leads')
-        .update(updates)
-        .eq('place_id', id)
-        .select()
-        .single();
-      return !error ? data : null;
+      const response = await fetch(`${INSFORGE_URL}/rest/v1/leads?select=*&order=created_at.desc&limit=15`, { headers });
+      return response.ok ? await response.json() : [];
     } catch {
-      return null;
+      return [];
     }
   },
-  delete: async (id: string) => {
+
+  async getHotLeads(): Promise<Lead[]> {
     try {
-      const { error } = await insforge.database
-        .from('leads')
-        .delete()
-        .eq('place_id', id);
-      return !error;
+      const response = await fetch(
+        `${INSFORGE_URL}/rest/v1/leads?select=*&ai_audit_completed=eq.true&is_hot_opportunity=eq.true&order=readiness_score.desc`,
+        { headers }
+      );
+      return response.ok ? await response.json() : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async create(lead: Partial<Lead>) {
+    try {
+      const response = await fetch(`${INSFORGE_URL}/rest/v1/leads`, {
+        method: 'POST',
+        headers: { ...headers, 'Prefer': 'return=representation' },
+        body: JSON.stringify({
+          ...lead,
+          created_at: new Date().toISOString()
+        })
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async update(id: string, data: Partial<Lead>) {
+    try {
+      const response = await fetch(`${INSFORGE_URL}/rest/v1/leads?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: { ...headers, 'Prefer': 'return=representation' },
+        body: JSON.stringify(data)
+      });
+      return response.ok;
     } catch {
       return false;
     }
   }
 };
 
-// Log operations
+/**
+ * LOG OPERATIONS: Telemetry logs
+ */
 export const logOperations = {
-  getRecent: async () => {
+  async getRecent(): Promise<AuditLog[]> {
     try {
-      const { data, error } = await insforge.database
-        .from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      return !error ? data : [];
+      const response = await fetch(`${INSFORGE_URL}/rest/v1/audit_logs?select=*&order=created_at.desc&limit=10`, { headers });
+      return response.ok ? await response.json() : [];
     } catch {
       return [];
     }
   },
-  create: async (logData: any) => {
+  async create(log: Partial<AuditLog>) {
     try {
-      const { data, error } = await insforge.database
-        .from('audit_logs')
-        .insert([logData])
-        .select()
-        .single();
-      return !error ? data : null;
+      const response = await fetch(`${INSFORGE_URL}/rest/v1/audit_logs`, {
+        method: 'POST',
+        headers: { ...headers, 'Prefer': 'return=representation' },
+        body: JSON.stringify({
+          ...log,
+          created_at: new Date().toISOString(),
+          source: 'flowgent_frontend'
+        })
+      });
+      return response.ok;
     } catch {
-      return null;
+      return false;
     }
   }
 };
 
-// Subscription operations
 export const subscriptionOperations = {
-  getAll: async () => {
+  async getAll(): Promise<Subscription[]> {
     try {
-      const { data, error } = await insforge.database
-        .from('subscriptions')
-        .select('*')
-        .order('created_at', { ascending: false });
-      return !error ? data : [];
+      const response = await fetch(`${INSFORGE_URL}/rest/v1/subscriptions?select=*&order=created_at.desc`, { headers });
+      return response.ok ? await response.json() : [];
     } catch {
       return [];
     }
   },
-  verifyPayment: async (id: string, paymentRef: string) => {
+  async verifyPayment(id: string, paymentRef: string) {
     try {
-      const { data, error } = await insforge.database
-        .from('subscriptions')
-        .update({ 
+      const response = await fetch(`${INSFORGE_URL}/rest/v1/subscriptions?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: { ...headers, 'Prefer': 'return=representation' },
+        body: JSON.stringify({
+          payment_ref: paymentRef,
           status: 'active',
-          payment_reference: paymentRef,
           updated_at: new Date().toISOString()
         })
-        .eq('id', id)
-        .select()
-        .single();
-      return !error ? data : null;
+      });
+      return response.ok;
     } catch {
-      return null;
+      return false;
     }
   }
 };
 
-// Get all leads
-export async function getLeads() {
-  try {
-    const { data, error } = await insforge.database
-      .from('leads')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(10);
-    
-    if (error) return [];
-    return data || [];
-  } catch {
-    return [];
-  }
-}
-
-// Get hot leads
-export async function getHotLeads() {
-  try {
-    const { data, error } = await insforge.database
-      .from('leads')
-      .select('*')
-      .eq('ai_audit_completed', true)
-      .eq('is_hot_opportunity', true)
-      .order('readiness_score', { ascending: false });
-
-    if (error) return [];
-    return data || [];
-  } catch {
-    return [];
-  }
-}
-
-// Add new lead
-export async function addLead(leadData: any) {
-  try {
-    const { data, error } = await insforge.database
-      .from('leads')
-      .insert([leadData])
-      .select()
-      .single();
-
-    if (error) return null;
-    return data;
-  } catch {
-    return null;
-  }
-}
-
-// Error handler
 export const handleSupabaseError = (err: any): string => {
-  if (err?.message) return err.message;
   if (typeof err === 'string') return err;
-  return 'An error occurred';
+  return err.message || "Infrastructure Node Timeout: 0x82";
 };
 
-// Export the InsForge client as 'supabase' for backward compatibility if needed,
-// but preferably we should use 'insforge' directly.
-// We keep the 'supabase' export structure to minimize breaking changes,
-// wrapping InsForge calls if necessary or just exposing the InsForge database client.
-export const supabase = {
-  from: (table: string) => insforge.database.from(table)
-};
-
+export const supabase = createClient(INSFORGE_URL, INSFORGE_KEY);
