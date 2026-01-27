@@ -10,7 +10,6 @@ interface LoginScreenProps {
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
   const { user, isLoaded: userLoaded } = useUser();
   const { isSignedIn, isLoaded: authLoaded } = useAuth();
-  const [hasVeoKey, setHasVeoKey] = useState(false);
 
   useEffect(() => {
     // Check if user is authenticated and call onLogin
@@ -25,23 +24,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
       onLogin(userData);
     }
   }, [authLoaded, isSignedIn, user, userLoaded, onLogin]);
-
-  useEffect(() => {
-    const checkApiKey = async () => {
-      if ((window as any).aistudio) {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        setHasVeoKey(hasKey);
-      }
-    };
-    checkApiKey();
-  }, []);
-
-  const handleApiKeySelection = async () => {
-    if ((window as any).aistudio) {
-      await (window as any).aistudio.openSelectKey();
-      setHasVeoKey(true);
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#030712] px-6 relative overflow-hidden">
@@ -63,13 +45,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
         </div>
 
         <div className="space-y-6">
-          {!hasVeoKey && (
-            <div className="p-6 bg-blue-50 border border-blue-100 rounded-3xl space-y-4">
-              <h4 className="text-[10px] font-black text-blue-700 uppercase tracking-widest italic">VEO NODE CONFIG REQUIRED</h4>
-              <button onClick={handleApiKeySelection} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all">CONFIGURE API KEY</button>
-            </div>
-          )}
-
           <SignedOut>
             <div className="space-y-4">
               <SignInButton className="w-full bg-slate-900 text-white font-black py-7 rounded-3xl shadow-2xl hover:bg-slate-800 transition-all uppercase tracking-[0.3em] text-[11px]" />
