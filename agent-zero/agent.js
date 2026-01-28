@@ -109,154 +109,149 @@ async function updateLead(leadId, data) {
           'Content-Type': 'application/json',
           'Prefer': 'return=minimal'
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify({
+          ai_audit_completed: true,
+          readiness_score: data.score,
+          temperature: data.temperature,
+          is_hot_opportunity: data.score >= 80,
+          ai_insights: data.insights,
+          updated_at: new Date().toISOString()
+        })
       }
     );
 
-    if (!response.ok) {
-      log("⚠️ Update failed:", response.status, response.text.substring(0, 100));
-      return false;
-    }
-    
-    log(`✅ Updated lead ${leadId} successfully`);
-    return true;
+    return response.ok;
   } catch (error) {
-    log("⚠️ Update error:", error.message);
+    log("⚠️ Update failed:", error.message);
     return false;
   }
 }
 
-// AI Processing
-async function processLeadWithAI(lead) {
+// OpenAI Analysis
+async function analyzeWithOpenAI(business) {
   try {
-    const prompt = `Analyze this business lead and provide insights:
-Business: ${lead.business_name}
-Category: ${lead.category}
-Website: ${lead.has_website ? 'Yes' : 'No'}
-
-Provide a JSON response with:
-- score (0-100): Overall business potential score
-- strengths: Array of 3 business strengths
-- recommended_services: Array of 3 services we could offer
-- outreach_priority: "High", "Medium", or "Low"
-- notes: Brief analysis (max 50 words)`;
+    log(`🤖 Analyzing: ${business.business_name}`);
+    
+    const prompt = `Rate digital readiness 0-100 for: ${business.business_name}, ${business.category || 'Unknown'}, Website: ${business.has_website ? 'Yes' : 'No'}. Format: SCORE:[number] TEMP:[hot/warm/cold] INSIGHT:[brief]`;
 
     const response = await fetchAPI('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a business analyst. Analyze leads and return JSON only.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 300
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 150,
+        temperature: 0.7
       })
     });
 
     if (!response.ok) {
-      log("⚠️ AI analysis failed:", response.status);
-      return null;
+      throw new Error(`OpenAI error: ${response.status}`);
     }
 
-    const result = response.json();
-    const content = result.choices[0].message.content;
+    const data = response.json();
+    const text = data.choices[0]?.message?.content || "";
     
-    try {
-      const analysis = JSON.parse(content);
-      log(`🤖 AI Analysis: Score ${analysis.score}/100, Priority: ${analysis.outreach_priority}`);
-      return analysis;
-    } catch {
-      log("⚠️ Failed to parse AI response");
-      return {
-        score: 50,
-        strengths: ['Established business', 'Local presence', 'Growth potential'],
-        recommended_services: ['Website development', 'Digital marketing', 'Business automation'],
-        outreach_priority: 'Medium',
-        notes: 'Standard business analysis'
-      };
-    }
+    const scoreMatch = text.match(/SCORE:\s*(\d+)/i) || text.match(/(\d+)\/100/i);
+    const tempMatch = text.match(/TEMP:\s*(\w+)/i);
+    const insightMatch = text.match(/INSIGHT:\s*(.+)/i);
+    
+    const score = scoreMatch ? parseInt(scoreMatch[1]) : 50;
+    const temperature = tempMatch ? tempMatch[1].toLowerCase() : (score >= 80 ? 'hot' : score >= 50 ? 'warm' : 'cold');
+    const insights = insightMatch ? insightMatch[1].trim() : text.substring(0, 200);
+    
+    log(`✅ Score: ${score}/100 (${temperature})`);
+    
+    return { score, temperature, insights };
+    
   } catch (error) {
-    log("⚠️ AI processing error:", error.message);
-    return null;
+    log("⚠️ OpenAI error:", error.message);
+    return { score: 50, temperature: 'warm', insights: 'Analysis unavailable' };
   }
 }
 
-// Main processing loop
-async function processLeads() {
-  log("🔄 Starting lead processing cycle");
+// Main cycle
+async function runCycle() {
+  console.log("\n" + "=".repeat(50));
+  log("🔄 Cycle started");
   
-  const leads = await getUnprocessedLeads();
+  try {
+    const leads = await getUnprocessedLeads();
+    
+    if (leads.length === 0) {
+      log("✅ Queue clear - no unprocessed leads");
+      return;
+    }
+    
+    log(`📊 Processing ${leads.length} leads...`);
+    
+    let processed = 0;
+    let hotLeads = 0;
+    
+    for (const lead of leads) {
+      const result = await analyzeWithOpenAI(lead);
+      const updated = await updateLead(lead.id, result);
+      
+      if (updated) {
+        processed++;
+        if (result.score >= 80) {
+          hotLeads++;
+          log(`🔥 HOT LEAD! ${lead.business_name}: ${result.score}/100`);
+        }
+      }
+      
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    
+    log("\n📊 SUMMARY");
+    log(`✅ Processed: ${processed}/${leads.length}`);
+    log(`🔥 Hot leads: ${hotLeads}`);
+    log(`⏰ Next cycle: ${new Date(Date.now() + POLL_INTERVAL).toISOString()}`);
+    
+  } catch (error) {
+    log("❌ Cycle error:", error.message);
+  }
   
-  if (leads.length === 0) {
-    log("ℹ️ No leads to process");
+  console.log("=".repeat(50));
+}
+
+// Initialize
+async function init() {
+  log("🔧 Testing OpenAI connection...");
+  
+  try {
+    const test = await fetchAPI('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: "Say OK" }],
+        max_tokens: 5
+      })
+    });
+    
+    if (!test.ok) throw new Error(`Test failed: ${test.status}`);
+    log("✅ OpenAI connection verified");
+  } catch (error) {
+    log("❌ OpenAI test failed:", error.message);
+    log("⏰ Retrying in 5 minutes...");
+    setTimeout(init, 300000);
     return;
   }
-
-  for (const lead of leads) {
-    log(`🎯 Processing lead: ${lead.business_name}`);
-    
-    const aiAnalysis = await processLeadWithAI(lead);
-    
-    if (aiAnalysis) {
-      const updateData = {
-        ai_audit_completed: true,
-        score: aiAnalysis.score || 50,
-        strengths: aiAnalysis.strengths || [],
-        recommended_services: aiAnalysis.recommended_services || [],
-        outreach_priority: aiAnalysis.outreach_priority || 'Medium',
-        ai_audit_date: new Date().toISOString()
-      };
-
-      await updateLead(lead.id, updateData);
-      log(`✅ Completed processing for ${lead.business_name}`);
-    } else {
-      log(`⚠️ Skipped ${lead.business_name} due to AI processing failure`);
-    }
-    
-    // Small delay between processing to avoid rate limits
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
   
-  log("✅ Lead processing cycle completed");
+  log("🎉 Agent Zero initialized successfully!");
+  await runCycle();
+  setInterval(runCycle, POLL_INTERVAL);
 }
 
-// Start the agent
-async function startAgent() {
-  log("🚀 Agent Zero starting...");
-  
-  // Initial processing
-  await processLeads();
-  
-  // Schedule periodic processing
-  setInterval(processLeads, POLL_INTERVAL);
-  
-  log(`✅ Agent Zero operational. Processing every ${POLL_INTERVAL / 60000} minutes`);
-}
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  log("🛑 Received SIGTERM, shutting down gracefully...");
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  log("🛑 Received SIGINT, shutting down gracefully...");
-  process.exit(0);
-});
-
-// Start the agent
-startAgent().catch(error => {
-  log("💥 Agent failed to start:", error.message);
+init().catch(e => {
+  console.error("💥 Fatal error:", e);
   process.exit(1);
 });
+
