@@ -45,6 +45,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
         </div>
 
         <div className="space-y-6">
+          {/* DEBUG: Show auth status */}
+          <div className="text-center p-4 bg-slate-100 rounded-xl">
+            <p className="text-xs text-slate-600">Auth Status: {authLoaded ? (isSignedIn ? 'Signed In' : 'Signed Out') : 'Loading...'}</p>
+            <p className="text-xs text-slate-500">User: {user?.email || 'No user'}</p>
+          </div>
+          
           <SignedOut>
             <div className="space-y-4">
               <SignInButton className="w-full bg-slate-900 text-white font-black py-7 rounded-3xl shadow-2xl hover:bg-slate-800 transition-all uppercase tracking-[0.3em] text-[11px]" />
@@ -59,6 +65,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGoBack }) => {
               </div>
               <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Gateway Open</h2>
               <p className="text-slate-500 font-medium leading-relaxed">Authentication successful. Redirecting...</p>
+              <button 
+                onClick={() => window.location.href = '/logout'}
+                className="mt-4 text-xs text-slate-400 hover:text-slate-600 underline"
+              >
+                Sign Out to Test Login
+              </button>
             </div>
           </SignedIn>
         </div>
