@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (use npm install instead of npm ci for flexibility)
+RUN npm install --production
 
 # Copy source code
 COPY . .
@@ -21,8 +21,7 @@ EXPOSE 3000
 
 # Health check
 COPY healthcheck.js ./
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node healthcheck.js
+HEALTHCHECK --interval=60s --timeout=10s CMD node healthcheck.js || exit 1
 
 # Start the application
 CMD ["npm", "run", "preview", "--", "--port", "3000", "--host", "0.0.0.0"]
