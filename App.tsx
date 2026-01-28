@@ -35,6 +35,35 @@ const App: React.FC = () => {
   const [isNodeOnline, setIsNodeOnline] = useState(false);
   const [isHydrating, setIsHydrating] = useState(true);
 
+  // Handle URL-based routing
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path === '/login') {
+      setViewState('login');
+    } else if (path === '/dashboard') {
+      setViewState('dashboard');
+    } else {
+      setViewState('public');
+    }
+  }, []);
+
+  // Handle browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path === '/login') {
+        setViewState('login');
+      } else if (path === '/dashboard') {
+        setViewState('dashboard');
+      } else {
+        setViewState('public');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const refreshData = async () => {
     const isOnline = await testInsForgeConnection();
     setIsNodeOnline(isOnline);
@@ -67,6 +96,8 @@ const App: React.FC = () => {
     setCurrentUser(user);
     setViewState('dashboard');
     setCurrentTab(user.role === 'client' ? 'client_dashboard' : 'dashboard');
+    // Update URL to match dashboard state
+    window.history.replaceState({}, '', '/dashboard');
   };
 
   const renderTabContent = () => (
@@ -153,8 +184,8 @@ const App: React.FC = () => {
     </Suspense>
   );
 
-  if (viewState === 'public') return <LandingPage onLeadSubmit={() => setViewState('login')} onGoToLogin={() => setViewState('login')} />;
-  if (viewState === 'login') return <LoginScreen onLogin={handleLogin} onGoBack={() => setViewState('public')} />;
+  if (viewState === 'public') return <LandingPage onLeadSubmit={() => { setViewState('login'); window.history.pushState({}, '', '/login'); }} onGoToLogin={() => { setViewState('login'); window.history.pushState({}, '', '/login'); }} />;
+  if (viewState === 'login') return <LoginScreen onLogin={handleLogin} onGoBack={() => { setViewState('public'); window.history.pushState({}, '', '/'); }} />;
   if (!currentUser) return null;
 
   return (
@@ -173,7 +204,7 @@ const App: React.FC = () => {
                 <p className="text-xs font-black text-white italic">{currentUser.name}</p>
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{currentUser.role}</p>
               </div>
-              <button onClick={() => setViewState('public')} className="text-[10px] font-black uppercase px-6 py-2 bg-white text-slate-900 rounded-xl hover:bg-slate-200 transition-all">Sign Out</button>
+              <button onClick={() => { setViewState('public'); setCurrentUser(null); window.history.pushState({}, '', '/'); }} className="text-[10px] font-black uppercase px-6 py-2 bg-white text-slate-900 rounded-xl hover:bg-slate-200 transition-all">Sign Out</button>
            </div>
         </header>
         <main className="flex-1 p-12 overflow-y-auto custom-scrollbar bg-slate-950/20">
