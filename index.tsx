@@ -2,6 +2,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { InsForgeProvider } from '@insforge/react';
+import { insforge } from './lib/insforge';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -11,6 +13,8 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <InsForgeProvider client={insforge}>
+      <App />
+    </InsForgeProvider>
   </React.StrictMode>
 );
